@@ -2,6 +2,7 @@ package arc
 
 import (
 	"archiver/arc/header"
+	c "archiver/compressor"
 	"archiver/filesystem"
 	"bufio"
 	"bytes"
@@ -60,7 +61,7 @@ func Decompress(arcParams *Arc, outputDir string) error {
 				defer wg.Done()
 				sem <- struct{}{}
 				defer func() { <-sem }()
-				if err := decompressFile(fi, path, arcParams); err != nil {
+				if err := decompressFile(fi, path, arcParams.Compressor); err != nil {
 					errChan <- err
 					return
 				}
@@ -87,7 +88,7 @@ func Decompress(arcParams *Arc, outputDir string) error {
 }
 
 // Распаковывает файл
-func decompressFile(fi *header.FileItem, outputPath string, arcParams *Arc) error {
+func decompressFile(fi *header.FileItem, outputPath string, c c.Compressor) error {
 	fmt.Println(outputPath)
 	f, err := os.Create(outputPath)
 	if err != nil {
@@ -102,7 +103,20 @@ func decompressFile(fi *header.FileItem, outputPath string, arcParams *Arc) erro
 
 	// Записываем данные в буфер
 	buf := bytes.NewBuffer(fi.Bytes())
-	arcParams.Compressor.Read(buf, f)
+
+	cr, err := c.NewReader(buf)
+	if err != nil {
+		return err
+	}
+
+	if _, err = io.Copy(f, cr); err != nil {
+		return err
+	}
+
+	if err := cr.Close(); err != nil {
+		return err
+	}
+
 	fi.SetData(nil)
 
 	return nil

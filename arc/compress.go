@@ -2,9 +2,12 @@ package arc
 
 import (
 	"archiver/arc/header"
+	c "archiver/compressor"
 	"archiver/filesystem"
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"sort"
@@ -68,7 +71,7 @@ func compressHeaders(filesCount int, headers []header.Header, arcParams *Arc) er
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			if err := compressFile(h, arcParams); err != nil {
+			if err := compressFile(h, arcParams.Compressor); err != nil {
 				errChan <- err
 			}
 		}(headers[i])
@@ -89,7 +92,7 @@ func compressHeaders(filesCount int, headers []header.Header, arcParams *Arc) er
 }
 
 // Сжимает файл
-func compressFile(h header.Header, arcParams *Arc) error {
+func compressFile(h header.Header, c c.Compressor) error {
 	fmt.Println(h.Path())
 
 	f, err := os.Open(h.Path())
@@ -99,11 +102,21 @@ func compressFile(h header.Header, arcParams *Arc) error {
 	defer f.Close()
 
 	var buf bytes.Buffer
-	arcParams.Compressor.Write(&buf, f)
+	cw, err := c.NewWriter(&buf)
+	if err != nil {
+		return err
+	}
+
+	if _, err = io.Copy(cw, bufio.NewReader(f)); err != nil {
+		return err
+	}
+
+	if err := cw.Close(); err != nil {
+		return err
+	}
 
 	h.(*header.FileItem).CompressedSize = header.Size(len(buf.Bytes()))
-	data := buf.Bytes()
-	h.(*header.FileItem).SetData(data)
+	h.(*header.FileItem).SetData(buf.Bytes())
 	return nil
 }
 

@@ -30,10 +30,8 @@ const (
 )
 
 type Compressor interface {
-	Read(r io.Reader, w io.Writer) error
-
-	// Сжимает данные из `r` в `w`
-	Write(w io.Writer, r io.Reader) error
+	NewReader(r io.Reader) (io.ReadCloser, error)  // Читатель для распаковки
+	NewWriter(w io.Writer) (io.WriteCloser, error) // Писатель для сжатия
 }
 
 // Возвращает компрессор с уровнем сжатия по умолчанию
