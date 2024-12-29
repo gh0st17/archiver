@@ -79,14 +79,12 @@ func readHeaders(r *bufio.Reader) ([]header.Header, error) {
 
 		switch htype {
 		case header.File:
-			fi := &header.FileItem{}
-			fi.Read(r)
-			headers[i] = fi
+			headers[i] = &header.FileItem{}
 		case header.Directory:
-			di := &header.DirItem{}
-			di.Read(r)
-			headers[i] = di
+			headers[i] = &header.DirItem{}
 		}
+
+		headers[i].Read(r)
 	}
 
 	return headers, nil

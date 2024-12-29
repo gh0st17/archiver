@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 type Params struct {
@@ -19,8 +21,11 @@ type Params struct {
 
 // Печатает справку
 func PrintHelp() {
-	fmt.Println("Сжатие:    ", os.Args[0], compExample)
-	fmt.Println("Распаковка:", os.Args[0], decompExample)
+	program := filepath.Base(os.Args[0])
+
+	fmt.Println("Сжатие:    ", program, compExample)
+	fmt.Println("Распаковка:", program, decompExample)
+	fmt.Println("Просмотр:  ", program, viewExample)
 	fmt.Printf("\nФлаги:\n")
 
 	flag.PrintDefaults()
@@ -37,23 +42,27 @@ func ParseParams() *Params {
 	var level int
 	flag.IntVar(&level, "L", -1, levelDesc)
 
-	var IsLZW, IsZLib bool
-	flag.BoolVar(&IsLZW, "lzw", false, lzwDesc)
-	flag.BoolVar(&IsZLib, "zlib", false, zlibDesc)
+	var compType string
+	flag.StringVar(&compType, "c", "gzip", compDesc)
 
 	var help bool
 	flag.BoolVar(&help, "help", false, helpDesc)
 	flag.BoolVar(&p.PrintStat, "s", false, statDesc)
 	flag.BoolVar(&p.PrintList, "l", false, listDesc)
+	version := flag.Bool("V", false, listDesc)
 	flag.Parse()
 
+	if *version {
+		fmt.Print(versionDesc)
+		os.Exit(0)
+	}
 	if help {
 		PrintHelp()
 		os.Exit(0)
 	}
 
 	checkCompLevel(&p, level)
-	checkCompType(IsLZW, IsZLib, &p)
+	checkCompType(compType, &p)
 
 	if (p.PrintList || p.PrintStat) && len(flag.Args()) == 0 {
 		printError(archivePathError)
@@ -73,13 +82,18 @@ func checkCompLevel(p *Params, level int) {
 }
 
 // Проверяет параметр типа компрессора
-func checkCompType(IsLZW bool, IsZLib bool, p *Params) {
-	if IsLZW && IsZLib {
-		printError(compTypeError)
-	} else if IsLZW {
+func checkCompType(compType string, p *Params) {
+	compType = strings.ToLower(compType)
+
+	switch compType {
+	case "gzip":
+		p.CompType = compressor.GZip
+	case "lzw":
 		p.CompType = compressor.LempelZivWelch
-	} else if IsZLib {
+	case "zlib":
 		p.CompType = compressor.ZLib
+	default:
+		printError(compTypeError)
 	}
 }
 

@@ -72,14 +72,16 @@ func prefix(filename string) string {
 	}
 }
 
+// Печатает заголовок статистики
 func PrintStatHeader() {
 	fmt.Printf( // Заголовок
-		"%-*s %11s %11s %6s %10s %28s\n",
+		"%-*s %11s %11s %6s %10s  %28s\n",
 		maxFilePathWidth, "Имя файла", "Размер",
 		"Сжатый", "%", "Тип", "Время модификации",
 	)
 }
 
+// Печатает итог статистики
 func PrintSummary(compressed, original Size) {
 	ratio := float32(compressed) / float32(original) * 100.0
 	fmt.Printf( // Выводим итог

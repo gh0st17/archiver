@@ -30,7 +30,6 @@ const (
 )
 
 type Compressor interface {
-	// Распаковывает данные из `r` в `w`
 	Read(r io.Reader, w io.Writer) error
 
 	// Сжимает данные из `r` в `w`
@@ -54,7 +53,7 @@ func NewComp(compType Type) (Compressor, error) {
 // Возвращает компрессор с указанным уровнем сжатия
 //
 // Алгоритмы которые не поддерживают установку
-// уровня сжатия не порождаются этой функции
+// уровня сжатия не порождаются этой функцией
 // даже если они есть в `Type`
 func NewCompLevel(compType Type, level Level) (Compressor, error) {
 	switch compType {

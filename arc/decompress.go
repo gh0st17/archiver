@@ -102,8 +102,7 @@ func decompressFile(fi *header.FileItem, outputPath string, arcParams *Arc) erro
 
 	// Записываем данные в буфер
 	buf := bytes.NewBuffer(fi.Bytes())
-	compressor := arcParams.Compressor
-	compressor.Read(buf, f)
+	arcParams.Compressor.Read(buf, f)
 	fi.SetData(nil)
 
 	return nil

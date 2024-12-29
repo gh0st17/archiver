@@ -99,8 +99,7 @@ func compressFile(h header.Header, arcParams *Arc) error {
 	defer f.Close()
 
 	var buf bytes.Buffer
-	comressor := arcParams.Compressor
-	comressor.Write(&buf, f)
+	arcParams.Compressor.Write(&buf, f)
 
 	h.(*header.FileItem).CompressedSize = header.Size(len(buf.Bytes()))
 	data := buf.Bytes()

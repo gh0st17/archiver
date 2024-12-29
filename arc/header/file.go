@@ -77,7 +77,7 @@ func (fi FileItem) String() string {
 	mtime := fi.ModTime.Format(time.UnixDate)
 
 	return fmt.Sprintf(
-		"%-*s %11s %11s %6.2f %10s %s",
+		"%-*s %11s %11s %6.2f %10s  %s",
 		maxFilePathWidth, filepath, fi.UncompressedSize,
 		fi.CompressedSize, ratio, "Файл", mtime,
 	)
