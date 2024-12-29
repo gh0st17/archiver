@@ -9,14 +9,15 @@ import (
 type Type byte
 
 const (
-	GZip Type = iota
+	Nop Type = iota
+	GZip
 	LempelZivWelch
 	ZLib
 )
 
 // Реализация fmt.Stringer
 func (ct Type) String() string {
-	return [...]string{"GZip", "LZW", "ZLib"}[ct]
+	return [...]string{"Nop", "GZip", "LZW", "ZLib"}[ct]
 }
 
 type Level int
@@ -43,8 +44,10 @@ func NewComp(compType Type) (Compressor, error) {
 		return NewLZW(), nil
 	case ZLib:
 		return NewZlib(), nil
+	case Nop:
+		return NewNop(), nil
 	default:
-		return nil, fmt.Errorf("неизвестный тип компрессора")
+		return nil, fmt.Errorf("newcomp: неизвестный тип компрессора")
 	}
 }
 
@@ -60,6 +63,6 @@ func NewCompLevel(compType Type, level Level) (Compressor, error) {
 	case ZLib:
 		return NewZlibLevel(level), nil
 	default:
-		return nil, fmt.Errorf("неизвестный тип компрессора")
+		return nil, fmt.Errorf("newcomplevel: неизвестный тип компрессора")
 	}
 }

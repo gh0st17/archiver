@@ -61,8 +61,8 @@ func ParseParams() *Params {
 		os.Exit(0)
 	}
 
-	checkCompLevel(&p, level)
 	checkCompType(compType, &p)
+	checkCompLevel(&p, level)
 
 	if (p.PrintList || p.PrintStat) && len(flag.Args()) == 0 {
 		printError(archivePathError)
@@ -77,7 +77,9 @@ func ParseParams() *Params {
 func checkCompLevel(p *Params, level int) {
 	p.Level = compressor.Level(level)
 	if p.Level < -2 && p.Level > 9 {
-		printError(compTypeError)
+		printError(compLevelError)
+	} else if p.Level == 0 {
+		p.CompType = compressor.Nop
 	}
 }
 
