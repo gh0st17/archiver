@@ -7,9 +7,9 @@ import (
 )
 
 // Записывает заголовки в файл архива
-func writeItems(arcParams *Arc, headers []header.Header) error {
+func writeItems(arc *Arc, headers []header.Header) error {
 	// Создаем файл
-	f, err := os.Create(arcParams.ArchivePath)
+	f, err := os.Create(arc.ArchivePath)
 	if err != nil {
 		return err
 	}
@@ -22,7 +22,7 @@ func writeItems(arcParams *Arc, headers []header.Header) error {
 	}
 
 	// Пишем тип компрессора
-	err = binary.Write(f, binary.LittleEndian, arcParams.CompType)
+	err = binary.Write(f, binary.LittleEndian, arc.CompType)
 	if err != nil {
 		return err
 	}

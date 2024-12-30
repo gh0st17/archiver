@@ -2,27 +2,18 @@ package arc
 
 import (
 	"archiver/arc/header"
-	"bufio"
 	"fmt"
-	"os"
 )
 
 // Печатает информации о сжатии архива
-func ViewStat(arcParams *Arc) error {
-	f, err := os.Open(arcParams.ArchivePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	r := bufio.NewReader(f)
+func ViewStat(arc *Arc) error {
 	// 	Читаем элементы
-	headers, err := readHeaders(r)
+	headers, err := readHeaders(arc)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Тип компрессора: %s\n", arcParams.CompType)
+	fmt.Printf("Тип компрессора: %s\n", arc.CompType)
 	header.PrintStatHeader()
 
 	var original, compressed header.Size
@@ -41,16 +32,9 @@ func ViewStat(arcParams *Arc) error {
 }
 
 // Печатает список файлов в архиве
-func ViewList(arcParams *Arc) error {
-	f, err := os.Open(arcParams.ArchivePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	r := bufio.NewReader(f)
+func ViewList(arc *Arc) error {
 	// 	Читаем элементы
-	headers, err := readHeaders(r)
+	headers, err := readHeaders(arc)
 	if err != nil {
 		return err
 	}

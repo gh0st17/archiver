@@ -15,7 +15,7 @@ import (
 )
 
 // Создает архив
-func Compress(arcParams *Arc, paths []string) (err error) {
+func Compress(arc *Arc, paths []string) (err error) {
 	var (
 		headers    []header.Header
 		filesCount int
@@ -50,11 +50,11 @@ func Compress(arcParams *Arc, paths []string) (err error) {
 	dropDup(&headers)
 	sort.Sort(header.ByPath(headers))
 
-	return compressHeaders(filesCount, headers, arcParams)
+	return compressHeaders(filesCount, headers, arc)
 }
 
 // Сжимает данные в заголовках в архив
-func compressHeaders(filesCount int, headers []header.Header, arcParams *Arc) error {
+func compressHeaders(filesCount int, headers []header.Header, arc *Arc) error {
 	var (
 		sem     = make(chan struct{}, runtime.NumCPU())
 		errChan = make(chan error, filesCount)
@@ -71,7 +71,7 @@ func compressHeaders(filesCount int, headers []header.Header, arcParams *Arc) er
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			if err := compressFile(h, arcParams.Compressor); err != nil {
+			if err := compressFile(h, arc.Compressor); err != nil {
 				errChan <- err
 			}
 		}(headers[i])
@@ -86,7 +86,7 @@ func compressHeaders(filesCount int, headers []header.Header, arcParams *Arc) er
 		fmt.Printf("compress: %v", err)
 	}
 
-	writeItems(arcParams, headers)
+	writeItems(arc, headers)
 
 	return nil
 }

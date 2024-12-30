@@ -17,12 +17,11 @@ type Arc struct {
 	ArchivePath string
 	CompType    c.Type
 	Compressor  c.Compressor
+	DataOffset  int64
 }
 
 // Возвращает новый Arc из входных параметров программы
 func NewArc(params *params.Params) (*Arc, error) {
-	var err error
-
 	arc := &Arc{
 		ArchivePath: params.ArchivePath,
 	}
@@ -60,6 +59,7 @@ func NewArc(params *params.Params) (*Arc, error) {
 		arc.CompType = c.Type(compType)
 	}
 
+	var err error
 	arc.Compressor, err = selectCompressor(arc.CompType, params.Level)
 	if err != nil {
 		return nil, err

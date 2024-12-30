@@ -15,19 +15,20 @@ import (
 )
 
 // Распаковывает архив
-func Decompress(arcParams *Arc, outputDir string) error {
-	f, err := os.Open(arcParams.ArchivePath)
+func Decompress(arc *Arc, outputDir string) error {
+	headers, err := readHeaders(arc)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Open(arc.ArchivePath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
 	r := bufio.NewReader(f)
-	// 	Читаем заголовки
-	headers, err := readHeaders(r)
-	if err != nil {
-		return err
-	}
+	r.Discard(int(arc.DataOffset)) // Перепещаемся к началу данных
 
 	var (
 		outPath string
@@ -57,16 +58,16 @@ func Decompress(arcParams *Arc, outputDir string) error {
 			h.(*header.FileItem).SetData(data)
 
 			wg.Add(1)
-			go func(path string, fi *header.FileItem) { // Горутина для параллельной распаковки
+			go func(outPath string, fi *header.FileItem) { // Горутина для параллельной распаковки
 				defer wg.Done()
 				sem <- struct{}{}
 				defer func() { <-sem }()
-				if err := decompressFile(fi, path, arcParams.Compressor); err != nil {
+				if err := decompressFile(fi, outPath, arc.Compressor); err != nil {
 					errChan <- err
 					return
 				}
 
-				os.Chtimes(path, fi.AccTime, fi.ModTime)
+				os.Chtimes(outPath, fi.AccTime, fi.ModTime)
 			}(outPath, h.(*header.FileItem))
 		} else {
 			di := h.(*header.DirItem)

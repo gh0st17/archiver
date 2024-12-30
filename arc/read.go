@@ -2,8 +2,8 @@ package arc
 
 import (
 	"archiver/arc/header"
-	"bufio"
 	"encoding/binary"
+	"io"
 	"os"
 	fp "path/filepath"
 )
@@ -54,18 +54,23 @@ func fetchDir(path string) ([]header.Header, error) {
 	return headers, nil
 }
 
-// Читает заголовки из архива
-func readHeaders(r *bufio.Reader) ([]header.Header, error) {
+// Читает заголовки из архива, определяет смещение данных
+func readHeaders(arc *Arc) ([]header.Header, error) {
 	var (
-		err         error
 		headerCount int64
 		htype       header.HeaderType
 	)
 
-	r.Discard(3) // Пропускаем магическое число и тип компрессора
+	f, err := os.Open(arc.ArchivePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	f.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
 
 	// Читаем количество элементов
-	if err = binary.Read(r, binary.LittleEndian, &headerCount); err != nil {
+	if err = binary.Read(f, binary.LittleEndian, &headerCount); err != nil {
 		return nil, err
 	}
 	headers := make([]header.Header, headerCount)
@@ -73,7 +78,7 @@ func readHeaders(r *bufio.Reader) ([]header.Header, error) {
 	// Читаем заголовки
 	for i := int64(0); i < headerCount; i++ {
 		// Читаем тип заголовка
-		if err = binary.Read(r, binary.LittleEndian, &htype); err != nil {
+		if err = binary.Read(f, binary.LittleEndian, &htype); err != nil {
 			return nil, err
 		}
 
@@ -84,7 +89,12 @@ func readHeaders(r *bufio.Reader) ([]header.Header, error) {
 			headers[i] = &header.DirItem{}
 		}
 
-		headers[i].Read(r)
+		headers[i].Read(f)
+	}
+
+	arc.DataOffset, err = f.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, err
 	}
 
 	return headers, nil

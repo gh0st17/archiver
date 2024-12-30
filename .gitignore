@@ -4,3 +4,4 @@ imgs/
 archiver
 *exe
 *.arc
+out/
