@@ -11,6 +11,8 @@ import (
 // в выводе статистики
 const maxFilePathWidth int = 18
 
+const dateFormat string = "02.01.2006 15:04:05"
+
 type HeaderType byte
 
 const (
@@ -75,9 +77,9 @@ func prefix(filename string) string {
 // Печатает заголовок статистики
 func PrintStatHeader() {
 	fmt.Printf( // Заголовок
-		"%-*s %11s %11s %6s %10s  %28s\n",
+		"%-*s %11s %11s %6s %10s  %19s %8s\n",
 		maxFilePathWidth, "Имя файла", "Размер",
-		"Сжатый", "%", "Тип", "Время модификации",
+		"Сжатый", "%", "Тип", "Время модификации", "CRC32",
 	)
 }
 

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
 	"runtime"
@@ -115,8 +116,11 @@ func compressFile(h header.Header, c c.Compressor) error {
 		return err
 	}
 
+	crct := crc32.MakeTable(crc32.Koopman)
+	h.(*header.FileItem).CRC = crc32.Checksum(buf.Bytes(), crct)
 	h.(*header.FileItem).CompressedSize = header.Size(len(buf.Bytes()))
-	h.(*header.FileItem).SetData(buf.Bytes())
+	h.(*header.FileItem).Data = buf.Bytes()
+
 	return nil
 }
 

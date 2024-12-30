@@ -3,7 +3,6 @@ package header
 import (
 	"fmt"
 	"io"
-	"time"
 )
 
 // Описание директории
@@ -32,7 +31,7 @@ func (di DirItem) Write(w io.Writer) error {
 // Реализация fmt.Stringer
 func (di DirItem) String() string {
 	filename := prefix(di.Filepath)
-	mtime := di.ModTime.Format(time.UnixDate)
+	mtime := di.ModTime.Format(dateFormat)
 
 	return fmt.Sprintf(
 		"%-*s %41s  %s", maxFilePathWidth,

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
@@ -55,7 +56,7 @@ func Decompress(arc *Arc, outputDir string) error {
 			if _, err := io.ReadFull(r, data); err != nil {
 				return err
 			}
-			h.(*header.FileItem).SetData(data)
+			h.(*header.FileItem).Data = data
 
 			wg.Add(1)
 			go func(outPath string, fi *header.FileItem) { // Горутина для параллельной распаковки
@@ -102,8 +103,14 @@ func decompressFile(fi *header.FileItem, outputPath string, c c.Compressor) erro
 		return nil
 	}
 
+	crct := crc32.MakeTable(crc32.Koopman)
+	if crc := crc32.Checksum(fi.Data, crct); crc != fi.CRC {
+		fmt.Println("Контрольная сумма не совпадает, файл поврежден. Пропускаю...")
+		return nil
+	}
+
 	// Записываем данные в буфер
-	buf := bytes.NewBuffer(fi.Bytes())
+	buf := bytes.NewBuffer(fi.Data)
 
 	cr, err := c.NewReader(buf)
 	if err != nil {
@@ -118,7 +125,7 @@ func decompressFile(fi *header.FileItem, outputPath string, c c.Compressor) erro
 		return err
 	}
 
-	fi.SetData(nil)
+	fi.Data = nil
 
 	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"time"
 )
 
 // Описание файла
@@ -13,19 +12,12 @@ type FileItem struct {
 	Base
 	UncompressedSize Size
 	CompressedSize   Size
+	CRC              uint32
 	Data             []byte
 }
 
 func (FileItem) Type() HeaderType { return File }
 func (fi FileItem) Bytes() []byte { return fi.Data }
-
-func (fi *FileItem) SetData(data []byte) {
-	if data != nil {
-		fi.Data = data
-	} else {
-		fi.Data = nil
-	}
-}
 
 func (fi *FileItem) Read(r io.Reader) (err error) {
 	if err = fi.Base.Read(r); err != nil {
@@ -39,6 +31,11 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 
 	// Читаем размер файла после сжатия
 	if err = binary.Read(r, binary.LittleEndian, &(fi.CompressedSize)); err != nil {
+		return err
+	}
+
+	// Читаем контрольную сумму
+	if err = binary.Read(r, binary.LittleEndian, &(fi.CRC)); err != nil {
 		return err
 	}
 
@@ -60,6 +57,11 @@ func (fi FileItem) Write(w io.Writer) (err error) {
 		return err
 	}
 
+	// Пишем контрольную сумму
+	if err = binary.Write(w, binary.LittleEndian, fi.CRC); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -74,11 +76,11 @@ func (fi FileItem) String() string {
 		ratio = 0
 	}
 
-	mtime := fi.ModTime.Format(time.UnixDate)
+	mtime := fi.ModTime.Format(dateFormat)
 
 	return fmt.Sprintf(
-		"%-*s %11s %11s %6.2f %10s  %s",
+		"%-*s %11s %11s %6.2f %10s  %s %8X",
 		maxFilePathWidth, filepath, fi.UncompressedSize,
-		fi.CompressedSize, ratio, "Файл", mtime,
+		fi.CompressedSize, ratio, "Файл", mtime, fi.CRC,
 	)
 }
