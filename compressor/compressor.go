@@ -1,10 +1,13 @@
 package compressor
 
 import (
+	"bytes"
 	"compress/flate"
 	"fmt"
 	"io"
 )
+
+const BufferSize int64 = 8 * 1024 * 1024
 
 type Type byte
 
@@ -65,4 +68,61 @@ func NewCompLevel(compType Type, level Level) (Compressor, error) {
 	default:
 		return nil, fmt.Errorf("newcomplevel: неизвестный тип компрессора")
 	}
+}
+
+func CompressBlock(r io.Reader, c Compressor) ([]byte, error) {
+	buffer := make([]byte, BufferSize)
+
+	var eof error
+
+	// Читаем только bufferSize байт из r
+	n, err := io.ReadFull(r, buffer)
+	if err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			eof = err
+		} else {
+			return nil, err
+		}
+	}
+
+	var buf bytes.Buffer
+	cw, err := c.NewWriter(&buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Записываем прочитанные данные в компрессор
+	if _, err = cw.Write(buffer[:n]); err != nil {
+		return nil, err
+	}
+
+	if err := cw.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), eof
+}
+
+func DecompressBlock(r io.Reader, c Compressor) ([]byte, error) {
+	buffer := make([]byte, BufferSize)
+
+	// Читаем только bufferSize байт из r
+	n, err := io.ReadFull(r, buffer)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	cr, err := c.NewReader(bytes.NewReader(buffer[:n]))
+	if err != nil {
+		return nil, err
+	}
+	defer cr.Close()
+
+	// Распаковываем данные в buf
+	if _, err = io.Copy(&buf, cr); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }

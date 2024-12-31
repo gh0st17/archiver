@@ -11,13 +11,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
-	"sync"
 )
 
 // Распаковывает архив
-func Decompress(arc *Arc, outputDir string) error {
-	headers, err := readHeaders(arc)
+func (arc Arc) Decompress(outputDir string) error {
+	headers, err := arc.readHeaders()
 	if err != nil {
 		return err
 	}
@@ -31,15 +29,8 @@ func Decompress(arc *Arc, outputDir string) error {
 	r := bufio.NewReader(f)
 	r.Discard(int(arc.DataOffset)) // Перепещаемся к началу данных
 
-	var (
-		outPath string
-		data    []byte
-		sem     = make(chan struct{}, runtime.NumCPU())
-		errChan = make(chan error, len(headers))
-		wg      sync.WaitGroup
-	)
-
 	// 	Создаем файлы и директории
+	var outPath string
 	for _, h := range headers {
 		outPath = filepath.Join(outputDir, h.Path())
 
@@ -49,58 +40,23 @@ func Decompress(arc *Arc, outputDir string) error {
 		}
 
 		if fi, ok := h.(*header.FileItem); ok {
-			// Читаем данные
-			data = make([]byte, fi.CompressedSize)
-			if _, err := io.ReadFull(r, data); err != nil {
+			if err := arc.decompressFile(fi, r, outPath); err != nil {
 				return err
 			}
-			h.(*header.FileItem).Data = data
 
-			wg.Add(1)
-			go func(outPath string, fi *header.FileItem) { // Горутина для параллельной распаковки
-				defer wg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
-
-				if err := decompressFile(fi, outPath, arc.Compressor); err != nil {
-					errChan <- err
-					return
-				}
-
-				os.Chtimes(outPath, fi.AccTime, fi.ModTime)
-			}(outPath, fi)
+			os.Chtimes(outPath, fi.AccTime, fi.ModTime)
 		} else {
 			di := h.(*header.DirItem)
 			os.Chtimes(outPath, di.AccTime, di.ModTime)
 		}
-
-	}
-
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	for err := range errChan { // Обработка первой ошибки из горутины
-		return err
 	}
 
 	return nil
 }
 
 // Распаковывает файл
-func decompressFile(fi *header.FileItem, outputPath string, c c.Compressor) error {
-	crct := crc32.MakeTable(crc32.Koopman)
-	if crc := crc32.Checksum(fi.Data, crct); crc != fi.CRC {
-		fmt.Println(
-			outputPath,
-			"Контрольная сумма не совпадает, файл поврежден.",
-			"Пропускаю...",
-		)
-		return nil
-	}
-
-	fmt.Println(outputPath)
+func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath string) error {
+	fmt.Print(outputPath)
 	f, err := os.Create(outputPath)
 	if err != nil {
 		return err
@@ -113,22 +69,45 @@ func decompressFile(fi *header.FileItem, outputPath string, c c.Compressor) erro
 	}
 
 	// Записываем данные в буфер
-	buf := bytes.NewBuffer(fi.Data)
+	var totalRead int
+	buffer := make([]byte, c.BufferSize)
+	crct := crc32.MakeTable(crc32.Koopman)
 
-	cr, err := c.NewReader(buf)
-	if err != nil {
-		return err
+	for totalRead < int(fi.CompressedSize) {
+		remaining := int(fi.CompressedSize) - totalRead
+		if remaining < len(buffer) {
+			// Ограничиваем размер буфера если остаток меньше его размера
+			buffer = buffer[:remaining]
+		}
+
+		n, err := io.ReadFull(arcFile, buffer)
+		if err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				// Если достигли конца файла, просто продолжаем
+				// Уменьшаем буфер до фактического количества прочитанных байт
+				buffer = buffer[:n]
+			} else {
+				return err
+			}
+		}
+
+		totalRead += n
+		fi.CRC ^= crc32.Checksum(buffer[:n], crct)
+		buf := bufio.NewReader(bytes.NewReader(buffer[:n]))
+		decompData, err := c.DecompressBlock(buf, arc.Compressor)
+		if err != nil {
+			fmt.Println(": Ошибка распаковки:", err)
+			return nil
+		}
+
+		f.Write(decompData)
 	}
 
-	if _, err = io.Copy(f, cr); err != nil {
-		return err
+	if fi.CRC != 0 {
+		fmt.Println(": Файл", outputPath, "поврежден")
+	} else {
+		fmt.Println()
 	}
-
-	if err := cr.Close(); err != nil {
-		return err
-	}
-
-	fi.Data = nil
 
 	return nil
 }

@@ -2,12 +2,14 @@ package arc
 
 import (
 	"archiver/arc/header"
+	c "archiver/compressor"
 	"encoding/binary"
+	"io"
 	"os"
 )
 
 // Записывает заголовки в файл архива
-func writeItems(arc *Arc, headers []header.Header) error {
+func (arc Arc) writeItems(headers []header.Header) error {
 	// Создаем файл
 	f, err := os.Create(arc.ArchivePath)
 	if err != nil {
@@ -39,48 +41,35 @@ func writeItems(arc *Arc, headers []header.Header) error {
 	}
 
 	// Пишем данные
-	for len(headers) > 0 {
-		if fi, ok := headers[0].(*header.FileItem); ok {
-			if _, err := f.Write(fi.Data); err != nil {
-				return err
+	// Создаем или открываем целевой файл для записи
+	tmpFile, err := os.OpenFile("arctmp", os.O_RDONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer tmpFile.Close()
+
+	// Создаем буфер для чтения данных
+	buffer := make([]byte, c.BufferSize)
+
+	for {
+		// Читаем данные из исходного файла в буфер
+		bytesRead, readErr := tmpFile.Read(buffer)
+		if bytesRead > 0 {
+			// Пишем данные из буфера в целевой файл
+			_, writeErr := f.Write(buffer[:bytesRead])
+			if writeErr != nil {
+				return writeErr
 			}
 		}
 
-		headers = headers[1:]
+		// Проверяем, достигнут ли конец файла или возникла ошибка
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+			return readErr
+		}
 	}
 
 	return nil
 }
-
-// CopyBlocks копирует данные из r в w блоками заданного размера.
-// func CopyBlocks(r io.Reader, w io.Writer, blockSize int) (int, error) {
-// 	if blockSize <= 0 {
-// 		return 0, io.ErrShortBuffer // Ошибка, если размер блока некорректен
-// 	}
-
-// 	buffer := make([]byte, blockSize)
-// 	sumRead := 0
-
-// 	for {
-// 		// Читаем данные из r в буфер
-// 		n, err := r.Read(buffer)
-// 		if err != nil && err != io.EOF {
-// 			return 0, err // Возвращаем ошибку, если чтение не удалось
-// 		}
-// 		sumRead += n
-
-// 		// Пишем данные из буфера в w
-// 		if n > 0 {
-// 			if _, writeErr := w.Write(buffer[:n]); writeErr != nil {
-// 				return 0, writeErr // Возвращаем ошибку записи
-// 			}
-// 		}
-
-// 		// Если достигнут конец данных, выходим из цикла
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 	}
-
-// 	return sumRead, nil
-// }

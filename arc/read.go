@@ -55,7 +55,7 @@ func fetchDir(path string) ([]header.Header, error) {
 }
 
 // Читает заголовки из архива, определяет смещение данных
-func readHeaders(arc *Arc) ([]header.Header, error) {
+func (arc *Arc) readHeaders() ([]header.Header, error) {
 	f, err := os.Open(arc.ArchivePath)
 	if err != nil {
 		return nil, err

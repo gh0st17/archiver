@@ -6,9 +6,9 @@ import (
 )
 
 // Печатает информации о сжатии архива
-func ViewStat(arc *Arc) error {
+func (arc Arc) ViewStat() error {
 	// 	Читаем элементы
-	headers, err := readHeaders(arc)
+	headers, err := arc.readHeaders()
 	if err != nil {
 		return err
 	}
@@ -32,9 +32,9 @@ func ViewStat(arc *Arc) error {
 }
 
 // Печатает список файлов в архиве
-func ViewList(arc *Arc) error {
+func (arc Arc) ViewList() error {
 	// 	Читаем элементы
-	headers, err := readHeaders(arc)
+	headers, err := arc.readHeaders()
 	if err != nil {
 		return err
 	}

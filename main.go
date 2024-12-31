@@ -17,22 +17,22 @@ func main() {
 
 	switch {
 	case len(p.InputPaths) > 0:
-		if err := arc.Compress(a, p.InputPaths); err != nil {
+		if err := a.Compress(p.InputPaths); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 	case p.PrintStat:
-		if err := arc.ViewStat(a); err != nil {
+		if err := a.ViewStat(); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 	case p.PrintList:
-		if err := arc.ViewList(a); err != nil {
+		if err := a.ViewList(); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 	default:
-		if err := arc.Decompress(a, p.OutputDir); err != nil {
+		if err := a.Decompress(p.OutputDir); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}

@@ -5,22 +5,18 @@ import (
 	c "archiver/compressor"
 	"archiver/filesystem"
 	"bufio"
-	"bytes"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"os"
-	"runtime"
 	"sort"
-	"sync"
 )
 
 // Создает архив
-func Compress(arc *Arc, paths []string) (err error) {
+func (arc Arc) Compress(paths []string) (err error) {
 	var (
-		headers    []header.Header
-		filesCount int
-		info       os.FileInfo
+		headers []header.Header
+		info    os.FileInfo
 	)
 
 	for _, path := range paths { // Получение списка файлов и директории
@@ -42,7 +38,6 @@ func Compress(arc *Arc, paths []string) (err error) {
 
 		if h, err := fetchFile(path, info); err == nil { // Добавалние файла в заголовок
 			headers = append(headers, h)
-			filesCount++
 		} else {
 			return err
 		}
@@ -51,49 +46,34 @@ func Compress(arc *Arc, paths []string) (err error) {
 	dropDup(&headers)
 	sort.Sort(header.ByPath(headers))
 
-	return compressHeaders(filesCount, headers, arc)
+	return arc.compressHeaders(headers)
 }
 
 // Сжимает данные в заголовках в архив
-func compressHeaders(filesCount int, headers []header.Header, arc *Arc) error {
-	var (
-		sem     = make(chan struct{}, runtime.NumCPU())
-		errChan = make(chan error, filesCount)
-		wg      sync.WaitGroup
-	)
+func (arc Arc) compressHeaders(headers []header.Header) error {
+	tmpFile, err := os.Create("arctmp")
+	if err != nil {
+		return err
+	}
+	defer tmpFile.Close()
 
-	for i, h := range headers {
+	for _, h := range headers {
 		if _, ok := h.(*header.DirItem); ok {
 			continue
 		}
 
-		wg.Add(1)
-		go func(fi *header.FileItem) { // Горутина для параллельного сжатия
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			if err := compressFile(fi, arc.Compressor); err != nil {
-				errChan <- err
-			}
-		}(headers[i].(*header.FileItem))
+		if err := arc.compressFile(h.(*header.FileItem), tmpFile); err != nil {
+			return err
+		}
 	}
 
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	for err := range errChan { // Обработка ошибки из горутины
-		fmt.Printf("compress: %v", err)
-	}
-
-	writeItems(arc, headers)
+	arc.writeItems(headers)
 
 	return nil
 }
 
 // Сжимает файл
-func compressFile(fi *header.FileItem, c c.Compressor) error {
+func (arc Arc) compressFile(fi *header.FileItem, tmpFile *os.File) (err error) {
 	fmt.Println(fi.Filepath)
 
 	f, err := os.Open(fi.Filepath)
@@ -102,25 +82,26 @@ func compressFile(fi *header.FileItem, c c.Compressor) error {
 	}
 	defer f.Close()
 
-	var buf bytes.Buffer
-	cw, err := c.NewWriter(&buf)
-	if err != nil {
-		return err
-	}
-
-	if _, err = io.Copy(cw, bufio.NewReader(f)); err != nil {
-		return err
-	}
-
-	if err := cw.Close(); err != nil {
-		return err
-	}
-
+	var compData []byte
 	crct := crc32.MakeTable(crc32.Koopman)
-	data := buf.Bytes()
-	fi.CRC = crc32.Checksum(data, crct)
-	fi.CompressedSize = header.Size(len(data))
-	fi.Data = data
+
+	for {
+		compData, err = c.CompressBlock(f, arc.Compressor)
+
+		fi.CRC ^= crc32.Checksum(compData, crct)
+		fi.CompressedSize += header.Size(len(compData))
+
+		buf := bufio.NewWriter(tmpFile)
+		buf.Write(compData)
+
+		if err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break
+			}
+
+			return err
+		}
+	}
 
 	return nil
 }

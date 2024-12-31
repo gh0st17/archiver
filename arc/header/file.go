@@ -13,7 +13,6 @@ type FileItem struct {
 	UncompressedSize Size
 	CompressedSize   Size
 	CRC              uint32
-	Data             []byte
 }
 
 func (fi *FileItem) Read(r io.Reader) (err error) {
