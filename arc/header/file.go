@@ -16,9 +16,6 @@ type FileItem struct {
 	Data             []byte
 }
 
-func (FileItem) Type() HeaderType { return File }
-func (fi FileItem) Bytes() []byte { return fi.Data }
-
 func (fi *FileItem) Read(r io.Reader) (err error) {
 	if err = fi.Base.Read(r); err != nil {
 		return err
@@ -43,6 +40,11 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 }
 
 func (fi FileItem) Write(w io.Writer) (err error) {
+	// Пишем тип заголовка
+	if err = binary.Write(w, binary.LittleEndian, File); err != nil {
+		return err
+	}
+
 	if err = fi.Base.Write(w); err != nil {
 		return err
 	}

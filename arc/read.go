@@ -56,11 +56,6 @@ func fetchDir(path string) ([]header.Header, error) {
 
 // Читает заголовки из архива, определяет смещение данных
 func readHeaders(arc *Arc) ([]header.Header, error) {
-	var (
-		headerCount int64
-		htype       header.HeaderType
-	)
-
 	f, err := os.Open(arc.ArchivePath)
 	if err != nil {
 		return nil, err
@@ -70,13 +65,15 @@ func readHeaders(arc *Arc) ([]header.Header, error) {
 	f.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
 
 	// Читаем количество элементов
-	if err = binary.Read(f, binary.LittleEndian, &headerCount); err != nil {
+	var headersCount int64
+	if err = binary.Read(f, binary.LittleEndian, &headersCount); err != nil {
 		return nil, err
 	}
-	headers := make([]header.Header, headerCount)
+	headers := make([]header.Header, headersCount)
 
 	// Читаем заголовки
-	for i := int64(0); i < headerCount; i++ {
+	var htype header.HeaderType
+	for i := int64(0); i < headersCount; i++ {
 		// Читаем тип заголовка
 		if err = binary.Read(f, binary.LittleEndian, &htype); err != nil {
 			return nil, err

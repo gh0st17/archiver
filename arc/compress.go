@@ -63,19 +63,19 @@ func compressHeaders(filesCount int, headers []header.Header, arc *Arc) error {
 	)
 
 	for i, h := range headers {
-		if h.Type() == header.Directory {
+		if _, ok := h.(*header.DirItem); ok {
 			continue
 		}
 
 		wg.Add(1)
-		go func(h header.Header) { // Горутина для параллельного сжатия
+		go func(fi *header.FileItem) { // Горутина для параллельного сжатия
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			if err := compressFile(h, arc.Compressor); err != nil {
+			if err := compressFile(fi, arc.Compressor); err != nil {
 				errChan <- err
 			}
-		}(headers[i])
+		}(headers[i].(*header.FileItem))
 	}
 
 	go func() {
@@ -93,10 +93,10 @@ func compressHeaders(filesCount int, headers []header.Header, arc *Arc) error {
 }
 
 // Сжимает файл
-func compressFile(h header.Header, c c.Compressor) error {
-	fmt.Println(h.Path())
+func compressFile(fi *header.FileItem, c c.Compressor) error {
+	fmt.Println(fi.Filepath)
 
-	f, err := os.Open(h.Path())
+	f, err := os.Open(fi.Filepath)
 	if err != nil {
 		return err
 	}
@@ -117,9 +117,10 @@ func compressFile(h header.Header, c c.Compressor) error {
 	}
 
 	crct := crc32.MakeTable(crc32.Koopman)
-	h.(*header.FileItem).CRC = crc32.Checksum(buf.Bytes(), crct)
-	h.(*header.FileItem).CompressedSize = header.Size(len(buf.Bytes()))
-	h.(*header.FileItem).Data = buf.Bytes()
+	data := buf.Bytes()
+	fi.CRC = crc32.Checksum(data, crct)
+	fi.CompressedSize = header.Size(len(data))
+	fi.Data = data
 
 	return nil
 }

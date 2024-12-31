@@ -48,10 +48,8 @@ func Decompress(arc *Arc, outputDir string) error {
 			return err
 		}
 
-		if h.Type() == header.File {
+		if fi, ok := h.(*header.FileItem); ok {
 			// Читаем данные
-			fi := h.(*header.FileItem)
-
 			data = make([]byte, fi.CompressedSize)
 			if _, err := io.ReadFull(r, data); err != nil {
 				return err
@@ -63,13 +61,14 @@ func Decompress(arc *Arc, outputDir string) error {
 				defer wg.Done()
 				sem <- struct{}{}
 				defer func() { <-sem }()
+
 				if err := decompressFile(fi, outPath, arc.Compressor); err != nil {
 					errChan <- err
 					return
 				}
 
 				os.Chtimes(outPath, fi.AccTime, fi.ModTime)
-			}(outPath, h.(*header.FileItem))
+			}(outPath, fi)
 		} else {
 			di := h.(*header.DirItem)
 			os.Chtimes(outPath, di.AccTime, di.ModTime)
@@ -91,6 +90,16 @@ func Decompress(arc *Arc, outputDir string) error {
 
 // Распаковывает файл
 func decompressFile(fi *header.FileItem, outputPath string, c c.Compressor) error {
+	crct := crc32.MakeTable(crc32.Koopman)
+	if crc := crc32.Checksum(fi.Data, crct); crc != fi.CRC {
+		fmt.Println(
+			outputPath,
+			"Контрольная сумма не совпадает, файл поврежден.",
+			"Пропускаю...",
+		)
+		return nil
+	}
+
 	fmt.Println(outputPath)
 	f, err := os.Create(outputPath)
 	if err != nil {
@@ -100,12 +109,6 @@ func decompressFile(fi *header.FileItem, outputPath string, c c.Compressor) erro
 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UncompressedSize == 0 {
-		return nil
-	}
-
-	crct := crc32.MakeTable(crc32.Koopman)
-	if crc := crc32.Checksum(fi.Data, crct); crc != fi.CRC {
-		fmt.Println("Контрольная сумма не совпадает, файл поврежден. Пропускаю...")
 		return nil
 	}
 

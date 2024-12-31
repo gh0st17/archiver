@@ -22,7 +22,6 @@ const (
 
 type Header interface {
 	Path() string            // Путь к элементу заголовка
-	Type() HeaderType        // Идетификация типа элемента структуры
 	Read(r io.Reader) error  // Считывет данные из `r`
 	Write(w io.Writer) error // Записывает данные в `w`
 	String() string          // fmt.Stringer
