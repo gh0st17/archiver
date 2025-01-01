@@ -4,6 +4,8 @@ import (
 	"archiver/compressor"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,6 +44,9 @@ func ParseParams() *Params {
 	var level int
 	flag.IntVar(&level, "L", -1, levelDesc)
 
+	var BufferSize int64
+	flag.Int64Var(&BufferSize, "b", 0, bufDesc)
+
 	var compType string
 	flag.StringVar(&compType, "c", "gzip", compDesc)
 
@@ -49,11 +54,16 @@ func ParseParams() *Params {
 	flag.BoolVar(&help, "help", false, helpDesc)
 	flag.BoolVar(&p.PrintStat, "s", false, statDesc)
 	flag.BoolVar(&p.PrintList, "l", false, listDesc)
-	version := flag.Bool("V", false, listDesc)
+	logging := flag.Bool("log", false, logDesc)
+	version := flag.Bool("V", false, versionDesc)
 	flag.Parse()
 
+	if !*logging {
+		log.SetOutput(io.Discard)
+	}
+
 	if *version {
-		fmt.Print(versionDesc)
+		fmt.Print(versionText)
 		os.Exit(0)
 	}
 	if help {
@@ -63,6 +73,7 @@ func ParseParams() *Params {
 
 	checkCompType(compType, &p)
 	checkCompLevel(&p, level)
+	checkBufferSize(BufferSize)
 
 	if (p.PrintList || p.PrintStat) && len(flag.Args()) == 0 {
 		printError(archivePathError)
@@ -80,6 +91,15 @@ func checkCompLevel(p *Params, level int) {
 		printError(compLevelError)
 	} else if p.Level == 0 {
 		p.CompType = compressor.Nop
+	}
+}
+
+// Проверяет параметр размера буффера
+func checkBufferSize(size int64) {
+	if size < 0 && size > 10 {
+		printError(bufSizeError)
+	} else {
+		compressor.SetBufferSize((1 << size) * 1024 * 1024)
 	}
 }
 

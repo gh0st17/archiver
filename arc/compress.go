@@ -5,11 +5,11 @@ import (
 	c "archiver/compressor"
 	"archiver/filesystem"
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log"
 	"os"
 	"runtime"
 	"sort"
@@ -83,11 +83,11 @@ func (arc Arc) compressHeaders(headers []header.Header) error {
 func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) {
 	fmt.Println(fi.Filepath)
 
-	f, err := os.Open(fi.Filepath)
+	inFile, err := os.Open(fi.Filepath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer inFile.Close()
 
 	var (
 		totalRead   header.Size
@@ -99,21 +99,27 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 	)
 
 	for i := range unCompBytes {
-		unCompBytes[i] = make([]byte, c.BufferSize)
-		compBytes[i] = make([]byte, c.BufferSize)
+		if arc.CompType == c.LempelZivWelch {
+			stat, _ := inFile.Stat()
+			unCompBytes[i] = make([]byte, stat.Size())
+			compBytes[i] = make([]byte, stat.Size())
+		} else {
+			unCompBytes[i] = make([]byte, c.GetBufferSize())
+			compBytes[i] = make([]byte, c.GetBufferSize())
+		}
 	}
 
-	clearBuffers := func(buffers *[][]byte) {
-		for i := range *buffers {
-			(*buffers)[i] = (*buffers)[i][:cap((*buffers)[i])]
-			for j := range (*buffers)[i] {
-				(*buffers)[i][j] = 0
+	clearBuffers := func(buffers [][]byte) {
+		for i := range buffers {
+			buffers[i] = buffers[i][:cap(buffers[i])]
+			for j := range buffers[i] {
+				buffers[i][j] = 0
 			}
 		}
 	}
 
 	for totalRead < fi.UncompressedSize {
-		n, err := fillBlocks(&unCompBytes, f, int(fi.UncompressedSize-totalRead))
+		n, err := fillBlocks(unCompBytes, inFile, int(fi.UncompressedSize-totalRead))
 		if err != nil {
 			return err
 		}
@@ -122,6 +128,7 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 		errChan := make(chan error, ncpu)
 		for i, unComp := range unCompBytes {
 			if len(unComp) == 0 {
+				log.Println("unComp", i, "breaking foo-loop with zero len")
 				break
 			}
 
@@ -129,8 +136,7 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 			go func(i int) {
 				defer wg.Done()
 
-				buf := bytes.NewBuffer(unCompBytes[i])
-				compBytes[i], err = c.CompressBlock(buf, arc.Compressor)
+				compBytes[i], err = c.CompressBlock(unCompBytes[i], arc.Compressor)
 				if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 					errChan <- err
 				}
@@ -147,7 +153,7 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 		}
 
 		for i := range compBytes {
-			if len(compBytes[i]) == 0 {
+			if len(unCompBytes[i]) == 0 || len(compBytes[i]) == 0 {
 				break
 			}
 
@@ -155,37 +161,40 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 			if err != nil {
 				return err
 			}
+			log.Println("Written block length:", len(compBytes[i]))
 
 			fi.CRC ^= crc32.Checksum(compBytes[i], crct)
 			fi.CompressedSize += header.Size(len(compBytes[i]))
 
 			_, err = tmpFile.Write(compBytes[i])
 			if err != nil {
-				return fmt.Errorf("arc: buf.Write: %v", err)
+				return fmt.Errorf("arc: tmpFile.Write: %v", err)
 			}
 		}
 
-		clearBuffers(&compBytes)
-		clearBuffers(&unCompBytes)
+		clearBuffers(compBytes)
+		clearBuffers(unCompBytes)
 	}
 
 	return nil
 }
 
-func fillBlocks(blocks *[][]byte, r io.Reader, remaining int) (int, error) {
+func fillBlocks(blocks [][]byte, r io.Reader, remaining int) (int, error) {
 	var read int
 	buf := bufio.NewReader(r)
 
-	for i := range *blocks {
+	for i := range blocks {
 		if remaining == 0 {
-			break // buggy
+			blocks[i] = blocks[i][:0]
+			log.Println("block", i, "now have len:", len(blocks[i]))
+			continue
 		}
 
-		if int64(remaining) < c.BufferSize {
-			(*blocks)[i] = (*blocks)[i][:remaining]
+		if int64(remaining) < c.GetBufferSize() {
+			blocks[i] = blocks[i][:remaining]
 		}
 
-		if n, err := io.ReadFull(buf, (*blocks)[i]); err != nil {
+		if n, err := io.ReadFull(buf, blocks[i]); err != nil {
 			return 0, err
 		} else {
 			read += n

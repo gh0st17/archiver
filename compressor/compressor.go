@@ -7,7 +7,10 @@ import (
 	"io"
 )
 
-const BufferSize int64 = 1 * 1024 * 1024
+var bufferSize int64 = 8 * 1024 * 1024
+
+func GetBufferSize() int64     { return bufferSize }
+func SetBufferSize(size int64) { bufferSize = size }
 
 type Type byte
 
@@ -70,26 +73,16 @@ func NewCompLevel(compType Type, level Level) (Compressor, error) {
 	}
 }
 
-// Сжимает один блок размера BufferSize из r и возвращает его
-func CompressBlock(r io.Reader, c Compressor) ([]byte, error) {
-	buffer := make([]byte, BufferSize)
-
-	// Читаем только bufferSize байт из r
-	n, eof := io.ReadFull(r, buffer)
-	if eof != nil {
-		if eof != io.EOF && eof != io.ErrUnexpectedEOF {
-			return nil, eof
-		}
-	}
-
-	var buf bytes.Buffer
-	cw, err := c.NewWriter(&buf)
+func CompressBlock(uBuf []byte, c Compressor) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	cw, err := c.NewWriter(buf)
 	if err != nil {
 		return nil, err
 	}
 
 	// Записываем прочитанные данные в компрессор
-	if _, err = cw.Write(buffer[:n]); err != nil {
+	if _, err = cw.Write(uBuf); err != nil {
+		cw.Close()
 		return nil, err
 	}
 
@@ -97,27 +90,19 @@ func CompressBlock(r io.Reader, c Compressor) ([]byte, error) {
 		return nil, err
 	}
 
-	return buf.Bytes(), eof
+	return buf.Bytes(), err
 }
 
-func DecompressBlock(r io.Reader, c Compressor) ([]byte, error) {
-	buffer := make([]byte, BufferSize)
-
-	// Читаем только bufferSize байт из r
-	n, err := io.ReadFull(r, buffer)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	cr, err := c.NewReader(bytes.NewReader(buffer[:n]))
+func DecompressBlock(cBuf []byte, c Compressor) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	cr, err := c.NewReader(bytes.NewReader(cBuf))
 	if err != nil {
 		return nil, err
 	}
 	defer cr.Close()
 
 	// Распаковываем данные в buf
-	if _, err = io.Copy(&buf, cr); err != nil {
+	if _, err = io.Copy(buf, cr); err != nil {
 		return nil, err
 	}
 

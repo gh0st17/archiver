@@ -50,7 +50,7 @@ func (arc Arc) writeItems(headers []header.Header) error {
 	defer tmpFile.Close()
 
 	// Создаем буфер для чтения данных
-	buffer := make([]byte, c.BufferSize)
+	buffer := make([]byte, c.GetBufferSize())
 
 	for {
 		// Читаем данные из исходного файла в буфер

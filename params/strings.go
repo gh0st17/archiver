@@ -3,7 +3,8 @@ package params
 // Строки для справки
 
 const (
-	versionDesc = `archiver 1.00
+	versionDesc = "Печать номера версии и выход"
+	versionText = `archiver 1.00
 Copyright (C) 2025
 Лицензия MIT: THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY
 OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO 
@@ -34,8 +35,11 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 	helpDesc = "Показать эту помощь"
 	statDesc = "Печать информации о сжатии и выход (игнорирует -l)"
 	listDesc = "Печать списка файлов и выход"
+	logDesc  = "Печатать логи"
+	bufDesc  = "Установить размер буфера в МиБ как степень двойки от 0 до 10"
 
 	compLevelError            = "Уровень сжатия должен быть в пределах от -2 до 9"
+	bufSizeError              = "Размер буфера должен быть как степень двойки в пределах от 0 до 10"
 	compTypeError             = "Неизвестный тип компрессора"
 	archivePathInputPathError = "Имя архива и список файлов не указаны"
 	archivePathError          = "Имя архива не указано"

@@ -5,11 +5,11 @@ import (
 	c "archiver/compressor"
 	"archiver/filesystem"
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -73,30 +73,30 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath
 	// Записываем данные в буфер
 	var totalRead header.Size
 	crct := crc32.MakeTable(crc32.Koopman)
-	buf := bufio.NewReader(arcFile)
-	var blockSize int64
+	fileBuf := bufio.NewReader(arcFile)
+	var cBlockSize int64
 
 	for totalRead < fi.CompressedSize {
-		if err := binary.Read(arcFile, binary.LittleEndian, &blockSize); err != nil {
+		if err := binary.Read(arcFile, binary.LittleEndian, &cBlockSize); err != nil {
 			return err
 		}
+		log.Println("Read block length:", cBlockSize)
 
-		blockBytes := make([]byte, blockSize)
+		cBlockBytes := make([]byte, cBlockSize)
 		remaining := fi.CompressedSize - totalRead
-		if remaining < header.Size(len(blockBytes)) {
-			blockBytes = blockBytes[:remaining]
+		if remaining < header.Size(len(cBlockBytes)) {
+			cBlockBytes = cBlockBytes[:remaining]
 		}
 
-		n, err := io.ReadFull(buf, blockBytes)
+		n, err := io.ReadFull(fileBuf, cBlockBytes)
 		if err != nil {
 			return err
 		}
 
 		totalRead += header.Size(n)
-		fi.CRC ^= crc32.Checksum(blockBytes, crct)
+		fi.CRC ^= crc32.Checksum(cBlockBytes, crct)
 
-		blockBuffer := bytes.NewBuffer(blockBytes)
-		decompData, err := c.DecompressBlock(blockBuffer, arc.Compressor)
+		decompData, err := c.DecompressBlock(cBlockBytes, arc.Compressor)
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			return err
 		}
