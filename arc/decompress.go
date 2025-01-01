@@ -97,7 +97,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath
 		fi.CRC ^= crc32.Checksum(cBlockBytes, crct)
 
 		decompData, err := c.DecompressBlock(cBlockBytes, arc.Compressor)
-		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		if err != nil {
 			return err
 		}
 

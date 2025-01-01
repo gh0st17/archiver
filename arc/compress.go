@@ -99,14 +99,8 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 	)
 
 	for i := range unCompBytes {
-		if arc.CompType == c.LempelZivWelch {
-			stat, _ := inFile.Stat()
-			unCompBytes[i] = make([]byte, stat.Size())
-			compBytes[i] = make([]byte, stat.Size())
-		} else {
-			unCompBytes[i] = make([]byte, c.GetBufferSize())
-			compBytes[i] = make([]byte, c.GetBufferSize())
-		}
+		unCompBytes[i] = make([]byte, c.GetBufferSize())
+		compBytes[i] = make([]byte, c.GetBufferSize())
 	}
 
 	clearBuffers := func(buffers [][]byte) {
@@ -137,7 +131,7 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 				defer wg.Done()
 
 				compBytes[i], err = c.CompressBlock(unCompBytes[i], arc.Compressor)
-				if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+				if err != nil {
 					errChan <- err
 				}
 			}(i)
