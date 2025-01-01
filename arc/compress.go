@@ -132,7 +132,7 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 				buf := bytes.NewBuffer(unCompBytes[i])
 				compBytes[i], err = c.CompressBlock(buf, arc.Compressor)
 				if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-					errChan <- fmt.Errorf("arc: compData: %v", err)
+					errChan <- err
 				}
 			}(i)
 		}
@@ -178,7 +178,7 @@ func fillBlocks(blocks *[][]byte, r io.Reader, remaining int) (int, error) {
 
 	for i := range *blocks {
 		if remaining == 0 {
-			break
+			break // buggy
 		}
 
 		if int64(remaining) < c.BufferSize {
@@ -195,18 +195,6 @@ func fillBlocks(blocks *[][]byte, r io.Reader, remaining int) (int, error) {
 
 	return read, nil
 }
-
-// func clearBuffer(buffer *[]byte, reset, clear bool) {
-// 	if reset {
-// 		*buffer = (*buffer)[:cap(*buffer)]
-// 	}
-
-// 	if clear {
-// 		for i := range *buffer {
-// 			(*buffer)[i] = 0
-// 		}
-// 	}
-// }
 
 // Проверяет, содержит ли срез уникалные значения
 // Если нет, то удаляет дубликаты
