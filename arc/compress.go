@@ -5,12 +5,15 @@ import (
 	c "archiver/compressor"
 	"archiver/filesystem"
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"os"
+	"runtime"
 	"sort"
+	"sync"
 )
 
 // Создает архив
@@ -56,19 +59,18 @@ func (arc Arc) compressHeaders(headers []header.Header) error {
 	if err != nil {
 		return err
 	}
-	defer tmpFile.Close()
-	buf := bufio.NewWriter(tmpFile)
 
 	for _, h := range headers {
 		if _, ok := h.(*header.DirItem); ok {
 			continue
 		}
 
-		if err := arc.compressFile(h.(*header.FileItem), buf); err != nil {
+		if err := arc.compressFile(h.(*header.FileItem), tmpFile); err != nil {
 			return err
 		}
 	}
 
+	tmpFile.Close()
 	err = arc.writeItems(headers)
 	if err != nil {
 		return err
@@ -88,34 +90,123 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 	defer f.Close()
 
 	var (
-		//		compData []byte
-		totalRead header.Size
+		totalRead   header.Size
+		crct        = crc32.MakeTable(crc32.Koopman)
+		ncpu        = runtime.NumCPU()
+		unCompBytes = make([][]byte, ncpu)
+		compBytes   = make([][]byte, ncpu)
+		wg          sync.WaitGroup
 	)
-	crct := crc32.MakeTable(crc32.Koopman)
+
+	for i := range unCompBytes {
+		unCompBytes[i] = make([]byte, c.BufferSize)
+		compBytes[i] = make([]byte, c.BufferSize)
+	}
+
+	clearBuffers := func(buffers *[][]byte) {
+		for i := range *buffers {
+			(*buffers)[i] = (*buffers)[i][:cap((*buffers)[i])]
+			for j := range (*buffers)[i] {
+				(*buffers)[i][j] = 0
+			}
+		}
+	}
 
 	for totalRead < fi.UncompressedSize {
-		compData, n, err := c.CompressBlock(f, arc.Compressor)
-		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-			return fmt.Errorf("arc: compData: %v", err)
-		}
-
-		err = binary.Write(tmpFile, binary.LittleEndian, int64(len(compData)))
+		n, err := fillBlocks(&unCompBytes, f, int(fi.UncompressedSize-totalRead))
 		if err != nil {
 			return err
 		}
-
 		totalRead += header.Size(n)
-		fi.CRC ^= crc32.Checksum(compData, crct)
-		fi.CompressedSize += header.Size(len(compData))
 
-		_, err = tmpFile.Write(compData)
-		if err != nil {
-			return fmt.Errorf("arc: buf.Write: %v", err)
+		errChan := make(chan error, ncpu)
+		for i, unComp := range unCompBytes {
+			if len(unComp) == 0 {
+				break
+			}
+
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+
+				buf := bytes.NewBuffer(unCompBytes[i])
+				compBytes[i], err = c.CompressBlock(buf, arc.Compressor)
+				if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+					errChan <- fmt.Errorf("arc: compData: %v", err)
+				}
+			}(i)
 		}
+
+		go func() {
+			wg.Wait()
+			close(errChan)
+		}()
+
+		for err := range errChan {
+			return fmt.Errorf("arc: compress: %v", err)
+		}
+
+		for i := range compBytes {
+			if len(compBytes[i]) == 0 {
+				break
+			}
+
+			err = binary.Write(tmpFile, binary.LittleEndian, int64(len(compBytes[i])))
+			if err != nil {
+				return err
+			}
+
+			fi.CRC ^= crc32.Checksum(compBytes[i], crct)
+			fi.CompressedSize += header.Size(len(compBytes[i]))
+
+			_, err = tmpFile.Write(compBytes[i])
+			if err != nil {
+				return fmt.Errorf("arc: buf.Write: %v", err)
+			}
+		}
+
+		clearBuffers(&compBytes)
+		clearBuffers(&unCompBytes)
 	}
 
 	return nil
 }
+
+func fillBlocks(blocks *[][]byte, r io.Reader, remaining int) (int, error) {
+	var read int
+	buf := bufio.NewReader(r)
+
+	for i := range *blocks {
+		if remaining == 0 {
+			break
+		}
+
+		if int64(remaining) < c.BufferSize {
+			(*blocks)[i] = (*blocks)[i][:remaining]
+		}
+
+		if n, err := io.ReadFull(buf, (*blocks)[i]); err != nil {
+			return 0, err
+		} else {
+			read += n
+			remaining -= n
+		}
+	}
+
+	return read, nil
+}
+
+// func clearBuffer(buffer *[]byte, reset, clear bool) {
+// 	if reset {
+// 		*buffer = (*buffer)[:cap(*buffer)]
+// 	}
+
+// 	if clear {
+// 		for i := range *buffer {
+// 			(*buffer)[i] = 0
+// 		}
+// 	}
+// }
 
 // Проверяет, содержит ли срез уникалные значения
 // Если нет, то удаляет дубликаты

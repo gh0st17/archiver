@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-const BufferSize int64 = 8 * 1024 * 1024
+const BufferSize int64 = 1 * 1024 * 1024
 
 type Type byte
 
@@ -71,33 +71,33 @@ func NewCompLevel(compType Type, level Level) (Compressor, error) {
 }
 
 // Сжимает один блок размера BufferSize из r и возвращает его
-func CompressBlock(r io.Reader, c Compressor) ([]byte, int, error) {
+func CompressBlock(r io.Reader, c Compressor) ([]byte, error) {
 	buffer := make([]byte, BufferSize)
 
 	// Читаем только bufferSize байт из r
 	n, eof := io.ReadFull(r, buffer)
 	if eof != nil {
 		if eof != io.EOF && eof != io.ErrUnexpectedEOF {
-			return nil, 0, eof
+			return nil, eof
 		}
 	}
 
 	var buf bytes.Buffer
 	cw, err := c.NewWriter(&buf)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	// Записываем прочитанные данные в компрессор
-	if n, err = cw.Write(buffer[:n]); err != nil {
-		return nil, 0, err
+	if _, err = cw.Write(buffer[:n]); err != nil {
+		return nil, err
 	}
 
 	if err := cw.Close(); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return buf.Bytes(), n, eof
+	return buf.Bytes(), eof
 }
 
 func DecompressBlock(r io.Reader, c Compressor) ([]byte, error) {

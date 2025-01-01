@@ -27,8 +27,10 @@ func (arc Arc) Decompress(outputDir string) error {
 	}
 	defer f.Close()
 
-	r := bufio.NewReaderSize(f, int(c.BufferSize))
-	r.Discard(int(arc.DataOffset)) // Перемещаемся к началу данных
+	_, err = f.Seek(int64(arc.DataOffset), io.SeekCurrent)
+	if err != nil {
+		return err
+	}
 
 	// 	Создаем файлы и директории
 	var outPath string
@@ -41,7 +43,7 @@ func (arc Arc) Decompress(outputDir string) error {
 		}
 
 		if fi, ok := h.(*header.FileItem); ok {
-			if err := arc.decompressFile(fi, r, outPath); err != nil {
+			if err := arc.decompressFile(fi, f, outPath); err != nil {
 				return err
 			}
 
@@ -57,7 +59,6 @@ func (arc Arc) Decompress(outputDir string) error {
 
 // Распаковывает файл
 func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath string) error {
-	fmt.Print(outputPath)
 	f, err := os.Create(outputPath)
 	if err != nil {
 		return err
@@ -104,7 +105,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath
 	}
 
 	if fi.CRC != 0 {
-		fmt.Printf("%s: Файл поврежден\n", outputPath)
+		fmt.Println(outputPath + ": Файл поврежден\n")
 	} else {
 		fmt.Println(outputPath)
 	}
