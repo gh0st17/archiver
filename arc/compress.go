@@ -5,6 +5,7 @@ import (
 	c "archiver/compressor"
 	"archiver/filesystem"
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -49,31 +50,35 @@ func (arc Arc) Compress(paths []string) (err error) {
 	return arc.compressHeaders(headers)
 }
 
-// Сжимает данные в заголовках в архив
+// Сжимает данные указанные в заголовках во временный файл
 func (arc Arc) compressHeaders(headers []header.Header) error {
-	tmpFile, err := os.Create("arctmp")
+	tmpFile, err := os.Create(tmpPath)
 	if err != nil {
 		return err
 	}
 	defer tmpFile.Close()
+	buf := bufio.NewWriter(tmpFile)
 
 	for _, h := range headers {
 		if _, ok := h.(*header.DirItem); ok {
 			continue
 		}
 
-		if err := arc.compressFile(h.(*header.FileItem), tmpFile); err != nil {
+		if err := arc.compressFile(h.(*header.FileItem), buf); err != nil {
 			return err
 		}
 	}
 
-	arc.writeItems(headers)
+	err = arc.writeItems(headers)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	return os.Remove(tmpPath)
 }
 
-// Сжимает файл
-func (arc Arc) compressFile(fi *header.FileItem, tmpFile *os.File) (err error) {
+// Сжимает файл блоками
+func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) {
 	fmt.Println(fi.Filepath)
 
 	f, err := os.Open(fi.Filepath)
@@ -82,24 +87,30 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile *os.File) (err error) {
 	}
 	defer f.Close()
 
-	var compData []byte
+	var (
+		//		compData []byte
+		totalRead header.Size
+	)
 	crct := crc32.MakeTable(crc32.Koopman)
 
-	for {
-		compData, err = c.CompressBlock(f, arc.Compressor)
+	for totalRead < fi.UncompressedSize {
+		compData, n, err := c.CompressBlock(f, arc.Compressor)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			return fmt.Errorf("arc: compData: %v", err)
+		}
 
+		err = binary.Write(tmpFile, binary.LittleEndian, int64(len(compData)))
+		if err != nil {
+			return err
+		}
+
+		totalRead += header.Size(n)
 		fi.CRC ^= crc32.Checksum(compData, crct)
 		fi.CompressedSize += header.Size(len(compData))
 
-		buf := bufio.NewWriter(tmpFile)
-		buf.Write(compData)
-
+		_, err = tmpFile.Write(compData)
 		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				break
-			}
-
-			return err
+			return fmt.Errorf("arc: buf.Write: %v", err)
 		}
 	}
 

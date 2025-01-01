@@ -4,6 +4,7 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 )
@@ -42,9 +43,9 @@ func (arc Arc) writeItems(headers []header.Header) error {
 
 	// Пишем данные
 	// Создаем или открываем целевой файл для записи
-	tmpFile, err := os.OpenFile("arctmp", os.O_RDONLY|os.O_APPEND, 0644)
+	tmpFile, err := os.OpenFile(tmpPath, os.O_RDONLY|os.O_APPEND, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("arc: writeItems: %v", err)
 	}
 	defer tmpFile.Close()
 

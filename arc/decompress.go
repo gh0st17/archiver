@@ -6,6 +6,7 @@ import (
 	"archiver/filesystem"
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -26,8 +27,8 @@ func (arc Arc) Decompress(outputDir string) error {
 	}
 	defer f.Close()
 
-	r := bufio.NewReader(f)
-	r.Discard(int(arc.DataOffset)) // Перепещаемся к началу данных
+	r := bufio.NewReaderSize(f, int(c.BufferSize))
+	r.Discard(int(arc.DataOffset)) // Перемещаемся к началу данных
 
 	// 	Создаем файлы и директории
 	var outPath string
@@ -69,44 +70,43 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath
 	}
 
 	// Записываем данные в буфер
-	var totalRead int
-	buffer := make([]byte, c.BufferSize)
+	var totalRead header.Size
 	crct := crc32.MakeTable(crc32.Koopman)
+	buf := bufio.NewReader(arcFile)
+	var blockSize int64
 
-	for totalRead < int(fi.CompressedSize) {
-		remaining := int(fi.CompressedSize) - totalRead
-		if remaining < len(buffer) {
-			// Ограничиваем размер буфера если остаток меньше его размера
-			buffer = buffer[:remaining]
+	for totalRead < fi.CompressedSize {
+		if err := binary.Read(arcFile, binary.LittleEndian, &blockSize); err != nil {
+			return err
 		}
 
-		n, err := io.ReadFull(arcFile, buffer)
-		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				// Если достигли конца файла, просто продолжаем
-				// Уменьшаем буфер до фактического количества прочитанных байт
-				buffer = buffer[:n]
-			} else {
-				return err
-			}
+		blockBytes := make([]byte, blockSize)
+		remaining := fi.CompressedSize - totalRead
+		if remaining < header.Size(len(blockBytes)) {
+			blockBytes = blockBytes[:remaining]
 		}
 
-		totalRead += n
-		fi.CRC ^= crc32.Checksum(buffer[:n], crct)
-		buf := bufio.NewReader(bytes.NewReader(buffer[:n]))
-		decompData, err := c.DecompressBlock(buf, arc.Compressor)
+		n, err := io.ReadFull(buf, blockBytes)
 		if err != nil {
-			fmt.Println(": Ошибка распаковки:", err)
-			return nil
+			return err
+		}
+
+		totalRead += header.Size(n)
+		fi.CRC ^= crc32.Checksum(blockBytes, crct)
+
+		blockBuffer := bytes.NewBuffer(blockBytes)
+		decompData, err := c.DecompressBlock(blockBuffer, arc.Compressor)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			return err
 		}
 
 		f.Write(decompData)
 	}
 
 	if fi.CRC != 0 {
-		fmt.Println(": Файл", outputPath, "поврежден")
+		fmt.Printf("%s: Файл поврежден\n", outputPath)
 	} else {
-		fmt.Println()
+		fmt.Println(outputPath)
 	}
 
 	return nil

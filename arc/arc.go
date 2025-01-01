@@ -12,6 +12,8 @@ import (
 
 const magicNumber uint16 = 0x5717
 
+var tmpPath string = filepath.Join(os.TempDir(), "arctmp")
+
 // Структура параметров архива
 type Arc struct {
 	ArchivePath string

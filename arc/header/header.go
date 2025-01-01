@@ -86,7 +86,7 @@ func PrintStatHeader() {
 func PrintSummary(compressed, original Size) {
 	ratio := float32(compressed) / float32(original) * 100.0
 	fmt.Printf( // Выводим итог
-		"%-*s %11s %11s %6.2f\n",
+		"%-*s %11d %11d %6.2f\n",
 		maxFilePathWidth, "Итого",
 		original, compressed, ratio,
 	)
