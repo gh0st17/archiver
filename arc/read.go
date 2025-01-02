@@ -9,7 +9,16 @@ import (
 )
 
 // Собирает элементы из списка файлов
-func fetchFile(filepath string, info os.FileInfo) (h header.Header, err error) {
+func fetchFile(filepath string) (h header.Header, err error) {
+	file, err := os.OpenFile(filepath, os.O_RDONLY, 0444)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
 	atime, mtime := AMtimes(info)
 
 	b := header.Base{
@@ -33,12 +42,12 @@ func fetchFile(filepath string, info os.FileInfo) (h header.Header, err error) {
 // Рекурсивно собирает элементы в директории
 func fetchDir(path string) ([]header.Header, error) {
 	var headers []header.Header
-	err := fp.Walk(path, func(path string, info os.FileInfo, err error) error {
+	err := fp.WalkDir(path, func(path string, _ os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		header, err := fetchFile(path, info)
+		header, err := fetchFile(path)
 		if err != nil {
 			return err
 		}

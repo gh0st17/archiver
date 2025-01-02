@@ -18,10 +18,7 @@ import (
 
 // Создает архив
 func (arc Arc) Compress(paths []string) (err error) {
-	var (
-		headers []header.Header
-		info    os.FileInfo
-	)
+	var headers []header.Header
 
 	for _, path := range paths { // Получение списка файлов и директории
 		// Добавление директории в заголовок
@@ -35,12 +32,7 @@ func (arc Arc) Compress(paths []string) (err error) {
 			continue
 		}
 
-		info, err = os.Stat(path)
-		if err != nil {
-			return err
-		}
-
-		if h, err := fetchFile(path, info); err == nil { // Добавалние файла в заголовок
+		if h, err := fetchFile(path); err == nil { // Добавалние файла в заголовок
 			headers = append(headers, h)
 		} else {
 			return err
