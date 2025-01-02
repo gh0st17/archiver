@@ -12,6 +12,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 )
 
 // Распаковывает архив
@@ -58,7 +60,7 @@ func (arc Arc) Decompress(outputDir string) error {
 }
 
 // Распаковывает файл
-func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath string) error {
+func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outputPath string) error {
 	f, err := os.Create(outputPath)
 	if err != nil {
 		return err
@@ -71,44 +73,113 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath
 	}
 
 	// Записываем данные в буфер
-	var totalRead header.Size
-	crct := crc32.MakeTable(crc32.Koopman)
 	fileBuf := bufio.NewReader(arcFile)
-	var cBlockSize int64
+
+	var (
+		totalRead   header.Size
+		crct        = crc32.MakeTable(crc32.Koopman)
+		ncpu        = runtime.NumCPU()
+		unCompBytes = make([][]byte, ncpu)
+		compBytes   = make([][]byte, ncpu)
+		wg          sync.WaitGroup
+	)
+
+	for i := range unCompBytes {
+		unCompBytes[i] = make([]byte, c.GetBufferSize())
+		compBytes[i] = make([]byte, c.GetBufferSize())
+	}
+
+	clearBuffers := func(buffers [][]byte) {
+		for i := range buffers {
+			buffers[i] = buffers[i][:cap(buffers[i])]
+			for j := range buffers[i] {
+				buffers[i][j] = 0
+			}
+		}
+	}
 
 	for totalRead < fi.CompressedSize {
-		if err := binary.Read(arcFile, binary.LittleEndian, &cBlockSize); err != nil {
-			return err
-		}
-		log.Println("Read block length:", cBlockSize)
-
-		cBlockBytes := make([]byte, cBlockSize)
-		remaining := fi.CompressedSize - totalRead
-		if remaining < header.Size(len(cBlockBytes)) {
-			cBlockBytes = cBlockBytes[:remaining]
-		}
-
-		n, err := io.ReadFull(fileBuf, cBlockBytes)
+		n, err := fillBlocksToDecompress(&compBytes, fileBuf, int(fi.CompressedSize-totalRead))
 		if err != nil {
 			return err
 		}
-
 		totalRead += header.Size(n)
-		fi.CRC ^= crc32.Checksum(cBlockBytes, crct)
 
-		decompData, err := c.DecompressBlock(cBlockBytes, arc.Compressor)
-		if err != nil {
-			return err
+		errChan := make(chan error, ncpu)
+		for i, comp := range compBytes {
+			fi.CRC ^= crc32.Checksum(compBytes[i], crct)
+
+			if len(comp) == 0 {
+				log.Println("comp", i, "breaking foo-loop with zero len")
+				break
+			}
+
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+
+				unCompBytes[i], err = c.DecompressBlock(compBytes[i], arc.Compressor)
+				if err != nil {
+					errChan <- err
+				}
+			}(i)
 		}
 
-		f.Write(decompData)
+		go func() {
+			wg.Wait()
+			close(errChan)
+		}()
+
+		for err := range errChan {
+			return fmt.Errorf("arc: compress: %v", err)
+		}
+
+		for i := range unCompBytes {
+			if len(compBytes[i]) == 0 {
+				break
+			}
+			f.Write(unCompBytes[i])
+		}
+
+		clearBuffers(compBytes)
+		clearBuffers(unCompBytes)
 	}
 
 	if fi.CRC != 0 {
-		fmt.Println(outputPath + ": Файл поврежден\n")
+		fmt.Println(outputPath + ": Файл поврежден")
 	} else {
 		fmt.Println(outputPath)
+		log.Println("CRC:", fi.CRC)
 	}
 
 	return nil
+}
+
+func fillBlocksToDecompress(blocks *[][]byte, r io.Reader, remaining int) (int, error) {
+	var read int
+	var blockSize int64
+	buf := bufio.NewReader(r)
+
+	for i := range *blocks {
+		if remaining == 0 {
+			(*blocks)[i] = (*blocks)[i][:0]
+			log.Println("block", i, "now have len:", len((*blocks)[i]))
+			continue
+		}
+
+		if err := binary.Read(buf, binary.LittleEndian, &blockSize); err != nil {
+			return 0, err
+		}
+		log.Println("Read block length:", blockSize)
+		(*blocks)[i] = (*blocks)[i][:blockSize]
+
+		if n, err := io.ReadFull(buf, (*blocks)[i]); err != nil {
+			return 0, err
+		} else {
+			read += n
+			remaining -= n
+		}
+	}
+
+	return read, nil
 }

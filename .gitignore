@@ -1,7 +1,7 @@
 .vscode/
 testdir/
 imgs/
-archiver
+archiver*
 *exe
 *.arc
 out/

@@ -105,7 +105,7 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 	}
 
 	for totalRead < fi.UncompressedSize {
-		n, err := fillBlocks(unCompBytes, inFile, int(fi.UncompressedSize-totalRead))
+		n, err := fillBlocksToCompress(unCompBytes, inFile, int(fi.UncompressedSize-totalRead))
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) 
 	return nil
 }
 
-func fillBlocks(blocks [][]byte, r io.Reader, remaining int) (int, error) {
+func fillBlocksToCompress(blocks [][]byte, r io.Reader, remaining int) (int, error) {
 	var read int
 	buf := bufio.NewReader(r)
 
