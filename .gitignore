@@ -1,6 +1,6 @@
 .vscode/
 testdir/
-imgs/
+imgs*/
 archiver*
 *exe
 *.arc
