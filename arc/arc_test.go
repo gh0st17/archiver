@@ -21,11 +21,15 @@ const (
 	outPath     = prefix + testPath + "/out"
 )
 
-var params p.Params = p.Params{
-	ArchivePath: archivePath,
-	OutputDir:   outPath,
-	Level:       -1,
-}
+var (
+	params p.Params = p.Params{
+		ArchivePath: archivePath,
+		OutputDir:   outPath,
+		Level:       -1,
+	}
+	rootEnts []os.DirEntry
+	err      error
+)
 
 func baseTesting(t *testing.T, path string) {
 	archive, err := arc.NewArc(&params)
@@ -44,11 +48,7 @@ func baseTesting(t *testing.T, path string) {
 	}
 }
 
-func archivateAll(t *testing.T, rootEnts []os.DirEntry) {
-	if len(rootEnts) == 0 {
-		t.Skip("No entries in testdata for test")
-	}
-
+func archivateAll(t *testing.T) {
 	for _, rootEnt := range rootEnts {
 		path := filepath.Join(prefix, testPath, rootEnt.Name())
 		params.InputPaths = append(params.InputPaths, path)
@@ -65,11 +65,6 @@ func archivateAll(t *testing.T, rootEnts []os.DirEntry) {
 }
 
 func archivateRootEnt(t *testing.T) {
-	rootEnts, err := os.ReadDir(prefix + testPath)
-	if err != nil {
-		t.Fatal("can't fetch root entries:", err)
-	}
-
 	params.InputPaths = make([]string, 1)
 
 	for _, rootEnt := range rootEnts {
@@ -105,20 +100,18 @@ func archivateFile(t *testing.T, rootPaths []string) {
 }
 
 func TestArchiveAll(t *testing.T) {
+	initRootEnts(t)
 	for ct := compressor.Type(0); ct < 4; ct++ {
 		t.Log("Testing archivate with", ct, "algorithm")
-		rootEnts, err := fetchRootDir()
-		if err != nil {
-			t.Fatal("can't fetch root entries:", err)
-		}
 
 		params.CompType = ct
-		archivateAll(t, rootEnts)
+		archivateAll(t)
 		clearArcOut()
 	}
 }
 
 func TestArchiveRootEnt(t *testing.T) {
+	initRootEnts(t)
 	for ct := compressor.Type(0); ct < 4; ct++ {
 		t.Log("Testing archivate per directory with", ct, "algorithm")
 
@@ -129,7 +122,7 @@ func TestArchiveRootEnt(t *testing.T) {
 }
 
 func TestArchiveFile(t *testing.T) {
-	rootEnts, _ := fetchRootDir()
+	initRootEnts(t)
 	var rPaths []string
 	for _, rE := range rootEnts {
 		rPaths = append(rPaths, filepath.Join(prefix, testPath, rE.Name()))
@@ -141,6 +134,17 @@ func TestArchiveFile(t *testing.T) {
 		params.CompType = ct
 		archivateFile(t, rPaths)
 		clearArcOut()
+	}
+}
+
+func initRootEnts(t *testing.T) {
+	rootEnts, err = fetchRootDir()
+	if err != nil {
+		t.Fatal("can't fetch root entries:", err)
+	}
+
+	if len(rootEnts) == 0 {
+		t.Skip("No entries in testdata for test")
 	}
 }
 
