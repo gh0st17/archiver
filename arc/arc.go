@@ -28,7 +28,6 @@ var (
 type Arc struct {
 	ArchivePath string
 	CompType    c.Type
-	Compressor  c.Compressor
 	DataOffset  int64
 	maxCompLen  int64
 }
@@ -77,23 +76,7 @@ func NewArc(params *params.Params) (*Arc, error) {
 		}
 	}
 
-	var err error
-	arc.Compressor, err = selectCompressor(arc.CompType, params.Level)
-	if err != nil {
-		return nil, err
-	}
-
 	return arc, nil
-}
-
-// Выбирает оптимальный способ порождения компрессора
-func selectCompressor(compType c.Type, level c.Level) (c.Compressor, error) {
-	switch compType {
-	case c.GZip, c.ZLib:
-		return c.NewCompLevel(compType, level)
-	default:
-		return c.NewComp(compType)
-	}
 }
 
 func randomString() string {

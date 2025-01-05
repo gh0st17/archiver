@@ -40,10 +40,10 @@ type Size int64
 
 // fmt.Stringer
 func (bytes Size) String() string {
-	const unit = 1024
+	const unit = 1000
 
 	if bytes < unit {
-		return fmt.Sprintf("%d Б  ", bytes)
+		return fmt.Sprintf("%dБ", bytes)
 	}
 
 	div, exp := int64(unit), 0
@@ -51,7 +51,7 @@ func (bytes Size) String() string {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cиБ",
+	return fmt.Sprintf("%.1f%c",
 		float64(bytes)/float64(div), []rune("КМГТПЭ")[exp])
 }
 

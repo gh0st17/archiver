@@ -56,9 +56,9 @@ func archivateAll(t *testing.T) {
 
 	baseTesting(t, "All Files")
 
-	t.Log("Comparing SHA-1 hashsum in/out files")
+	t.Log("Comparing MD-5 hashsum in/out files")
 	for _, rootEnt := range rootEnts {
-		if checkSHA1(t, filepath.Join(prefix, testPath, rootEnt.Name())) {
+		if checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name())) {
 			t.Log("All files are matched")
 		}
 	}
@@ -73,8 +73,8 @@ func archivateRootEnt(t *testing.T) {
 
 		baseTesting(t, rootEnt.Name())
 
-		t.Log("Comparing SHA-1 hashsum in/out files")
-		if checkSHA1(t, filepath.Join(prefix, testPath, rootEnt.Name())) {
+		t.Log("Comparing MD-5 hashsum in/out files")
+		if checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name())) {
 			t.Log("All files are matched")
 		}
 	}
@@ -91,8 +91,8 @@ func archivateFile(t *testing.T, rootPaths []string) {
 
 			baseTesting(t, fpath)
 
-			t.Log("Comparing SHA-1 hashsum in/out files")
-			if checkSHA1(t, fpath) {
+			t.Log("Comparing MD-5 hashsum in/out files")
+			if checkMD5(t, fpath) {
 				t.Log("All files are matched")
 			}
 		}

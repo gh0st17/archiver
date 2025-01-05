@@ -3,6 +3,9 @@ package compressor
 import (
 	"bytes"
 	"compress/flate"
+	"compress/gzip"
+	"compress/lzw"
+	"compress/zlib"
 	"fmt"
 	"io"
 )
@@ -33,77 +36,90 @@ const (
 	BestCompression    Level = flate.BestCompression
 )
 
-type Compressor interface {
-	NewReader(r io.Reader) (io.ReadCloser, error)  // Читатель для распаковки
-	NewWriter(w io.Writer) (io.WriteCloser, error) // Писатель для сжатия
+type Reader struct {
+	reader io.ReadCloser
 }
 
-// Возвращает компрессор с уровнем сжатия по умолчанию
-func NewComp(compType Type) (Compressor, error) {
-	switch compType {
+func NewReader(typ Type, r io.Reader) Reader {
+	reader, err := newReader(typ, r)
+	if err != nil {
+		panic(fmt.Sprint("не могу создать новый Reader: ", err))
+	}
+
+	return Reader{
+		reader: reader,
+	}
+}
+
+type Writer struct {
+	writer io.WriteCloser
+}
+
+func NewWriter(typ Type, l Level, w io.Writer) Writer {
+	writer, err := newWriter(typ, w, l)
+	if err != nil {
+		panic(fmt.Sprint("не могу создать новый Reader:", err))
+	}
+
+	return Writer{
+		writer: writer,
+	}
+}
+
+func newReader(typ Type, r io.Reader) (io.ReadCloser, error) {
+	switch typ {
 	case GZip:
-		return NewGz(), nil
+		return gzip.NewReader(r)
 	case LempelZivWelch:
-		return NewLZW(), nil
+		return lzw.NewReader(r, lzw.MSB, 8), nil
 	case ZLib:
-		return NewZlib(), nil
+		return zlib.NewReader(r)
 	case Nop:
-		return NewNop(), nil
+		return io.NopCloser(r), nil
 	default:
-		return nil, fmt.Errorf("newcomp: неизвестный тип компрессора")
+		panic("newReader: неизвестный тип компрессора")
 	}
 }
 
-// Возвращает компрессор с указанным уровнем сжатия
-//
-// Алгоритмы которые не поддерживают установку
-// уровня сжатия не порождаются этой функцией
-// даже если они есть в `Type`
-func NewCompLevel(compType Type, level Level) (Compressor, error) {
-	switch compType {
+func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
+	switch typ {
 	case GZip:
-		return NewGzLevel(level), nil
+		return gzip.NewWriterLevel(w, int(l))
+	case LempelZivWelch:
+		return lzw.NewWriter(w, lzw.MSB, 8), nil
 	case ZLib:
-		return NewZlibLevel(level), nil
+		return zlib.NewWriterLevel(w, int(l))
+	case Nop:
+		return nopWriteCloser{Writer: w}, nil
 	default:
-		return nil, fmt.Errorf("newcomplevel: неизвестный тип компрессора")
+		panic("newWriter: неизвестный тип компрессора")
 	}
 }
 
-// Сжимает данные в uBuf, возвращает сжатые данные
-func Compress(uBuf []byte, c Compressor) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	cw, err := c.NewWriter(buf)
+func (w Writer) Write(p []byte) (int, error) {
+	n, err := w.writer.Write(p)
 	if err != nil {
-		return nil, err
+		w.writer.Close()
+		return 0, fmt.Errorf("compressor write error: %v", err)
 	}
 
-	// Записываем прочитанные данные в компрессор
-	if _, err = cw.Write(uBuf); err != nil {
-		cw.Close()
-		return nil, err
+	if err := w.writer.Close(); err != nil {
+		return 0, fmt.Errorf("compressor close error: %v", err)
 	}
 
-	if err := cw.Close(); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), err
+	return n, nil
 }
 
-// Распаковывает данные в cBuf, возвращает несжатые данные
-func Decompress(cBuf []byte, c Compressor) ([]byte, error) {
+func (r Reader) Read(p *[]byte) (int, error) {
+	defer r.reader.Close()
+
 	buf := bytes.NewBuffer(nil)
-	cr, err := c.NewReader(bytes.NewReader(cBuf))
+	n, err := io.Copy(buf, r.reader)
 	if err != nil {
-		return nil, err
-	}
-	defer cr.Close()
-
-	// Распаковываем данные в buf
-	if _, err = io.Copy(buf, cr); err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return buf.Bytes(), nil
+	*p = buf.Bytes()
+
+	return int(n), nil
 }

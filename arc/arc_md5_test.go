@@ -3,7 +3,7 @@ package arc_test
 import (
 	"archiver/filesystem"
 	"bytes"
-	"crypto/sha1"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
@@ -11,12 +11,12 @@ import (
 	"testing"
 )
 
-func checkSHA1(t *testing.T, path string) bool {
+func checkMD5(t *testing.T, path string) bool {
 	var (
-		err             error
-		files           []string
-		outFilepath     string
-		inSHA1, outSHA1 sha1hash
+		err           error
+		files         []string
+		outFilepath   string
+		inMD5, outMD5 MD5hash
 	)
 
 	if filesystem.DirExists(path) {
@@ -28,21 +28,22 @@ func checkSHA1(t *testing.T, path string) bool {
 	for _, inFilepath := range files {
 		outFilepath = filepath.Join(outPath, filesystem.CleanPath(inFilepath))
 
-		inSHA1, err = hashFileSHA1(inFilepath)
+		inMD5, err = hashFileMD5(inFilepath)
 		if err != nil {
-			t.Fatal("inSHA1:", err)
+			t.Fatal("inMD5:", err)
 		}
 
-		outSHA1, err = hashFileSHA1(outFilepath)
+		outMD5, err = hashFileMD5(outFilepath)
 		if err != nil {
-			t.Fatal("outSHA1:", err)
+			t.Fatal("outMD5:", err)
 		}
 
-		if compareSHA1(inSHA1, outSHA1) == false {
-			t.Errorf("SHA1 sum mismatch %v for '%s'\n", inSHA1, inFilepath)
+		if compareMD5(inMD5, outMD5) == false {
+			t.Errorf("%s mismatched '%s'", inMD5, inFilepath)
+			t.Fail()
 			return false
 		} else {
-			t.Logf("%s matched '%s'", inSHA1, inFilepath)
+			t.Logf("%s matched '%s'", inMD5, inFilepath)
 		}
 	}
 
@@ -51,14 +52,14 @@ func checkSHA1(t *testing.T, path string) bool {
 
 const chunkSize = 10 * 1024 * 1024
 
-func hashFileSHA1(filePath string) (sha1hash, error) {
+func hashFileMD5(filePath string) (MD5hash, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("не удалось открыть файл: %v", err)
 	}
 	defer file.Close()
 
-	hash := sha1.New()
+	hash := md5.New()
 	buffer := make([]byte, chunkSize)
 
 	for {
@@ -76,10 +77,10 @@ func hashFileSHA1(filePath string) (sha1hash, error) {
 		}
 	}
 
-	return sha1hash(hash.Sum(nil)), nil
+	return MD5hash(hash.Sum(nil)), nil
 }
 
-func compareSHA1(buf1, buf2 sha1hash) bool {
+func compareMD5(buf1, buf2 MD5hash) bool {
 	for i := range buf1 {
 		if buf1[i] != buf2[i] {
 			return false
@@ -89,9 +90,9 @@ func compareSHA1(buf1, buf2 sha1hash) bool {
 	return true
 }
 
-type sha1hash []byte
+type MD5hash []byte
 
-func (s sha1hash) String() string {
+func (s MD5hash) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("0x")
 

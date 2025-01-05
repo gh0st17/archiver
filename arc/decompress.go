@@ -4,6 +4,7 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/filesystem"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
@@ -37,20 +38,23 @@ func (arc Arc) Decompress(outputDir string) error {
 	for _, h := range headers {
 		outPath = filepath.Join(outputDir, h.Path())
 
-		err := filesystem.CreatePath(filepath.Dir(outPath))
-		if err != nil {
-			return err
-		}
-
 		if fi, ok := h.(*header.FileItem); ok {
 			if err := arc.decompressFile(fi, arcFile, outPath); err != nil {
 				return err
 			}
 
-			os.Chtimes(outPath, fi.AccTime, fi.ModTime)
+			if err = os.Chtimes(outPath, fi.AccTime, fi.ModTime); err != nil {
+				return err
+			}
 		} else {
 			di := h.(*header.DirItem)
-			os.Chtimes(outPath, di.AccTime, di.ModTime)
+			err := filesystem.CreatePath(outPath)
+			if err != nil {
+				return err
+			}
+			if err = os.Chtimes(outPath, di.AccTime, di.ModTime); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -74,6 +78,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath
 
 	for i := range uncompressedBuf {
 		compressedBuf[i] = make([]byte, arc.maxCompLen)
+		uncompressedBuf[i] = make([]byte, c.BufferSize)
 	}
 
 	for totalRead < fi.CompressedSize {
@@ -157,12 +162,14 @@ func (arc Arc) decompressBuffers(crc *uint32) error {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			var err error
 
-			uncompressedBuf[i], err = c.Decompress(compressedBuf[i], arc.Compressor)
+			buf := bytes.NewBuffer(compressedBuf[i])
+			decompressor := c.NewReader(arc.CompType, buf)
+			n, err := decompressor.Read(&uncompressedBuf[i])
 			if err != nil {
 				errChan <- err
 			}
+			uncompressedBuf[i] = uncompressedBuf[i][:n]
 		}(i)
 	}
 
