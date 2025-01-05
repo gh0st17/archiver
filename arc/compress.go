@@ -4,6 +4,7 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/filesystem"
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -105,6 +106,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error)
 	var (
 		totalRead  header.Size
 		maxCompLen atomic.Int64
+		inBuf      = bufio.NewReader(inFile)
 	)
 
 	for i := range uncompressedBuf {
@@ -113,7 +115,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error)
 
 	for totalRead < fi.UncompressedSize {
 		remaining := int(fi.UncompressedSize - totalRead)
-		if n, err := arc.loadUncompressedBuf(inFile, remaining); err != nil {
+		if n, err := arc.loadUncompressedBuf(inBuf, remaining); err != nil {
 			return fmt.Errorf("compressFile: can't load buf: %v", err)
 		} else {
 			totalRead += header.Size(n)

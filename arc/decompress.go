@@ -4,6 +4,7 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/filesystem"
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // Распаковывает архив
@@ -34,27 +36,32 @@ func (arc Arc) Decompress(outputDir string) error {
 	}
 
 	// 	Создаем файлы и директории
-	var outPath string
+	var (
+		arcBuf       = bufio.NewReader(arcFile)
+		outPath      string
+		atime, mtime time.Time
+	)
 	for _, h := range headers {
 		outPath = filepath.Join(outputDir, h.Path())
 
 		if fi, ok := h.(*header.FileItem); ok {
-			if err := arc.decompressFile(fi, arcFile, outPath); err != nil {
+			if err = arc.decompressFile(fi, arcBuf, outPath); err != nil {
 				return err
 			}
 
-			if err = os.Chtimes(outPath, fi.AccTime, fi.ModTime); err != nil {
-				return err
-			}
+			atime, mtime = fi.AccTime, fi.ModTime
 		} else {
 			di := h.(*header.DirItem)
-			err := filesystem.CreatePath(outPath)
+			err = filesystem.CreatePath(outPath)
 			if err != nil {
 				return err
 			}
-			if err = os.Chtimes(outPath, di.AccTime, di.ModTime); err != nil {
-				return err
-			}
+
+			atime, mtime = di.AccTime, di.ModTime
+		}
+
+		if err = os.Chtimes(outPath, atime, mtime); err != nil {
+			return err
 		}
 	}
 

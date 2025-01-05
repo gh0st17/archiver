@@ -40,6 +40,7 @@ type Reader struct {
 	reader io.ReadCloser
 }
 
+// Возвращает нового читателя типа typ
 func NewReader(typ Type, r io.Reader) Reader {
 	reader, err := newReader(typ, r)
 	if err != nil {
@@ -51,21 +52,7 @@ func NewReader(typ Type, r io.Reader) Reader {
 	}
 }
 
-type Writer struct {
-	writer io.WriteCloser
-}
-
-func NewWriter(typ Type, l Level, w io.Writer) Writer {
-	writer, err := newWriter(typ, w, l)
-	if err != nil {
-		panic(fmt.Sprint("не могу создать новый Reader:", err))
-	}
-
-	return Writer{
-		writer: writer,
-	}
-}
-
+// Выбирает читателя согласно typ
 func newReader(typ Type, r io.Reader) (io.ReadCloser, error) {
 	switch typ {
 	case GZip:
@@ -81,6 +68,23 @@ func newReader(typ Type, r io.Reader) (io.ReadCloser, error) {
 	}
 }
 
+type Writer struct {
+	writer io.WriteCloser
+}
+
+// Возвращает нового писателя типа typ
+func NewWriter(typ Type, l Level, w io.Writer) Writer {
+	writer, err := newWriter(typ, w, l)
+	if err != nil {
+		panic(fmt.Sprint("не могу создать новый Reader:", err))
+	}
+
+	return Writer{
+		writer: writer,
+	}
+}
+
+// Выбирает писателя согласно typ
 func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
 	switch typ {
 	case GZip:
@@ -96,6 +100,7 @@ func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
 	}
 }
 
+// Сжимает в p len(p) байт
 func (w Writer) Write(p []byte) (int, error) {
 	n, err := w.writer.Write(p)
 	if err != nil {
@@ -110,6 +115,7 @@ func (w Writer) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+// Распаковывает в *p len(*p) байт
 func (r Reader) Read(p *[]byte) (int, error) {
 	defer r.reader.Close()
 
