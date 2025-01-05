@@ -4,16 +4,15 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/filesystem"
-	"bufio"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"log"
 	"os"
-	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 )
 
 // Создает архив
@@ -27,7 +26,7 @@ func (arc Arc) Compress(paths []string) (err error) {
 			if dirHeaders, err := fetchDir(path); err == nil {
 				headers = append(headers, dirHeaders...)
 			} else {
-				return err
+				return fmt.Errorf("compress: %v", err)
 			}
 			continue
 		}
@@ -35,8 +34,24 @@ func (arc Arc) Compress(paths []string) (err error) {
 		if h, err := fetchFile(path); err == nil { // Добавалние файла в заголовок
 			headers = append(headers, h)
 		} else {
-			return err
+			return fmt.Errorf("compress: %v", err)
 		}
+	}
+
+	// Проверяет, содержит ли срез уникалные значения
+	// Если нет, то удаляет дубликаты
+	dropDup := func(headers *[]header.Header) {
+		seen := make(map[string]struct{})
+		uniqueHeaders := make([]header.Header, 0, len(*headers))
+
+		for _, h := range *headers {
+			if _, exists := seen[h.Path()]; !exists {
+				seen[h.Path()] = struct{}{}
+				uniqueHeaders = append(uniqueHeaders, h)
+			}
+		}
+
+		*headers = uniqueHeaders
 	}
 
 	dropDup(&headers)
@@ -47,9 +62,15 @@ func (arc Arc) Compress(paths []string) (err error) {
 
 // Сжимает данные указанные в заголовках во временный файл
 func (arc Arc) compressHeaders(headers []header.Header) error {
+	closeRemove := func(tmpFile *os.File) {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+	}
+
 	tmpFile, err := os.Create(tmpPath)
 	if err != nil {
-		return err
+		closeRemove(tmpFile)
+		return fmt.Errorf("compressHeaders: %v", err)
 	}
 
 	for _, h := range headers {
@@ -58,129 +79,95 @@ func (arc Arc) compressHeaders(headers []header.Header) error {
 		}
 
 		if err := arc.compressFile(h.(*header.FileItem), tmpFile); err != nil {
-			return err
+			closeRemove(tmpFile)
+			return fmt.Errorf("compressHeaders: %v", err)
 		}
 	}
 
 	tmpFile.Close()
-	err = arc.writeItems(headers)
-	if err != nil {
-		return err
+	if err = arc.writeItems(headers); err != nil {
+		closeRemove(tmpFile)
+		return fmt.Errorf("compressHeaders: can't write items: %v", err)
 	}
 
 	return os.Remove(tmpPath)
 }
 
 // Сжимает файл блоками
-func (arc Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) {
-	fmt.Println(fi.Filepath)
-
+func (arc *Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) {
 	inFile, err := os.Open(fi.Filepath)
 	if err != nil {
-		return err
+		return fmt.Errorf("compressFile: %v", err)
 	}
 	defer inFile.Close()
 
 	var (
-		totalRead   header.Size
-		crct        = crc32.MakeTable(crc32.Koopman)
-		ncpu        = runtime.NumCPU()
-		unCompBytes = make([][]byte, ncpu)
-		compBytes   = make([][]byte, ncpu)
-		wg          sync.WaitGroup
+		totalRead  header.Size
+		maxCompLen atomic.Int64
 	)
 
-	for i := range unCompBytes {
-		unCompBytes[i] = make([]byte, c.GetBufferSize())
-		compBytes[i] = make([]byte, c.GetBufferSize())
-	}
-
-	clearBuffers := func(buffers [][]byte) {
-		for i := range buffers {
-			buffers[i] = buffers[i][:cap(buffers[i])]
-			for j := range buffers[i] {
-				buffers[i][j] = 0
-			}
-		}
+	for i := range uncompressedBuf {
+		uncompressedBuf[i] = make([]byte, c.BufferSize)
 	}
 
 	for totalRead < fi.UncompressedSize {
-		n, err := fillBlocksToCompress(unCompBytes, inFile, int(fi.UncompressedSize-totalRead))
-		if err != nil {
-			return err
+		remaining := int(fi.UncompressedSize - totalRead)
+		if n, err := arc.loadUncompressedBuf(inFile, remaining); err != nil {
+			return fmt.Errorf("compressFile: can't load buf: %v", err)
+		} else {
+			totalRead += header.Size(n)
 		}
-		totalRead += header.Size(n)
 
-		errChan := make(chan error, ncpu)
-		for i, unComp := range unCompBytes {
-			if len(unComp) == 0 {
-				log.Println("unComp", i, "breaking foo-loop with zero len")
+		if err = arc.compressBuffers(&maxCompLen); err != nil {
+			return fmt.Errorf("compressFile: can't compress buf: %v", err)
+		}
+
+		for i := range compressedBuf {
+			if len(uncompressedBuf[i]) == 0 || len(compressedBuf[i]) == 0 {
 				break
 			}
 
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-
-				compBytes[i], err = c.CompressBlock(unCompBytes[i], arc.Compressor)
-				if err != nil {
-					errChan <- err
-				}
-			}(i)
-		}
-
-		go func() {
-			wg.Wait()
-			close(errChan)
-		}()
-
-		for err := range errChan {
-			return fmt.Errorf("arc: compress: %v", err)
-		}
-
-		for i := range compBytes {
-			if len(unCompBytes[i]) == 0 || len(compBytes[i]) == 0 {
-				break
-			}
-
-			err = binary.Write(tmpFile, binary.LittleEndian, int64(len(compBytes[i])))
+			err = binary.Write(tmpFile, binary.LittleEndian, int64(len(compressedBuf[i])))
 			if err != nil {
 				return err
 			}
-			log.Println("Written block length:", len(compBytes[i]))
+			log.Println("Written block length:", len(compressedBuf[i]))
 
-			fi.CRC ^= crc32.Checksum(compBytes[i], crct)
-			fi.CompressedSize += header.Size(len(compBytes[i]))
+			fi.CRC ^= crc32.Checksum(compressedBuf[i], crct)
+			fi.CompressedSize += header.Size(len(compressedBuf[i]))
 
-			_, err = tmpFile.Write(compBytes[i])
-			if err != nil {
-				return fmt.Errorf("arc: tmpFile.Write: %v", err)
+			if _, err = tmpFile.Write(compressedBuf[i]); err != nil {
+				return fmt.Errorf("compressFile: can't write '%s' %v", tmpPath, err)
 			}
 		}
-
-		clearBuffers(compBytes)
-		clearBuffers(unCompBytes)
 	}
+
+	if arc.maxCompLen < maxCompLen.Load() {
+		arc.maxCompLen = maxCompLen.Load()
+		log.Println("Max comp len now is:", arc.maxCompLen)
+	}
+
+	fmt.Println(fi.Filepath)
 
 	return nil
 }
 
-func fillBlocksToCompress(blocks [][]byte, r io.Reader, remaining int) (int, error) {
+// Загружает данные в буферы несжатых данных
+func (Arc) loadUncompressedBuf(r io.Reader, remaining int) (int, error) {
 	var read int
-	buf := bufio.NewReader(r)
 
-	for i := range blocks {
+	for i := range uncompressedBuf {
 		if remaining == 0 {
-			blocks[i] = blocks[i][:0]
-			log.Println("block", i, "now have len:", len(blocks[i]))
+			uncompressedBuf[i] = uncompressedBuf[i][:0]
+			log.Println("uncompressedBuf", i, "not needed")
 			continue
 		}
 
-		if int64(remaining) < c.GetBufferSize() {
-			blocks[i] = blocks[i][:remaining]
+		if int64(remaining) < c.BufferSize {
+			uncompressedBuf[i] = uncompressedBuf[i][:remaining]
 		}
 
-		if n, err := io.ReadFull(buf, blocks[i]); err != nil {
+		if n, err := io.ReadFull(r, uncompressedBuf[i]); err != nil {
 			return 0, err
 		} else {
 			read += n
@@ -191,18 +178,42 @@ func fillBlocksToCompress(blocks [][]byte, r io.Reader, remaining int) (int, err
 	return read, nil
 }
 
-// Проверяет, содержит ли срез уникалные значения
-// Если нет, то удаляет дубликаты
-func dropDup(headers *[]header.Header) {
-	seen := make(map[string]struct{})
-	uniqueHeaders := make([]header.Header, 0, len(*headers))
+// Сжимает данные в буферах несжатых данных
+func (arc Arc) compressBuffers(maxCompLen *atomic.Int64) error {
+	var (
+		wg      sync.WaitGroup
+		errChan = make(chan error, ncpu)
+	)
 
-	for _, h := range *headers {
-		if _, exists := seen[h.Path()]; !exists {
-			seen[h.Path()] = struct{}{}
-			uniqueHeaders = append(uniqueHeaders, h)
+	for i := range uncompressedBuf {
+		if len(uncompressedBuf[i]) == 0 {
+			log.Println("uncompressedBuf", i, "breaking foo-loop with zero len")
+			break
 		}
+
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			var err error
+
+			compressedBuf[i], err = c.Compress(uncompressedBuf[i], arc.Compressor)
+			if err != nil {
+				errChan <- err
+			}
+
+			if len(compressedBuf[i]) > int(maxCompLen.Load()) {
+				maxCompLen.Store(int64(len(compressedBuf[i])))
+			}
+		}(i)
 	}
 
-	*headers = uniqueHeaders
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	for err := range errChan {
+		return fmt.Errorf("compressBuf: %v", err)
+	}
+	return nil
 }

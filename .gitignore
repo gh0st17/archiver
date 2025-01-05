@@ -1,7 +1,9 @@
 .vscode/
-testdir/
+builds/
+testdata/**
 imgs*/
-archiver*
 *exe
 *.arc
 out/
+!testdata
+!testdata/README.md

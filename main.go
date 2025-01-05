@@ -11,30 +11,23 @@ func main() {
 	p := params.ParseParams()
 	a, err := arc.NewArc(p)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("arc:", err)
 		os.Exit(1)
 	}
 
 	switch {
 	case len(p.InputPaths) > 0:
-		if err := a.Compress(p.InputPaths); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		err = a.Compress(p.InputPaths)
 	case p.PrintStat:
-		if err := a.ViewStat(); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		err = a.ViewStat()
 	case p.PrintList:
-		if err := a.ViewList(); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		err = a.ViewList()
 	default:
-		if err := a.Decompress(p.OutputDir); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		err = a.Decompress(p.OutputDir)
+	}
+
+	if err != nil {
+		fmt.Println("arc:", err)
+		os.Exit(1)
 	}
 }

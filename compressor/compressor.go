@@ -7,10 +7,7 @@ import (
 	"io"
 )
 
-var bufferSize int64 = 8 * 1024 * 1024
-
-func GetBufferSize() int64     { return bufferSize }
-func SetBufferSize(size int64) { bufferSize = size }
+const BufferSize int64 = 1 * 1024 * 1024
 
 type Type byte
 
@@ -73,7 +70,8 @@ func NewCompLevel(compType Type, level Level) (Compressor, error) {
 	}
 }
 
-func CompressBlock(uBuf []byte, c Compressor) ([]byte, error) {
+// Сжимает данные в uBuf, возвращает сжатые данные
+func Compress(uBuf []byte, c Compressor) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	cw, err := c.NewWriter(buf)
 	if err != nil {
@@ -93,7 +91,8 @@ func CompressBlock(uBuf []byte, c Compressor) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func DecompressBlock(cBuf []byte, c Compressor) ([]byte, error) {
+// Распаковывает данные в cBuf, возвращает несжатые данные
+func Decompress(cBuf []byte, c Compressor) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	cr, err := c.NewReader(bytes.NewReader(cBuf))
 	if err != nil {

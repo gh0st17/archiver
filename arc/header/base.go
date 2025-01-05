@@ -15,6 +15,10 @@ type Base struct {
 
 func (b Base) Path() string { return b.Filepath }
 
+func (b *Base) SetPath(path string) {
+	b.Filepath = path
+}
+
 func (b *Base) Read(r io.Reader) error {
 	var (
 		err                  error

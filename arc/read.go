@@ -73,6 +73,11 @@ func (arc *Arc) readHeaders() ([]header.Header, error) {
 
 	f.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
 
+	// Читаем размер блока
+	if err = binary.Read(f, binary.LittleEndian, &arc.maxCompLen); err != nil {
+		return nil, err
+	}
+
 	// Читаем количество элементов
 	var headersCount int64
 	if err = binary.Read(f, binary.LittleEndian, &headersCount); err != nil {

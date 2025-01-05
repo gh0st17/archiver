@@ -30,9 +30,11 @@ type Header interface {
 // Реализация sort.Interface
 type ByPath []Header
 
-func (a ByPath) Len() int           { return len(a) }
-func (a ByPath) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByPath) Less(i, j int) bool { return a[i].Path() < a[j].Path() }
+func (a ByPath) Len() int      { return len(a) }
+func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByPath) Less(i, j int) bool {
+	return strings.ToLower(a[i].Path()) < strings.ToLower(a[j].Path())
+}
 
 type Size int64
 

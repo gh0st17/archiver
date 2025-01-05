@@ -3,6 +3,7 @@ package filesystem
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Разбивает путь на компоненты
@@ -41,4 +42,28 @@ func DirExists(dirPath string) bool {
 	} else {
 		return info.IsDir()
 	}
+}
+
+// Номализует путь
+func CleanPath(path string) string {
+	parts := strings.Split(path, "/")
+	stack := []string{}
+
+	for _, part := range parts {
+		switch part {
+		case ".", "":
+			// Игнорируем текущую директорию или пустые части
+			continue
+		case "..":
+			// Удаляем предыдущий элемент, если он есть
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+		default:
+			// Добавляем нормальный компонент пути
+			stack = append(stack, part)
+		}
+	}
+
+	return strings.Join(stack, "/")
 }
