@@ -19,7 +19,7 @@ func fetchFile(filepath string) (h header.Header, err error) {
 	if err != nil {
 		return nil, err
 	}
-	atime, mtime := AMtimes(info)
+	atime, mtime := amTimes(info)
 
 	b := header.Base{
 		Filepath: fp.ToSlash(filepath),

@@ -44,7 +44,11 @@ type Reader struct {
 func NewReader(typ Type, r io.Reader) Reader {
 	reader, err := newReader(typ, r)
 	if err != nil {
-		panic(fmt.Sprint("не могу создать новый Reader: ", err))
+		if err == io.EOF {
+			panic(fmt.Sprintf("compressor: new reader: %v", err))
+		}
+
+		panic(fmt.Sprint("не могу создать новый reader: ", err))
 	}
 
 	return Reader{
@@ -64,7 +68,7 @@ func newReader(typ Type, r io.Reader) (io.ReadCloser, error) {
 	case Nop:
 		return io.NopCloser(r), nil
 	default:
-		panic("newReader: неизвестный тип компрессора")
+		panic("new reader: неизвестный тип компрессора")
 	}
 }
 
@@ -73,10 +77,13 @@ type Writer struct {
 }
 
 // Возвращает нового писателя типа typ
-func NewWriter(typ Type, l Level, w io.Writer) Writer {
+func NewWriter(typ Type, w io.Writer, l Level) Writer {
 	writer, err := newWriter(typ, w, l)
 	if err != nil {
-		panic(fmt.Sprint("не могу создать новый Reader:", err))
+		if err == io.EOF {
+			panic(fmt.Sprintf("compressor: new writer: %v", err))
+		}
+		panic(fmt.Sprint("не могу создать новый writer:", err))
 	}
 
 	return Writer{
@@ -100,7 +107,7 @@ func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
 	}
 }
 
-// Сжимает в p len(p) байт
+// Сжимает из p len(p) байт во внутренний writer
 func (w Writer) Write(p []byte) (int, error) {
 	n, err := w.writer.Write(p)
 	if err != nil {
@@ -108,14 +115,14 @@ func (w Writer) Write(p []byte) (int, error) {
 		return 0, fmt.Errorf("compressor write error: %v", err)
 	}
 
-	if err := w.writer.Close(); err != nil {
+	if err = w.writer.Close(); err != nil {
 		return 0, fmt.Errorf("compressor close error: %v", err)
 	}
 
 	return n, nil
 }
 
-// Распаковывает в *p len(*p) байт
+// Распаковывает из внутреннего reader в p len(p) байт
 func (r Reader) Read(p *[]byte) (int, error) {
 	defer r.reader.Close()
 

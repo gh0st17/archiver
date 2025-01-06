@@ -21,18 +21,18 @@ import (
 func (arc Arc) Decompress(outputDir string) error {
 	headers, err := arc.readHeaders()
 	if err != nil {
-		return err
+		return fmt.Errorf("decompress: can't read headers: %v", err)
 	}
 
 	arcFile, err := os.Open(arc.ArchivePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("decompress: can't open archive: %v", err)
 	}
 	defer arcFile.Close()
 
 	_, err = arcFile.Seek(int64(arc.DataOffset), io.SeekCurrent)
 	if err != nil {
-		return err
+		return fmt.Errorf("decompress: can't seek: %v", err)
 	}
 
 	// 	Создаем файлы и директории
@@ -45,16 +45,26 @@ func (arc Arc) Decompress(outputDir string) error {
 		outPath = filepath.Join(outputDir, h.Path())
 
 		if fi, ok := h.(*header.FileItem); ok {
+			if err = filesystem.CreatePath(filepath.Dir(outPath)); err != nil {
+				return fmt.Errorf(
+					"decompress: can't create path '%s': %v",
+					outPath,
+					err,
+				)
+			}
 			if err = arc.decompressFile(fi, arcBuf, outPath); err != nil {
-				return err
+				return fmt.Errorf("decompress: %v", err)
 			}
 
 			atime, mtime = fi.AccTime, fi.ModTime
 		} else {
 			di := h.(*header.DirItem)
-			err = filesystem.CreatePath(outPath)
-			if err != nil {
-				return err
+			if err = filesystem.CreatePath(outPath); err != nil {
+				return fmt.Errorf(
+					"decompress: can't create path '%s': %v",
+					outPath,
+					err,
+				)
 			}
 
 			atime, mtime = di.AccTime, di.ModTime
@@ -72,7 +82,7 @@ func (arc Arc) Decompress(outputDir string) error {
 func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath string) error {
 	outFile, err := os.Create(outputPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("decompressFile: %v", err)
 	}
 	defer outFile.Close()
 
@@ -91,19 +101,16 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.Reader, outputPath
 	for totalRead < fi.CompressedSize {
 		remaining := int(fi.CompressedSize - totalRead)
 		if n, err := arc.loadCompressedBuf(arcFile, remaining); err != nil {
-			return err
+			return fmt.Errorf("decompressFile: %v", err)
 		} else {
 			totalRead += header.Size(n)
 		}
 
 		if err = arc.decompressBuffers(&(fi.CRC)); err != nil {
-			return err
+			return fmt.Errorf("decompressFile: %v", err)
 		}
 
-		for i := range uncompressedBuf {
-			if len(compressedBuf[i]) == 0 {
-				break
-			}
+		for i := 0; i < ncpu && len(compressedBuf[i]) > 0; i++ {
 			outFile.Write(uncompressedBuf[i])
 
 			compressedBuf[i] = compressedBuf[i][:cap(compressedBuf[i])]
@@ -130,18 +137,18 @@ func (Arc) loadCompressedBuf(r io.Reader, remaining int) (int, error) {
 	for i := range compressedBuf {
 		if remaining == 0 {
 			compressedBuf[i] = compressedBuf[i][:0]
-			log.Println("compressedBuf", i, "not needed")
+			log.Println("compressedBuf", i, "doesn't need, skipping")
 			continue
 		}
 
 		if err := binary.Read(r, binary.LittleEndian, &bufferSize); err != nil {
-			return 0, err
+			return 0, fmt.Errorf("loadCompressedBuf: can't binary read %v", err)
 		}
-		log.Println("Read compressedBuf length:", bufferSize)
+		log.Println("Read length of compressed data:", bufferSize)
 		compressedBuf[i] = compressedBuf[i][:bufferSize]
 
 		if n, err := io.ReadFull(r, compressedBuf[i]); err != nil {
-			return 0, err
+			return 0, fmt.Errorf("loadCompressedBuf: can't read: %v", err)
 		} else {
 			read += n
 			remaining -= n
@@ -158,13 +165,8 @@ func (arc Arc) decompressBuffers(crc *uint32) error {
 		wg      sync.WaitGroup
 	)
 
-	for i, buf := range compressedBuf {
+	for i := 0; i < ncpu && len(compressedBuf[i]) > 0; i++ {
 		*crc ^= crc32.Checksum(compressedBuf[i], crct)
-
-		if len(buf) == 0 {
-			log.Println("compressedBuf", i, "breaking foo-loop with zero len")
-			break
-		}
 
 		wg.Add(1)
 		go func(i int) {

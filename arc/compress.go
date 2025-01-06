@@ -28,7 +28,7 @@ func (arc Arc) Compress(paths []string) (err error) {
 			if dirHeaders, err := fetchDir(path); err == nil {
 				headers = append(headers, dirHeaders...)
 			} else {
-				return fmt.Errorf("compress: %v", err)
+				return fmt.Errorf("compress: can't fetch dir: %v", err)
 			}
 			continue
 		}
@@ -36,7 +36,7 @@ func (arc Arc) Compress(paths []string) (err error) {
 		if h, err := fetchFile(path); err == nil { // Добавалние файла в заголовок
 			headers = append(headers, h)
 		} else {
-			return fmt.Errorf("compress: %v", err)
+			return fmt.Errorf("compress: can't fetch file: %v", err)
 		}
 	}
 
@@ -125,16 +125,12 @@ func (arc *Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error)
 			return fmt.Errorf("compressFile: can't compress buf: %v", err)
 		}
 
-		for i := range compressedBuf {
-			if len(uncompressedBuf[i]) == 0 || len(compressedBuf[i]) == 0 {
-				break
-			}
-
+		for i := 0; i < ncpu && len(uncompressedBuf[i]) > 0 && len(compressedBuf[i]) > 0; i++ {
 			err = binary.Write(tmpFile, binary.LittleEndian, int64(len(compressedBuf[i])))
 			if err != nil {
-				return err
+				return fmt.Errorf("compressFile: can't binary write %v", err)
 			}
-			log.Println("Written block length:", len(compressedBuf[i]))
+			log.Println("Written length of compressed data:", len(compressedBuf[i]))
 
 			fi.CRC ^= crc32.Checksum(compressedBuf[i], crct)
 			fi.CompressedSize += header.Size(len(compressedBuf[i]))
@@ -162,7 +158,7 @@ func (Arc) loadUncompressedBuf(r io.Reader, remaining int) (int, error) {
 	for i := range uncompressedBuf {
 		if remaining == 0 {
 			uncompressedBuf[i] = uncompressedBuf[i][:0]
-			log.Println("uncompressedBuf", i, "not needed")
+			log.Println("uncompressedBuf", i, "doesn't need, skipping")
 			continue
 		}
 
@@ -171,7 +167,7 @@ func (Arc) loadUncompressedBuf(r io.Reader, remaining int) (int, error) {
 		}
 
 		if n, err := io.ReadFull(r, uncompressedBuf[i]); err != nil {
-			return 0, err
+			return 0, fmt.Errorf("loadUncompressedBuf: can't read: %v", err)
 		} else {
 			read += n
 			remaining -= n
@@ -188,18 +184,13 @@ func (arc Arc) compressBuffers(maxCompLen *atomic.Int64) error {
 		errChan = make(chan error, ncpu)
 	)
 
-	for i := range uncompressedBuf {
-		if len(uncompressedBuf[i]) == 0 {
-			log.Println("uncompressedBuf", i, "breaking foo-loop with zero len")
-			break
-		}
-
+	for i := 0; i < ncpu && len(uncompressedBuf[i]) > 0; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 
 			buf := bytes.NewBuffer(nil)
-			compressor := c.NewWriter(arc.CompType, c.Level(-1), buf)
+			compressor := c.NewWriter(arc.CompType, buf, c.Level(-1))
 			_, err := compressor.Write(uncompressedBuf[i])
 			if err != nil {
 				errChan <- err
