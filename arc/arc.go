@@ -79,6 +79,10 @@ func NewArc(params *params.Params) (*Arc, error) {
 	return arc, nil
 }
 
+func (Arc) RemoveTmp() {
+	os.Remove(tmpPath)
+}
+
 func randomString() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz"
 	var result strings.Builder

@@ -5,6 +5,8 @@ import (
 	"archiver/params"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -14,6 +16,16 @@ func main() {
 		fmt.Println("arc:", err)
 		os.Exit(1)
 	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		fmt.Println("Прерываю...")
+		a.RemoveTmp()
+		os.Exit(0)
+	}()
 
 	switch {
 	case len(p.InputPaths) > 0:
