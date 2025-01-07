@@ -45,7 +45,7 @@ func DirExists(dirPath string) bool {
 }
 
 // Номализует путь
-func CleanPath(path string) string {
+func Clean(path string) string {
 	parts := strings.Split(path, "/")
 	stack := []string{}
 

@@ -42,61 +42,59 @@ func (arc Arc) Compress(paths []string) (err error) {
 
 	// Проверяет, содержит ли срез уникалные значения
 	// Если нет, то удаляет дубликаты
-	dropDup := func(headers *[]header.Header) {
-		seen := make(map[string]struct{})
-		uniqueHeaders := make([]header.Header, 0, len(*headers))
-
-		for _, h := range *headers {
-			if _, exists := seen[h.Path()]; !exists {
-				seen[h.Path()] = struct{}{}
-				uniqueHeaders = append(uniqueHeaders, h)
-			}
+	seen := make(map[string]struct{})
+	uniqueHeaders := make([]header.Header, 0, len(headers))
+	for _, h := range headers {
+		if _, exists := seen[h.Path()]; !exists {
+			seen[h.Path()] = struct{}{}
+			uniqueHeaders = append(uniqueHeaders, h)
 		}
-
-		*headers = uniqueHeaders
 	}
+	headers = uniqueHeaders
 
-	dropDup(&headers)
 	sort.Sort(header.ByPath(headers))
 
-	return arc.compressHeaders(headers)
-}
-
-// Сжимает данные указанные в заголовках во временный файл
-func (arc Arc) compressHeaders(headers []header.Header) error {
-	closeRemove := func(tmpFile *os.File) {
-		tmpFile.Close()
-		os.Remove(tmpPath)
-	}
-
-	tmpFile, err := os.Create(tmpPath)
-	if err != nil {
-		closeRemove(tmpFile)
-		return fmt.Errorf("compressHeaders: %v", err)
-	}
-
+	var dirs []*header.DirItem
+	var files []*header.FileItem
 	for _, h := range headers {
-		if _, ok := h.(*header.DirItem); ok {
-			continue
+		if d, ok := h.(*header.DirItem); ok {
+			dirs = append(dirs, d)
+		} else {
+			files = append(files, h.(*header.FileItem))
 		}
+	}
 
-		if err := arc.compressFile(h.(*header.FileItem), tmpFile); err != nil {
-			closeRemove(tmpFile)
+	closeRemove := func(arcFile io.Closer) {
+		arcFile.Close()
+		arc.RemoveTmp()
+	}
+
+	arcFile, err := arc.writeHeaderDirs(dirs)
+	if err != nil {
+		closeRemove(arcFile)
+		return fmt.Errorf("compress: %v", err)
+	}
+	defer arcFile.Close()
+
+	for _, fi := range files {
+		fi.Write(arcFile)
+		if err = arc.compressFile(fi, arcFile); err != nil {
+			closeRemove(arcFile)
 			return fmt.Errorf("compressHeaders: %v", err)
 		}
 	}
 
-	tmpFile.Close()
-	if err = arc.writeItems(headers); err != nil {
-		closeRemove(tmpFile)
-		return fmt.Errorf("compressHeaders: can't write items: %v", err)
+	arcFile.Seek(3, io.SeekStart)
+	err = binary.Write(arcFile, binary.LittleEndian, arc.maxCompLen)
+	if err != nil {
+		return err
 	}
 
-	return os.Remove(tmpPath)
+	return nil
 }
 
 // Сжимает файл блоками
-func (arc *Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error) {
+func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error) {
 	inFile, err := os.Open(fi.Filepath)
 	if err != nil {
 		return fmt.Errorf("compressFile: %v", err)
@@ -109,8 +107,10 @@ func (arc *Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error)
 		inBuf      = bufio.NewReader(inFile)
 	)
 
-	for i := range uncompressedBuf {
-		uncompressedBuf[i] = make([]byte, c.BufferSize)
+	if cap(uncompressedBuf[0]) == 0 {
+		for i := range uncompressedBuf {
+			uncompressedBuf[i] = make([]byte, c.BufferSize)
+		}
 	}
 
 	for totalRead < fi.UncompressedSize {
@@ -126,24 +126,39 @@ func (arc *Arc) compressFile(fi *header.FileItem, tmpFile io.Writer) (err error)
 		}
 
 		for i := 0; i < ncpu && len(uncompressedBuf[i]) > 0 && len(compressedBuf[i]) > 0; i++ {
-			err = binary.Write(tmpFile, binary.LittleEndian, int64(len(compressedBuf[i])))
+			err = binary.Write(arcFile, binary.LittleEndian, int64(len(compressedBuf[i])))
 			if err != nil {
 				return fmt.Errorf("compressFile: can't binary write %v", err)
 			}
-			log.Println("Written length of compressed data:", len(compressedBuf[i]))
 
 			fi.CRC ^= crc32.Checksum(compressedBuf[i], crct)
-			fi.CompressedSize += header.Size(len(compressedBuf[i]))
 
-			if _, err = tmpFile.Write(compressedBuf[i]); err != nil {
-				return fmt.Errorf("compressFile: can't write '%s' %v", tmpPath, err)
+			if _, err = arcFile.Write(compressedBuf[i]); err != nil {
+				return fmt.Errorf("compressFile: can't write '%s' %v", arc.ArchivePath, err)
 			}
+			log.Println("Written compressed data:", len(compressedBuf[i]))
 		}
 	}
+
+	// Пишем признак конца файла
+	err = binary.Write(arcFile, binary.LittleEndian, int64(-1))
+	if err != nil {
+		return fmt.Errorf("compressFile: can't binary write EOF: %v", err)
+	}
+	log.Println("Written EOF")
+	// Пишем контрольную сумму
+	if err = binary.Write(arcFile, binary.LittleEndian, fi.CRC); err != nil {
+		return err
+	}
+	log.Printf("Written CRC: %X\n", fi.CRC)
 
 	if arc.maxCompLen < maxCompLen.Load() {
 		arc.maxCompLen = maxCompLen.Load()
 		log.Println("Max comp len now is:", arc.maxCompLen)
+	}
+
+	for i := range uncompressedBuf {
+		uncompressedBuf[i] = uncompressedBuf[i][:cap(uncompressedBuf[i])]
 	}
 
 	fmt.Println(fi.Filepath)

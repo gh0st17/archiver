@@ -15,10 +15,12 @@ type Params struct {
 	InputPaths  []string
 	OutputDir   string
 	ArchivePath string
-	Level       compressor.Level
-	PrintStat   bool
-	PrintList   bool
 	CompType    compressor.Type
+	Level       compressor.Level
+	PrintStat,
+	PrintList,
+	IntegTest,
+	XIntegTest bool
 }
 
 // Печатает справку
@@ -51,6 +53,8 @@ func ParseParams() *Params {
 	flag.BoolVar(&help, "help", false, helpDesc)
 	flag.BoolVar(&p.PrintStat, "s", false, statDesc)
 	flag.BoolVar(&p.PrintList, "l", false, listDesc)
+	flag.BoolVar(&p.IntegTest, "integ", false, integDesc)
+	flag.BoolVar(&p.XIntegTest, "xinteg", false, xIntegDesc)
 	logging := flag.Bool("log", false, logDesc)
 	version := flag.Bool("V", false, versionDesc)
 	flag.Parse()

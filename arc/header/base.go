@@ -1,6 +1,7 @@
 package header
 
 import (
+	"archiver/filesystem"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -14,10 +15,6 @@ type Base struct {
 }
 
 func (b Base) Path() string { return b.Filepath }
-
-func (b *Base) SetPath(path string) {
-	b.Filepath = path
-}
 
 func (b *Base) Read(r io.Reader) error {
 	var (
@@ -63,6 +60,7 @@ func (b Base) Write(w io.Writer) (err error) {
 		fmt.Println("Удаляется начальный /")
 	}
 
+	b.Filepath = filesystem.Clean(b.Filepath)
 	if err = binary.Write(w, binary.LittleEndian, int64(len(b.Filepath))); err != nil {
 		return err
 	}

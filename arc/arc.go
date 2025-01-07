@@ -7,17 +7,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 )
 
 const magicNumber uint16 = 0x5717
 
 var (
-	tmpPath         string
 	crct            = crc32.MakeTable(crc32.Koopman)
 	ncpu            = runtime.NumCPU()
 	uncompressedBuf = make([][]byte, ncpu)
@@ -79,20 +76,6 @@ func NewArc(params *params.Params) (*Arc, error) {
 	return arc, nil
 }
 
-func (Arc) RemoveTmp() {
-	os.Remove(tmpPath)
-}
-
-func randomString() string {
-	const charset = "abcdefghijklmnopqrstuvwxyz"
-	var result strings.Builder
-	for i := 0; i < 5; i++ {
-		randomChar := charset[rand.Intn(len(charset))]
-		result.WriteByte(randomChar)
-	}
-	return result.String()
-}
-
-func init() {
-	tmpPath = filepath.Join(os.TempDir(), "arctmp"+randomString())
+func (arc Arc) RemoveTmp() {
+	os.Remove(arc.ArchivePath)
 }

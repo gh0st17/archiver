@@ -26,7 +26,7 @@ func checkMD5(t *testing.T, path string) bool {
 	}
 
 	for _, inFilepath := range files {
-		outFilepath = filepath.Join(outPath, filesystem.CleanPath(inFilepath))
+		outFilepath = filepath.Join(outPath, filesystem.Clean(inFilepath))
 
 		inMD5, err = hashFileMD5(inFilepath)
 		if err != nil {

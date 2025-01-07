@@ -34,8 +34,10 @@ func main() {
 		err = a.ViewStat()
 	case p.PrintList:
 		err = a.ViewList()
+	case p.IntegTest:
+		err = a.IntegrityTest()
 	default:
-		err = a.Decompress(p.OutputDir)
+		err = a.Decompress(p.OutputDir, p.XIntegTest)
 	}
 
 	if err != nil {

@@ -13,6 +13,7 @@ type FileItem struct {
 	UncompressedSize Size
 	CompressedSize   Size
 	CRC              uint32
+	Damaged          bool
 }
 
 func (fi *FileItem) Read(r io.Reader) (err error) {
@@ -26,24 +27,19 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 	}
 
 	// Читаем размер файла после сжатия
-	if err = binary.Read(r, binary.LittleEndian, &(fi.CompressedSize)); err != nil {
-		return err
-	}
+	// if err = binary.Read(r, binary.LittleEndian, &(fi.CompressedSize)); err != nil {
+	// 	return err
+	// }
 
 	// Читаем контрольную сумму
-	if err = binary.Read(r, binary.LittleEndian, &(fi.CRC)); err != nil {
-		return err
-	}
+	// if err = binary.Read(r, binary.LittleEndian, &(fi.CRC)); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
 func (fi FileItem) Write(w io.Writer) (err error) {
-	// Пишем тип заголовка
-	if err = binary.Write(w, binary.LittleEndian, File); err != nil {
-		return err
-	}
-
 	if err = fi.Base.Write(w); err != nil {
 		return err
 	}
@@ -53,15 +49,15 @@ func (fi FileItem) Write(w io.Writer) (err error) {
 		return err
 	}
 
-	// Пишем размер файла после сжатия
-	if err = binary.Write(w, binary.LittleEndian, fi.CompressedSize); err != nil {
-		return err
-	}
+	// // Пишем размер файла после сжатия
+	// if err = binary.Write(w, binary.LittleEndian, fi.CompressedSize); err != nil {
+	// 	return err
+	// }
 
-	// Пишем контрольную сумму
-	if err = binary.Write(w, binary.LittleEndian, fi.CRC); err != nil {
-		return err
-	}
+	// // Пишем контрольную сумму
+	// if err = binary.Write(w, binary.LittleEndian, fi.CRC); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

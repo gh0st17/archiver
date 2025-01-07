@@ -43,7 +43,7 @@ func baseTesting(t *testing.T, path string) {
 	}
 
 	t.Logf("Testing %s decompress '%s'", params.CompType, path)
-	if err = archive.Decompress(params.OutputDir); err != nil {
+	if err = archive.Decompress(params.OutputDir, false); err != nil {
 		t.Fatal(err)
 	}
 }

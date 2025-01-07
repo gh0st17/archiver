@@ -3,6 +3,7 @@ package arc
 import (
 	"archiver/arc/header"
 	"fmt"
+	"sort"
 )
 
 // Печатает информации о сжатии архива
@@ -12,6 +13,7 @@ func (arc Arc) ViewStat() error {
 	if err != nil {
 		return err
 	}
+	sort.Sort(header.ByPath(headers))
 
 	fmt.Printf("Тип компрессора: %s\n", arc.CompType)
 	header.PrintStatHeader()
@@ -38,6 +40,7 @@ func (arc Arc) ViewList() error {
 	if err != nil {
 		return err
 	}
+	sort.Sort(header.ByPath(headers))
 
 	for _, h := range headers {
 		fmt.Println(h.Path())
