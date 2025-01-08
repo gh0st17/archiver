@@ -3,7 +3,6 @@ package arc
 import (
 	c "archiver/compressor"
 	"archiver/filesystem"
-	"archiver/params"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
@@ -30,17 +29,17 @@ type Arc struct {
 }
 
 // Возвращает новый Arc из входных параметров программы
-func NewArc(params *params.Params) (*Arc, error) {
+func NewArc(arcPath string, inPaths []string, ct c.Type) (*Arc, error) {
 	arc := &Arc{
-		ArchivePath: params.ArchivePath,
+		ArchivePath: arcPath,
 	}
 
 	if filesystem.DirExists(arc.ArchivePath) {
 		return nil, fmt.Errorf("'%s' это директория", filepath.Base(arc.ArchivePath))
 	}
 
-	if len(params.InputPaths) > 0 {
-		arc.CompType = params.CompType
+	if len(inPaths) > 0 {
+		arc.CompType = ct
 	} else {
 		arcFile, err := os.Open(arc.ArchivePath)
 		if err != nil {

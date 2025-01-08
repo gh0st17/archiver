@@ -20,7 +20,8 @@ type Params struct {
 	PrintStat,
 	PrintList,
 	IntegTest,
-	XIntegTest bool
+	XIntegTest,
+	MemStat bool
 }
 
 // Печатает справку
@@ -55,6 +56,7 @@ func ParseParams() *Params {
 	flag.BoolVar(&p.PrintList, "l", false, listDesc)
 	flag.BoolVar(&p.IntegTest, "integ", false, integDesc)
 	flag.BoolVar(&p.XIntegTest, "xinteg", false, xIntegDesc)
+	flag.BoolVar(&p.MemStat, "mstat", false, memStatDesc)
 	logging := flag.Bool("log", false, logDesc)
 	version := flag.Bool("V", false, versionDesc)
 	flag.Parse()

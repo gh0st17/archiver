@@ -116,7 +116,9 @@ func runTestByFile(t *testing.T, ct compressor.Type) {
 }
 
 func baseTesting(t *testing.T, path string) {
-	archive, err := arc.NewArc(&params)
+	archive, err := arc.NewArc(
+		params.ArchivePath, params.InputPaths, params.CompType,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
