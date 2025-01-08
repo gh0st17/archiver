@@ -20,10 +20,10 @@ func (fi FileItem) CSize() Size     { return fi.cSize }
 func (fi FileItem) CRC() uint32     { return fi.crc }
 func (fi FileItem) IsDamaged() bool { return fi.damaged }
 
-func (fi *FileItem) SetUcSize(size Size)   { fi.ucSize = size }
-func (fi *FileItem) SetCSize(size Size)    { fi.cSize = size }
-func (fi *FileItem) SetCRC(crc uint32)     { fi.crc = crc }
-func (fi *FileItem) SetDamaged(crc uint32) { fi.damaged = crc != fi.CRC() }
+func (fi *FileItem) SetUcSize(size Size)     { fi.ucSize = size }
+func (fi *FileItem) SetCSize(size Size)      { fi.cSize = size }
+func (fi *FileItem) SetCRC(crc uint32)       { fi.crc = crc }
+func (fi *FileItem) SetDamaged(damaged bool) { fi.damaged = damaged }
 
 func NewFileItem(base Base, ucSize Size) FileItem {
 	return FileItem{

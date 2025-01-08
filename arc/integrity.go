@@ -86,12 +86,11 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size
 			compressedBuf[i] = compressedBuf[i][:cap(compressedBuf[i])]
 		}
 	}
+	fi.SetDamaged(crc != 0)
 
 	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
 		return 0, err
 	}
-
-	fi.SetDamaged(crc)
 
 	return totalRead, nil
 }

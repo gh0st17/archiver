@@ -109,7 +109,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		}
 
 		if fi.IsDamaged() {
-			fmt.Printf("%s: CRC сумма не совпадает", outPath)
+			fmt.Printf("%s: CRC сумма не совпадает\n", outPath)
 		} else {
 			fmt.Println(outPath)
 		}
@@ -159,7 +159,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 			compressedBuf[i] = compressedBuf[i][:cap(compressedBuf[i])]
 		}
 	}
-	fi.SetDamaged(crc)
+	fi.SetDamaged(crc != 0)
 
 	return nil
 }
