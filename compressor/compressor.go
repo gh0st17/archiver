@@ -10,7 +10,7 @@ import (
 	"io"
 )
 
-const BufferSize int64 = 1 * 1024 * 1024
+const BufferSize int64 = 1_048_576 // 1M
 
 type Type byte
 

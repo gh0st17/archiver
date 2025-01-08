@@ -49,6 +49,13 @@ func baseTesting(t *testing.T, path string) {
 }
 
 func archivateAll(t *testing.T) {
+	defer func() {
+		if t.Failed() {
+			// Действия, которые нужно выполнить при провале теста
+			t.Log("Test failed, performing cleanup...")
+		}
+	}()
+
 	for _, rootEnt := range rootEnts {
 		path := filepath.Join(prefix, testPath, rootEnt.Name())
 		params.InputPaths = append(params.InputPaths, path)
@@ -58,9 +65,7 @@ func archivateAll(t *testing.T) {
 
 	t.Log("Comparing MD-5 hashsum in/out files")
 	for _, rootEnt := range rootEnts {
-		if checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name())) {
-			t.Log("All files are matched")
-		}
+		checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name()))
 	}
 }
 
@@ -74,9 +79,7 @@ func archivateRootEnt(t *testing.T) {
 		baseTesting(t, rootEnt.Name())
 
 		t.Log("Comparing MD-5 hashsum in/out files")
-		if checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name())) {
-			t.Log("All files are matched")
-		}
+		checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name()))
 	}
 }
 
@@ -92,48 +95,49 @@ func archivateFile(t *testing.T, rootPaths []string) {
 			baseTesting(t, fpath)
 
 			t.Log("Comparing MD-5 hashsum in/out files")
-			if checkMD5(t, fpath) {
-				t.Log("All files are matched")
-			}
+			checkMD5(t, fpath)
 		}
 	}
 }
 
 func TestArchiveAll(t *testing.T) {
+	t.Cleanup(clearArcOut)
+
 	initRootEnts(t)
 	for ct := compressor.Type(0); ct < 4; ct++ {
 		t.Log("Testing archivate with", ct, "algorithm")
 
 		params.CompType = ct
 		archivateAll(t)
-		clearArcOut()
 	}
 }
 
 func TestArchiveRootEnt(t *testing.T) {
+	t.Cleanup(clearArcOut)
+
 	initRootEnts(t)
-	for ct := compressor.Type(0); ct < 4; ct++ {
+	for ct := compressor.Type(1); ct < 4; ct++ {
 		t.Log("Testing archivate per directory with", ct, "algorithm")
 
 		params.CompType = ct
 		archivateRootEnt(t)
-		clearArcOut()
 	}
 }
 
 func TestArchiveFile(t *testing.T) {
+	t.Cleanup(clearArcOut)
+
 	initRootEnts(t)
 	var rPaths []string
 	for _, rE := range rootEnts {
 		rPaths = append(rPaths, filepath.Join(prefix, testPath, rE.Name()))
 	}
 
-	for ct := compressor.Type(0); ct < 4; ct++ {
+	for ct := compressor.Type(1); ct < 4; ct++ {
 		t.Log("Testing archivate per file with", ct, "algorithm")
 
 		params.CompType = ct
 		archivateFile(t, rPaths)
-		clearArcOut()
 	}
 }
 

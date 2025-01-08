@@ -68,7 +68,7 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size
 	)
 
 	if cap(compressedBuf[0]) == 0 {
-		for i := range compressedBuf {
+		for i := 0; i < ncpu; i++ {
 			compressedBuf[i] = make([]byte, arc.maxCompLen)
 		}
 	}
