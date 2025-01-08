@@ -38,12 +38,15 @@ func checkMD5(t *testing.T, path string) bool {
 			t.Fatal("outMD5:", err)
 		}
 
-		if compareMD5(inMD5, outMD5) == false {
-			t.Errorf("%s mismatched '%s'", inMD5, inFilepath)
+		if compareMD5(inMD5, outMD5) {
+			t.Logf("%s matched '%s'", outMD5, inFilepath)
+		} else {
+			t.Errorf(
+				"Mismatched '%s':\nexpected %s got %s",
+				inFilepath, inMD5, outMD5,
+			)
 			t.Fail()
 			return false
-		} else {
-			t.Logf("%s matched '%s'", inMD5, inFilepath)
 		}
 	}
 
@@ -94,7 +97,6 @@ type MD5hash []byte
 
 func (s MD5hash) String() string {
 	var buf bytes.Buffer
-	buf.WriteString("0x")
 
 	for _, b := range s {
 		buf.WriteString(fmt.Sprintf("%02x", b))

@@ -4,7 +4,6 @@ import (
 	"archiver/arc"
 	"archiver/compressor"
 	p "archiver/params"
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -28,8 +27,93 @@ var (
 		Level:       -1,
 	}
 	rootEnts []os.DirEntry
-	err      error
+	stdout   = os.Stdout
+	stderr   = os.Stderr
 )
+
+func TestNopAll(t *testing.T) {
+	runTestAll(t, compressor.Nop)
+}
+
+func TestGzipAll(t *testing.T) {
+	runTestAll(t, compressor.GZip)
+}
+
+func TestLzwAll(t *testing.T) {
+	runTestAll(t, compressor.LempelZivWelch)
+}
+
+func TestZlibAll(t *testing.T) {
+	runTestAll(t, compressor.ZLib)
+}
+
+func TestNopByEntry(t *testing.T) {
+	runTestByEntry(t, compressor.Nop)
+}
+
+func TestGzipByEntry(t *testing.T) {
+	runTestByEntry(t, compressor.GZip)
+}
+
+func TestLzwByEntry(t *testing.T) {
+	runTestByEntry(t, compressor.LempelZivWelch)
+}
+
+func TestZlibByEntry(t *testing.T) {
+	runTestByEntry(t, compressor.ZLib)
+}
+
+func TestNopByFile(t *testing.T) {
+	runTestByFile(t, compressor.Nop)
+}
+
+func TestGzipByFile(t *testing.T) {
+	runTestByFile(t, compressor.GZip)
+}
+
+func TestLzwByFile(t *testing.T) {
+	runTestByFile(t, compressor.LempelZivWelch)
+}
+
+func TestZlibByFile(t *testing.T) {
+	runTestByFile(t, compressor.ZLib)
+}
+
+func runTestAll(t *testing.T, ct compressor.Type) {
+	t.Cleanup(clearArcOut)
+	initRootEnts(t)
+	t.Log("Testing archivate all files in",
+		testPath, "with", ct, "algorithm")
+	params.CompType = ct
+	runAll(t)
+	clearArcOut()
+}
+
+func runTestByEntry(t *testing.T, ct compressor.Type) {
+	t.Cleanup(clearArcOut)
+	initRootEnts(t)
+	t.Log("Testing archivate by directory with",
+		ct, "algorithm")
+	params.CompType = ct
+	runByEntry(t)
+	clearArcOut()
+}
+
+func runTestByFile(t *testing.T, ct compressor.Type) {
+	t.Cleanup(clearArcOut)
+
+	initRootEnts(t)
+	var rootPaths []string
+	for _, e := range rootEnts {
+		rootPaths = append(rootPaths,
+			filepath.Join(prefix, testPath, e.Name()))
+	}
+
+	t.Log("Testing archivate by file with", ct, "algorithm")
+	params.CompType = ct
+	runByFile(t, rootPaths)
+	clearArcOut()
+}
 
 func baseTesting(t *testing.T, path string) {
 	archive, err := arc.NewArc(&params)
@@ -38,24 +122,23 @@ func baseTesting(t *testing.T, path string) {
 	}
 
 	t.Logf("Testing %s compress '%s'", params.CompType, path)
+	disableStdout()
 	if err = archive.Compress(params.InputPaths); err != nil {
+		enableStdout()
 		t.Fatal(err)
 	}
+	enableStdout()
 
 	t.Logf("Testing %s decompress '%s'", params.CompType, path)
+	disableStdout()
 	if err = archive.Decompress(params.OutputDir, false); err != nil {
+		enableStdout()
 		t.Fatal(err)
 	}
+	enableStdout()
 }
 
-func archivateAll(t *testing.T) {
-	defer func() {
-		if t.Failed() {
-			// Действия, которые нужно выполнить при провале теста
-			t.Log("Test failed, performing cleanup...")
-		}
-	}()
-
+func runAll(t *testing.T) {
 	for _, rootEnt := range rootEnts {
 		path := filepath.Join(prefix, testPath, rootEnt.Name())
 		params.InputPaths = append(params.InputPaths, path)
@@ -69,7 +152,7 @@ func archivateAll(t *testing.T) {
 	}
 }
 
-func archivateRootEnt(t *testing.T) {
+func runByEntry(t *testing.T) {
 	params.InputPaths = make([]string, 1)
 
 	for _, rootEnt := range rootEnts {
@@ -83,7 +166,7 @@ func archivateRootEnt(t *testing.T) {
 	}
 }
 
-func archivateFile(t *testing.T, rootPaths []string) {
+func runByFile(t *testing.T, rootPaths []string) {
 	params.InputPaths = make([]string, 1)
 
 	for _, rootPath := range rootPaths {
@@ -100,48 +183,8 @@ func archivateFile(t *testing.T, rootPaths []string) {
 	}
 }
 
-func TestArchiveAll(t *testing.T) {
-	t.Cleanup(clearArcOut)
-
-	initRootEnts(t)
-	for ct := compressor.Type(0); ct < 4; ct++ {
-		t.Log("Testing archivate with", ct, "algorithm")
-
-		params.CompType = ct
-		archivateAll(t)
-	}
-}
-
-func TestArchiveRootEnt(t *testing.T) {
-	t.Cleanup(clearArcOut)
-
-	initRootEnts(t)
-	for ct := compressor.Type(1); ct < 4; ct++ {
-		t.Log("Testing archivate per directory with", ct, "algorithm")
-
-		params.CompType = ct
-		archivateRootEnt(t)
-	}
-}
-
-func TestArchiveFile(t *testing.T) {
-	t.Cleanup(clearArcOut)
-
-	initRootEnts(t)
-	var rPaths []string
-	for _, rE := range rootEnts {
-		rPaths = append(rPaths, filepath.Join(prefix, testPath, rE.Name()))
-	}
-
-	for ct := compressor.Type(1); ct < 4; ct++ {
-		t.Log("Testing archivate per file with", ct, "algorithm")
-
-		params.CompType = ct
-		archivateFile(t, rPaths)
-	}
-}
-
 func initRootEnts(t *testing.T) {
+	var err error
 	rootEnts, err = fetchRootDir()
 	if err != nil {
 		t.Fatal("can't fetch root entries:", err)
@@ -158,17 +201,18 @@ func init() {
 }
 
 func clearArcOut() {
-	if err := os.RemoveAll(outPath); err != nil {
-		fmt.Println("error deleting outPath:", err)
-	} else {
-		fmt.Println("outPath deleted")
-	}
+	os.RemoveAll(outPath)
+	os.Remove(archivePath)
+}
 
-	if err := os.Remove(archivePath); err != nil {
-		fmt.Println("error deleting archivePath:", err)
-	} else {
-		fmt.Println("archivePath deleted")
-	}
+func disableStdout() {
+	os.Stdout = nil
+	os.Stderr = nil
+}
+
+func enableStdout() {
+	os.Stdout = stdout
+	os.Stderr = stderr
 }
 
 func fetchRootDir() ([]os.DirEntry, error) {

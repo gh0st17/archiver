@@ -62,8 +62,7 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size
 	var (
 		totalRead header.Size
 		n         int
-		err       error
-		eof       bool
+		err, eof  error
 		crc       uint32
 	)
 
@@ -73,9 +72,11 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size
 		}
 	}
 
-	for !eof {
-		if n, eof, err = arc.loadCompressedBuf(arcFile); err != nil {
-			return 0, fmt.Errorf("check CRC: %v", err)
+	for eof == nil {
+		if n, eof = arc.loadCompressedBuf(arcFile); eof != nil {
+			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
+				return 0, fmt.Errorf("check CRC: %v", eof)
+			}
 		} else {
 			totalRead += header.Size(n)
 		}

@@ -135,10 +135,12 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 		}
 	}
 
-	var eof bool
-	for !eof {
-		if _, eof, err = arc.loadCompressedBuf(arcFile); err != nil {
-			return fmt.Errorf("decompressFile: %v", err)
+	var eof error
+	for eof == nil {
+		if _, eof = arc.loadCompressedBuf(arcFile); eof != nil {
+			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
+				return fmt.Errorf("decompressFile: %v", eof)
+			}
 		}
 
 		if err = arc.decompressBuffers(&(fi.CRC)); err != nil {
@@ -155,12 +157,11 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 }
 
 // Загружает данные в буферы сжатых данных
-func (Arc) loadCompressedBuf(r io.ReadSeeker) (int, bool, error) {
+func (Arc) loadCompressedBuf(r io.ReadSeeker) (int, error) {
 	var (
 		read, n    int
 		bufferSize int64
-		eof        bool
-		err        error
+		err, eof   error
 	)
 
 	skip := func(i int) {
@@ -172,33 +173,35 @@ func (Arc) loadCompressedBuf(r io.ReadSeeker) (int, bool, error) {
 	log.Println("loadCompBuf: start reading from pos: ", pos)
 
 	for i := 0; i < ncpu; i++ {
-		if eof {
+		if eof == io.EOF {
 			skip(i)
 			continue
 		}
 
 		if err = binary.Read(r, binary.LittleEndian, &bufferSize); err != nil {
-			return 0, false, fmt.Errorf("loadCompressedBuf: can't binary read: %v", err)
+			return 0, fmt.Errorf("loadCompressedBuf: can't binary read: %v", err)
 		}
 
 		if bufferSize == -1 {
 			log.Println("Read EOF")
 			skip(i)
-			eof = true
+			eof = io.EOF
 			continue
 		}
 		log.Println("Read length of compressed data:", bufferSize)
 
 		compressedBuf[i] = compressedBuf[i][:bufferSize]
 
-		if n, err = io.ReadFull(r, compressedBuf[i]); err != nil {
-			return 0, false, fmt.Errorf("loadCompressedBuf: can't read: %v", err)
-		} else {
-			read += n
+		if n, eof = io.ReadFull(r, compressedBuf[i]); eof != nil {
+			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
+				return 0, fmt.Errorf("loadCompressedBuf: can't read: %v", eof)
+			}
 		}
+
+		read += n
 	}
 
-	return read, eof, nil
+	return read, eof
 }
 
 // Распаковывает данные в буферах сжатых данных

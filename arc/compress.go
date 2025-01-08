@@ -103,6 +103,8 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 	var (
 		totalRead  header.Size
 		maxCompLen atomic.Int64
+		n          int
+		eof        error
 	)
 
 	for i := 0; i < ncpu; i++ {
@@ -111,11 +113,11 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 		}
 	}
 
-	var eof bool
-	var n int
-	for !eof {
-		if n, eof, err = arc.loadUncompressedBuf(inFile); err != nil {
-			return fmt.Errorf("compressFile: can't load buf: %v", err)
+	for eof == nil {
+		if n, eof = arc.loadUncompressedBuf(inFile); eof != nil {
+			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
+				return fmt.Errorf("compressFile: can't load buf: %v", eof)
+			}
 		} else {
 			totalRead += header.Size(n)
 		}
@@ -166,29 +168,22 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 }
 
 // Загружает данные в буферы несжатых данных
-func (Arc) loadUncompressedBuf(r io.Reader) (int, bool, error) {
+func (Arc) loadUncompressedBuf(r io.Reader) (int, error) {
 	var (
 		read, n int
-		eof     bool
 		err     error
 	)
 
 	for i := 0; i < ncpu; i++ {
-		if eof {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			uncompressedBuf[i] = uncompressedBuf[i][:0]
 			log.Println("uncompressedBuf", i, "doesn't need, skipping")
 			continue
 		}
 
-		// if int64(remaining) < c.BufferSize {
-		// 	uncompressedBuf[i] = uncompressedBuf[i][:remaining]
-		// }
-
 		if n, err = io.ReadFull(r, uncompressedBuf[i]); err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				eof = true
-			} else {
-				return 0, false, fmt.Errorf("loadUncompressedBuf: can't read: %v", err)
+			if err != io.EOF && err != io.ErrUnexpectedEOF {
+				return 0, fmt.Errorf("loadUncompressedBuf: can't read: %v", err)
 			}
 		}
 
@@ -196,7 +191,7 @@ func (Arc) loadUncompressedBuf(r io.Reader) (int, bool, error) {
 		uncompressedBuf[i] = uncompressedBuf[i][:n]
 	}
 
-	return read, eof, nil
+	return read, err
 }
 
 // Сжимает данные в буферах несжатых данных
