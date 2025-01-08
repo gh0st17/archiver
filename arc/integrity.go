@@ -66,8 +66,8 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size
 		crc       uint32
 	)
 
-	if cap(compressedBuf[0]) == 0 {
-		for i := 0; i < ncpu; i++ {
+	for i := 0; i < ncpu; i++ {
+		if cap(compressedBuf[i]) < int(arc.maxCompLen) {
 			compressedBuf[i] = make([]byte, arc.maxCompLen)
 		}
 	}
@@ -86,7 +86,7 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size
 			compressedBuf[i] = compressedBuf[i][:cap(compressedBuf[i])]
 		}
 	}
-	fi.SetDamaged(crc != 0)
+	fi.SetDamaged(crc != fi.CRC())
 
 	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
 		return 0, err

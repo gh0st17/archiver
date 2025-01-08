@@ -9,7 +9,7 @@ import (
 
 // Максимальная ширина имени файла
 // в выводе статистики
-const maxFilePathWidth int = 18
+const maxFilePathWidth int = 20
 
 const dateFormat string = "02.01.2006 15:04:05"
 
@@ -38,7 +38,7 @@ func (a ByPath) Less(i, j int) bool {
 
 type Size int64
 
-// fmt.Stringer
+// Реализация fmt.Stringer
 func (bytes Size) String() string {
 	const unit = 1000
 

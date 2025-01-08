@@ -14,8 +14,13 @@ type Base struct {
 	modTime time.Time
 }
 
-func (b Base) Path() string    { return b.path }
+// Возвращает путь до элемента
+func (b Base) Path() string { return b.path }
+
+// Возвращает время последнего доступа
 func (b Base) Atim() time.Time { return b.accTime }
+
+// Возвращает время последней модификации
 func (b Base) Mtim() time.Time { return b.modTime }
 
 func NewBase(path string, atim, mtim time.Time) Base {
@@ -26,6 +31,7 @@ func NewBase(path string, atim, mtim time.Time) Base {
 	}
 }
 
+// Сериализует в себя данные из r
 func (b *Base) Read(r io.Reader) error {
 	var (
 		err                  error
@@ -64,6 +70,7 @@ func (b *Base) Read(r io.Reader) error {
 	return nil
 }
 
+// Сериализует данные полей в писатель w
 func (b Base) Write(w io.Writer) (err error) {
 	// Пишем длину строки имени файла или директории
 	if checkRootSlash(&(b.path)) {

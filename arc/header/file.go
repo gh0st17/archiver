@@ -15,14 +15,28 @@ type FileItem struct {
 	damaged       bool
 }
 
-func (fi FileItem) UcSize() Size    { return fi.ucSize }
-func (fi FileItem) CSize() Size     { return fi.cSize }
-func (fi FileItem) CRC() uint32     { return fi.crc }
+// Возвращает размер данных в несжатом виде
+func (fi FileItem) UcSize() Size { return fi.ucSize }
+
+// Возвращает размер данных в сжатом виде
+func (fi FileItem) CSize() Size { return fi.cSize }
+
+// Возвращает констрольную сумму CRC32
+func (fi FileItem) CRC() uint32 { return fi.crc }
+
+// Возвращает флаг наличия повреждении
 func (fi FileItem) IsDamaged() bool { return fi.damaged }
 
-func (fi *FileItem) SetUcSize(size Size)     { fi.ucSize = size }
-func (fi *FileItem) SetCSize(size Size)      { fi.cSize = size }
-func (fi *FileItem) SetCRC(crc uint32)       { fi.crc = crc }
+// Устанавливает размер данных в несжатом виде
+func (fi *FileItem) SetUcSize(size Size) { fi.ucSize = size }
+
+// Устанавливает размер данных в сжатом виде
+func (fi *FileItem) SetCSize(size Size) { fi.cSize = size }
+
+// Устанавливает констрольную сумму CRC32
+func (fi *FileItem) SetCRC(crc uint32) { fi.crc = crc }
+
+// Устанавливает флаг наличия повреждении
 func (fi *FileItem) SetDamaged(damaged bool) { fi.damaged = damaged }
 
 func NewFileItem(base Base, ucSize Size) FileItem {
