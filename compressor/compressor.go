@@ -111,21 +111,16 @@ func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
 func (w Writer) Write(p []byte) (int, error) {
 	n, err := w.writer.Write(p)
 	if err != nil {
-		w.writer.Close()
 		return 0, fmt.Errorf("compressor write error: %v", err)
-	}
-
-	if err = w.writer.Close(); err != nil {
-		return 0, fmt.Errorf("compressor close error: %v", err)
 	}
 
 	return n, nil
 }
 
+func (w Writer) Close() error { return w.writer.Close() }
+
 // Распаковывает из внутреннего reader в p len(p) байт
 func (r Reader) Read(p *[]byte) (int, error) {
-	defer r.reader.Close()
-
 	buf := bytes.NewBuffer(nil)
 	n, err := io.Copy(buf, r.reader)
 	if err != nil {
@@ -136,3 +131,5 @@ func (r Reader) Read(p *[]byte) (int, error) {
 
 	return int(n), nil
 }
+
+func (r Reader) Close() error { return r.reader.Close() }

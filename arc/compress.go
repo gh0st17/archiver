@@ -4,7 +4,6 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/filesystem"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
@@ -208,13 +207,16 @@ func (arc Arc) compressBuffers(maxCompLen *atomic.Int64) error {
 		go func(i int) {
 			defer wg.Done()
 
-			buf := bytes.NewBuffer(nil)
-			compressor := c.NewWriter(arc.CompType, buf, c.Level(-1))
+			compByteBuf[i].Reset()
+			compressor := c.NewWriter(arc.CompType, compByteBuf[i], c.Level(-1))
 			_, err := compressor.Write(uncompressedBuf[i])
 			if err != nil {
 				errChan <- err
 			}
-			compressedBuf[i] = buf.Bytes()
+			if err = compressor.Close(); err != nil {
+				errChan <- err
+			}
+			compressedBuf[i] = compByteBuf[i].Bytes()
 
 			if len(compressedBuf[i]) > int(maxCompLen.Load()) {
 				maxCompLen.Store(int64(len(compressedBuf[i])))

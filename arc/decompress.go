@@ -4,7 +4,6 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/filesystem"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
@@ -136,6 +135,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 	for i := 0; i < ncpu; i++ {
 		if cap(compressedBuf[i]) < int(arc.maxCompLen) {
 			compressedBuf[i] = make([]byte, arc.maxCompLen)
+			uncompressedBuf[i] = make([]byte, c.BufferSize)
 		}
 	}
 
@@ -205,6 +205,7 @@ func (Arc) loadCompressedBuf(r io.ReadSeeker) (int, error) {
 				return 0, fmt.Errorf("loadCompressedBuf: can't read: %v", eof)
 			}
 		}
+		decompByteBuf[i].Write(compressedBuf[i])
 
 		read += n
 	}
@@ -226,8 +227,8 @@ func (arc Arc) decompressBuffers(crc *uint32) error {
 		go func(i int) {
 			defer wg.Done()
 
-			buf := bytes.NewBuffer(compressedBuf[i])
-			decompressor := c.NewReader(arc.CompType, buf)
+			decompressor := c.NewReader(arc.CompType, decompByteBuf[i])
+			defer decompressor.Close()
 			n, err := decompressor.Read(&uncompressedBuf[i])
 			if err != nil {
 				errChan <- err

@@ -3,6 +3,7 @@ package arc
 import (
 	c "archiver/compressor"
 	"archiver/filesystem"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
@@ -18,6 +19,8 @@ var (
 	ncpu            = runtime.NumCPU()
 	uncompressedBuf = make([][]byte, ncpu)
 	compressedBuf   = make([][]byte, ncpu)
+	compByteBuf     = make([]*bytes.Buffer, ncpu)
+	decompByteBuf   = make([]*bytes.Buffer, ncpu)
 )
 
 // Структура параметров архива
@@ -77,4 +80,11 @@ func NewArc(arcPath string, inPaths []string, ct c.Type) (*Arc, error) {
 
 func (arc Arc) RemoveTmp() {
 	os.Remove(arc.ArchivePath)
+}
+
+func init() {
+	for i := 0; i < ncpu; i++ {
+		compByteBuf[i] = bytes.NewBuffer(nil)
+		decompByteBuf[i] = bytes.NewBuffer(compressedBuf[i])
+	}
 }
