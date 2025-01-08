@@ -9,12 +9,22 @@ import (
 )
 
 type Base struct {
-	Filepath string
-	AccTime  time.Time
-	ModTime  time.Time
+	path    string
+	accTime time.Time
+	modTime time.Time
 }
 
-func (b Base) Path() string { return b.Filepath }
+func (b Base) Path() string    { return b.path }
+func (b Base) Atim() time.Time { return b.accTime }
+func (b Base) Mtim() time.Time { return b.modTime }
+
+func NewBase(path string, atim, mtim time.Time) Base {
+	return Base{
+		path:    path,
+		accTime: atim,
+		modTime: mtim,
+	}
+}
 
 func (b *Base) Read(r io.Reader) error {
 	var (
@@ -46,9 +56,9 @@ func (b *Base) Read(r io.Reader) error {
 	}
 
 	*b = Base{
-		Filepath: string(filePathBytes),
-		ModTime:  time.Unix(unixMTime, 0),
-		AccTime:  time.Unix(unixATime, 0),
+		path:    string(filePathBytes),
+		modTime: time.Unix(unixMTime, 0),
+		accTime: time.Unix(unixATime, 0),
 	}
 
 	return nil
@@ -56,21 +66,21 @@ func (b *Base) Read(r io.Reader) error {
 
 func (b Base) Write(w io.Writer) (err error) {
 	// Пишем длину строки имени файла или директории
-	if checkRootSlash(&(b.Filepath)) {
+	if checkRootSlash(&(b.path)) {
 		fmt.Println("Удаляется начальный /")
 	}
 
-	b.Filepath = filesystem.Clean(b.Filepath)
-	if err = binary.Write(w, binary.LittleEndian, int64(len(b.Filepath))); err != nil {
+	b.path = filesystem.Clean(b.path)
+	if err = binary.Write(w, binary.LittleEndian, int64(len(b.path))); err != nil {
 		return err
 	}
 
 	// Пишем имя файла или директории
-	if err = binary.Write(w, binary.BigEndian, []byte(b.Filepath)); err != nil {
+	if err = binary.Write(w, binary.BigEndian, []byte(b.path)); err != nil {
 		return err
 	}
 
-	atime, mtime := b.AccTime.Unix(), b.ModTime.Unix()
+	atime, mtime := b.accTime.Unix(), b.modTime.Unix()
 
 	// Пишем время модификации
 	if err = binary.Write(w, binary.LittleEndian, mtime); err != nil {

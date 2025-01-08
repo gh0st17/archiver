@@ -13,15 +13,15 @@ import (
 )
 
 const (
-	prefix      = "../"
-	testPath    = "testdata"
-	arcName     = "archive.arc"
-	archivePath = prefix + testPath + "/" + arcName
-	outPath     = prefix + testPath + "/out"
+	prefix   = "../"
+	testPath = "testdata"
+	arcName  = "archive.arc"
 )
 
 var (
-	params p.Params = p.Params{
+	archivePath = filepath.Join(os.TempDir(), arcName)
+	outPath     = filepath.Join(os.TempDir(), "/out")
+	params      = p.Params{
 		ArchivePath: archivePath,
 		OutputDir:   outPath,
 		Level:       -1,

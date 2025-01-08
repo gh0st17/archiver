@@ -10,10 +10,26 @@ import (
 // Описание файла
 type FileItem struct {
 	Base
-	UncompressedSize Size
-	CompressedSize   Size
-	CRC              uint32
-	Damaged          bool
+	ucSize, cSize Size
+	crc           uint32
+	damaged       bool
+}
+
+func (fi FileItem) UcSize() Size    { return fi.ucSize }
+func (fi FileItem) CSize() Size     { return fi.cSize }
+func (fi FileItem) CRC() uint32     { return fi.crc }
+func (fi FileItem) IsDamaged() bool { return fi.damaged }
+
+func (fi *FileItem) SetUcSize(size Size)   { fi.ucSize = size }
+func (fi *FileItem) SetCSize(size Size)    { fi.cSize = size }
+func (fi *FileItem) SetCRC(crc uint32)     { fi.crc = crc }
+func (fi *FileItem) SetDamaged(crc uint32) { fi.damaged = crc != fi.CRC() }
+
+func NewFileItem(base Base, ucSize Size) FileItem {
+	return FileItem{
+		Base:   base,
+		ucSize: ucSize,
+	}
 }
 
 func (fi *FileItem) Read(r io.Reader) (err error) {
@@ -22,19 +38,9 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 	}
 
 	// Читаем размер файла до сжатия
-	if err = binary.Read(r, binary.LittleEndian, &(fi.UncompressedSize)); err != nil {
+	if err = binary.Read(r, binary.LittleEndian, &(fi.ucSize)); err != nil {
 		return err
 	}
-
-	// Читаем размер файла после сжатия
-	// if err = binary.Read(r, binary.LittleEndian, &(fi.CompressedSize)); err != nil {
-	// 	return err
-	// }
-
-	// Читаем контрольную сумму
-	// if err = binary.Read(r, binary.LittleEndian, &(fi.CRC)); err != nil {
-	// 	return err
-	// }
 
 	return nil
 }
@@ -45,39 +51,29 @@ func (fi FileItem) Write(w io.Writer) (err error) {
 	}
 
 	// Пишем размер файла до сжатия
-	if err = binary.Write(w, binary.LittleEndian, fi.UncompressedSize); err != nil {
+	if err = binary.Write(w, binary.LittleEndian, fi.ucSize); err != nil {
 		return err
 	}
-
-	// // Пишем размер файла после сжатия
-	// if err = binary.Write(w, binary.LittleEndian, fi.CompressedSize); err != nil {
-	// 	return err
-	// }
-
-	// // Пишем контрольную сумму
-	// if err = binary.Write(w, binary.LittleEndian, fi.CRC); err != nil {
-	// 	return err
-	// }
 
 	return nil
 }
 
 // Реализация fmt.Stringer
 func (fi FileItem) String() string {
-	filepath := prefix(fi.Filepath)
+	path := prefix(fi.path)
 
-	ratio := float32(fi.CompressedSize) / float32(fi.UncompressedSize) * 100.0
+	ratio := float32(fi.cSize) / float32(fi.ucSize) * 100.0
 	if math.IsInf(float64(ratio), 1) {
 		ratio = 0
 	} else if math.IsNaN(float64(ratio)) {
 		ratio = 0
 	}
 
-	mtime := fi.ModTime.Format(dateFormat)
+	mtime := fi.modTime.Format(dateFormat)
 
 	return fmt.Sprintf(
 		"%-*s %11s %11s %6.2f %10s  %s %8X",
-		maxFilePathWidth, filepath, fi.UncompressedSize,
-		fi.CompressedSize, ratio, "Файл", mtime, fi.CRC,
+		maxFilePathWidth, path, fi.ucSize,
+		fi.cSize, ratio, "Файл", mtime, fi.crc,
 	)
 }

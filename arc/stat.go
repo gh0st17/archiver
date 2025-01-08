@@ -24,8 +24,8 @@ func (arc Arc) ViewStat() error {
 		fmt.Println(h)
 
 		if fi, ok := h.(*header.FileItem); ok {
-			original += fi.UncompressedSize
-			compressed += fi.CompressedSize
+			original += fi.UcSize()
+			compressed += fi.CSize()
 		}
 	}
 	header.PrintSummary(compressed, original)

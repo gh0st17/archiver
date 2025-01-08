@@ -10,6 +10,8 @@ type DirItem struct {
 	Base
 }
 
+func NewDirItem(base Base) DirItem { return DirItem{base} }
+
 func (di *DirItem) Read(r io.Reader) error {
 	if err := di.Base.Read(r); err != nil {
 		return err
@@ -20,8 +22,8 @@ func (di *DirItem) Read(r io.Reader) error {
 
 // Реализация fmt.Stringer
 func (di DirItem) String() string {
-	filename := prefix(di.Filepath)
-	mtime := di.ModTime.Format(dateFormat)
+	filename := prefix(di.path)
+	mtime := di.modTime.Format(dateFormat)
 
 	return fmt.Sprintf(
 		"%-*s %41s  %s", maxFilePathWidth,

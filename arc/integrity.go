@@ -35,11 +35,11 @@ func (arc Arc) IntegrityTest() error {
 // Распаковывает файл проверяя CRC32 каждого блока сжатых данных
 func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 	// Если размер файла равен 0, то пропускаем
-	if fi.UncompressedSize == 0 {
+	if fi.UcSize() == 0 {
 		return nil
 	}
 
-	skipLen := int64(len(fi.Filepath)) + 32
+	skipLen := int64(len(fi.Path())) + 32
 	if _, err := arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
 		return err
 	}
@@ -48,10 +48,10 @@ func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 		return err
 	}
 
-	if fi.Damaged {
-		fmt.Println(fi.Filepath + ": Файл поврежден")
+	if fi.IsDamaged() {
+		fmt.Println(fi.Path() + ": Файл поврежден")
 	} else {
-		fmt.Println(fi.Filepath + ": OK")
+		fmt.Println(fi.Path() + ": OK")
 		log.Println("CRC matched")
 	}
 
@@ -91,7 +91,7 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size
 		return 0, err
 	}
 
-	fi.Damaged = crc != fi.CRC
+	fi.SetDamaged(crc)
 
 	return totalRead, nil
 }

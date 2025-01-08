@@ -23,19 +23,17 @@ func fetchFile(filepath string) (h header.Header, err error) {
 	}
 	atime, mtime := amTimes(info)
 
-	b := header.Base{
-		Filepath: fp.ToSlash(filepath),
-		AccTime:  atime,
-		ModTime:  mtime,
-	}
-
 	if info.IsDir() {
-		h = &header.DirItem{Base: b}
+		di := header.NewDirItem(
+			header.NewBase(fp.ToSlash(filepath), atime, mtime),
+		)
+		h = &di
 	} else {
-		h = &header.FileItem{
-			Base:             b,
-			UncompressedSize: header.Size(info.Size()),
-		}
+		fi := header.NewFileItem(
+			header.NewBase(fp.ToSlash(filepath), atime, mtime),
+			header.Size(info.Size()),
+		)
+		h = &fi
 	}
 
 	return h, nil
@@ -134,6 +132,7 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 		files    []header.FileItem
 		dataSize header.Size
 		err      error
+		crc      uint32
 	)
 
 	for { // One cycle is one file
@@ -151,12 +150,12 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 		if dataSize, err = arc.readSize(arcFile); err != nil {
 			return nil, err
 		}
+		fi.SetCSize(dataSize)
 
-		fi.CompressedSize = dataSize
-
-		if err = binary.Read(arcFile, binary.LittleEndian, &(fi.CRC)); err != nil {
+		if err = binary.Read(arcFile, binary.LittleEndian, &crc); err != nil {
 			return nil, err
 		}
+		fi.SetCRC(crc)
 
 		files = append(files, fi)
 	}

@@ -8,6 +8,10 @@ import (
 
 // Разбивает путь на компоненты
 func splitPath(path string) []string {
+	if path == "/" {
+		return []string{path}
+	}
+
 	dir, last := filepath.Split(path)
 	if dir == "" {
 		return []string{last}

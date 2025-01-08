@@ -59,11 +59,11 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 			break
 		}
 
-		outPath = filepath.Join(outputDir, di.Filepath)
+		outPath = filepath.Join(outputDir, di.Path())
 		if err = filesystem.CreatePath(outPath); err != nil {
 			return fmt.Errorf("decompress: can't create path '%s': %v", outPath, err)
 		}
-		if err = os.Chtimes(outPath, di.AccTime, di.ModTime); err != nil {
+		if err = os.Chtimes(outPath, di.Atim(), di.Mtim()); err != nil {
 			return err
 		}
 		fmt.Println(outPath)
@@ -72,12 +72,12 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 	for _, h := range headers[firstFileIdx:] {
 		fi := h.(*header.FileItem)
-		outPath = filepath.Join(outputDir, fi.Filepath)
+		outPath = filepath.Join(outputDir, fi.Path())
 		if err = filesystem.CreatePath(filepath.Dir(outPath)); err != nil {
 			return fmt.Errorf("decompress: can't create path '%s': %v", outPath, err)
 		}
 
-		skipLen = int64(len(fi.Filepath)) + 32
+		skipLen = int64(len(fi.Path())) + 32
 		if dataPos, err = arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
 			return err
 		}
@@ -86,8 +86,8 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		if integ {
 			arc.checkCRC(fi, arcFile)
 
-			if fi.Damaged {
-				fmt.Printf("Пропускаю повежденный '%s'\n", fi.Filepath)
+			if fi.IsDamaged() {
+				fmt.Printf("Пропускаю повежденный '%s'\n", fi.Path())
 				continue
 			} else {
 				arcFile.Seek(dataPos, io.SeekStart)
@@ -104,11 +104,15 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		}
 		log.Println("Skipped CRC, new arcFile pos:", dataPos)
 
-		if err = os.Chtimes(outPath, fi.AccTime, fi.ModTime); err != nil {
+		if err = os.Chtimes(outPath, fi.Atim(), fi.Mtim()); err != nil {
 			return err
 		}
 
-		fmt.Println(outPath)
+		if fi.IsDamaged() {
+			fmt.Printf("%s: CRC сумма не совпадает", outPath)
+		} else {
+			fmt.Println(outPath)
+		}
 	}
 
 	return nil
@@ -123,7 +127,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 	defer outFile.Close()
 
 	// Если размер файла равен 0, то пропускаем запись
-	if fi.UncompressedSize == 0 {
+	if fi.UcSize() == 0 {
 		pos, _ := arcFile.Seek(8, io.SeekCurrent)
 		log.Println("Empty size, set to pos:", pos)
 		return nil
@@ -135,7 +139,10 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 		}
 	}
 
-	var eof error
+	var (
+		eof error
+		crc = fi.CRC()
+	)
 	for eof == nil {
 		if _, eof = arc.loadCompressedBuf(arcFile); eof != nil {
 			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
@@ -143,7 +150,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 			}
 		}
 
-		if err = arc.decompressBuffers(&(fi.CRC)); err != nil {
+		if err = arc.decompressBuffers(&crc); err != nil {
 			return fmt.Errorf("decompressFile: %v", err)
 		}
 
@@ -152,6 +159,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 			compressedBuf[i] = compressedBuf[i][:cap(compressedBuf[i])]
 		}
 	}
+	fi.SetDamaged(crc)
 
 	return nil
 }

@@ -94,7 +94,7 @@ func (arc Arc) Compress(paths []string) (err error) {
 
 // Сжимает файл блоками
 func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error) {
-	inFile, err := os.Open(fi.Filepath)
+	inFile, err := os.Open(fi.Path())
 	if err != nil {
 		return fmt.Errorf("compressFile: %v", err)
 	}
@@ -126,19 +126,21 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 			return fmt.Errorf("compressFile: can't compress buf: %v", err)
 		}
 
+		crc := fi.CRC()
 		for i := 0; i < ncpu && len(uncompressedBuf[i]) > 0 && len(compressedBuf[i]) > 0; i++ {
 			err = binary.Write(arcFile, binary.LittleEndian, int64(len(compressedBuf[i])))
 			if err != nil {
 				return fmt.Errorf("compressFile: can't binary write %v", err)
 			}
 
-			fi.CRC ^= crc32.Checksum(compressedBuf[i], crct)
+			crc ^= crc32.Checksum(compressedBuf[i], crct)
 
 			if _, err = arcFile.Write(compressedBuf[i]); err != nil {
 				return fmt.Errorf("compressFile: can't write '%s' %v", arc.ArchivePath, err)
 			}
 			log.Println("Written compressed data:", len(compressedBuf[i]))
 		}
+		fi.SetCRC(crc)
 	}
 
 	// Пишем признак конца файла
@@ -148,10 +150,10 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 	}
 	log.Println("Written EOF")
 	// Пишем контрольную сумму
-	if err = binary.Write(arcFile, binary.LittleEndian, fi.CRC); err != nil {
+	if err = binary.Write(arcFile, binary.LittleEndian, fi.CRC()); err != nil {
 		return err
 	}
-	log.Printf("Written CRC: %X\n", fi.CRC)
+	log.Printf("Written CRC: %X\n", fi.CRC())
 
 	if arc.maxCompLen < maxCompLen.Load() {
 		arc.maxCompLen = maxCompLen.Load()
@@ -162,7 +164,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 		uncompressedBuf[i] = uncompressedBuf[i][:cap(uncompressedBuf[i])]
 	}
 
-	fmt.Println(fi.Filepath)
+	fmt.Println(fi.Path())
 
 	return nil
 }
