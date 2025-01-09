@@ -26,7 +26,7 @@ func (di DirItem) String() string {
 	mtime := di.modTime.Format(dateFormat)
 
 	return fmt.Sprintf(
-		"%-*s %41s  %s", maxFilePathWidth,
+		"%-*s %42s  %s", maxFilePathWidth,
 		filename, "Директория", mtime,
 	)
 }

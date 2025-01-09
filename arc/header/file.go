@@ -84,10 +84,17 @@ func (fi FileItem) String() string {
 	}
 
 	mtime := fi.modTime.Format(dateFormat)
+	crc := func() string {
+		if fi.crc != 0 {
+			return fmt.Sprintf("%8X", fi.crc)
+		} else {
+			return "-"
+		}
+	}()
 
 	return fmt.Sprintf(
-		"%-*s %11s %11s %6.2f %10s  %s %8X",
+		"%-*s %11s %11s %7.2f %10s  %s %s",
 		maxFilePathWidth, path, fi.ucSize,
-		fi.cSize, ratio, "Файл", mtime, fi.crc,
+		fi.cSize, ratio, "Файл", mtime, crc,
 	)
 }
