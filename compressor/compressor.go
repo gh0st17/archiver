@@ -107,8 +107,8 @@ func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
 }
 
 // Сжимает из p len(p) байт во внутренний writer
-func (w Writer) Write(p []byte) (int, error) {
-	n, err := w.writer.Write(p)
+func (w Writer) Write(p []byte) (n int, err error) {
+	n, err = w.writer.Write(p)
 	if err != nil {
 		return 0, fmt.Errorf("compressor write error: %v", err)
 	}

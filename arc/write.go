@@ -8,9 +8,9 @@ import (
 
 // Записывает информацию об архиве и заголовки
 // директории в файл архива
-func (arc Arc) writeHeaderDirs(dirs []*header.DirItem) (*os.File, error) {
+func (arc Arc) writeHeaderDirs(dirs []*header.DirItem) (arcFile *os.File, err error) {
 	// Создаем файл
-	arcFile, err := os.Create(arc.ArchivePath)
+	arcFile, err = os.Create(arc.ArchivePath)
 	if err != nil {
 		return nil, err
 	}

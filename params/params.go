@@ -38,9 +38,7 @@ func PrintHelp() {
 
 // Возвращает структуру Params с прочитанными
 // входными аргументами программы
-func ParseParams() *Params {
-	var p Params
-
+func ParseParams() (p Params) {
 	flag.Usage = PrintHelp
 	flag.StringVar(&p.OutputDir, "o", "", outputDirDesc)
 
@@ -74,20 +72,20 @@ func ParseParams() *Params {
 		os.Exit(0)
 	}
 
-	checkCompType(compType, &p)
-	checkCompLevel(&p, level)
+	p.checkCompType(compType)
+	p.checkCompLevel(level)
 
 	if (p.PrintList || p.PrintStat) && len(flag.Args()) == 0 {
 		printError(archivePathError)
 	}
 
-	checkPaths(&p)
+	p.checkPaths()
 
-	return &p
+	return p
 }
 
 // Проверяет параметр уровня сжатия
-func checkCompLevel(p *Params, level int) {
+func (p *Params) checkCompLevel(level int) {
 	p.Level = compressor.Level(level)
 	if p.Level < -2 && p.Level > 9 {
 		printError(compLevelError)
@@ -97,7 +95,7 @@ func checkCompLevel(p *Params, level int) {
 }
 
 // Проверяет параметр типа компрессора
-func checkCompType(compType string, p *Params) {
+func (p *Params) checkCompType(compType string) {
 	compType = strings.ToLower(compType)
 
 	switch compType {
@@ -113,7 +111,7 @@ func checkCompType(compType string, p *Params) {
 }
 
 // Проверяет пути к файлам и архиву
-func checkPaths(p *Params) {
+func (p *Params) checkPaths() {
 	if len(flag.Args()) == 0 {
 		printError(archivePathInputPathError)
 	}

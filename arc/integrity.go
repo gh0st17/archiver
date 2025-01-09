@@ -31,7 +31,7 @@ func (arc Arc) IntegrityTest() error {
 	return nil
 }
 
-// Распаковывает файл проверяя CRC32 каждого блока сжатых данных
+// Распаковывает файл с проверкой CRC каждого блока сжатых данных
 func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 	// Если размер файла равен 0, то пропускаем
 	if fi.UcSize() == 0 {
@@ -56,6 +56,9 @@ func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 	return nil
 }
 
+// Считывает данные сжатого файла из arcFile,
+// проверяет контрольную сумму и возвращает
+// количество прочитанных байт
 func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (read header.Size, err error) {
 	var (
 		n   int64

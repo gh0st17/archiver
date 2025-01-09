@@ -20,7 +20,7 @@ func splitPath(path string) []string {
 }
 
 // Создает директории на всем пути `path`
-func CreatePath(path string) (err error) {
+func CreatePath(path string) error {
 	var (
 		splitedPath = splitPath(path)
 		fullPath    string
@@ -30,7 +30,7 @@ func CreatePath(path string) (err error) {
 		fullPath = filepath.Join(fullPath, pathPart)
 
 		if !DirExists(fullPath) {
-			if err = os.Mkdir(fullPath, 0755); err != nil {
+			if err := os.Mkdir(fullPath, 0755); err != nil {
 				return err
 			}
 		}

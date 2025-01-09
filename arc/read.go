@@ -40,9 +40,8 @@ func fetchFile(filepath string) (h header.Header, err error) {
 }
 
 // Рекурсивно собирает элементы в директории
-func fetchDir(path string) ([]header.Header, error) {
-	var headers []header.Header
-	err := fp.WalkDir(path, func(path string, _ os.DirEntry, err error) error {
+func fetchDir(path string) (headers []header.Header, err error) {
+	err = fp.WalkDir(path, func(path string, _ os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -63,11 +62,11 @@ func fetchDir(path string) ([]header.Header, error) {
 	return headers, nil
 }
 
-func (arc *Arc) readHeaders() ([]header.Header, error) {
+// Читает заголовки из архива, определяет смещение данных
+func (arc *Arc) readHeaders() (headers []header.Header, err error) {
 	var (
 		dirs  []header.DirItem
 		files []header.FileItem
-		err   error
 	)
 
 	arcFile, err := os.OpenFile(arc.ArchivePath, os.O_RDONLY, 0644)
@@ -92,7 +91,6 @@ func (arc *Arc) readHeaders() ([]header.Header, error) {
 		return nil, fmt.Errorf("read headers: %v", err)
 	}
 
-	var headers []header.Header
 	for _, dir := range dirs {
 		headers = append(headers, &dir)
 	}
@@ -103,16 +101,14 @@ func (arc *Arc) readHeaders() ([]header.Header, error) {
 	return headers, nil
 }
 
-// Читает заголовки из архива, определяет смещение данных
-func (arc *Arc) readDirsAndHeader(arcFile io.Reader) ([]header.DirItem, error) {
-	var err error
-
+// Читает заголовки директории из архива
+func (arc *Arc) readDirsAndHeader(arcFile io.Reader) (dirs []header.DirItem, err error) {
 	// Читаем количество элементов
 	var headersCount int64
 	if err = binary.Read(arcFile, binary.LittleEndian, &headersCount); err != nil {
 		return nil, err
 	}
-	dirs := make([]header.DirItem, headersCount)
+	dirs = make([]header.DirItem, headersCount)
 
 	// Читаем заголовки
 	for i := int64(0); i < headersCount; i++ {
@@ -158,12 +154,8 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 	return files, nil
 }
 
-func (arc Arc) readSize(arcFile io.ReadSeeker) (header.Size, error) {
-	var (
-		totalRead  header.Size
-		err        error
-		bufferSize int64
-	)
+func (arc Arc) readSize(arcFile io.ReadSeeker) (read header.Size, err error) {
+	var bufferSize int64
 
 	for {
 		if err = binary.Read(arcFile, binary.LittleEndian, &bufferSize); err != nil {
@@ -178,8 +170,8 @@ func (arc Arc) readSize(arcFile io.ReadSeeker) (header.Size, error) {
 			return 0, fmt.Errorf("readSize: can't seek: %v", err)
 		}
 
-		totalRead += header.Size(bufferSize)
+		read += header.Size(bufferSize)
 	}
 
-	return totalRead, nil
+	return read, nil
 }

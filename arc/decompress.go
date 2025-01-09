@@ -14,8 +14,8 @@ import (
 	"sync"
 )
 
-func (arc Arc) prepareArcFile() (*os.File, error) {
-	arcFile, err := os.Open(arc.ArchivePath)
+func (arc Arc) prepareArcFile() (arcFile *os.File, err error) {
+	arcFile, err = os.Open(arc.ArchivePath)
 	if err != nil {
 		return nil, fmt.Errorf("prepareArcFile: can't open archive: %v", err)
 	}

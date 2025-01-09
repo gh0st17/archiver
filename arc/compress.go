@@ -15,7 +15,7 @@ import (
 )
 
 // Создает архив
-func (arc Arc) Compress(paths []string) (err error) {
+func (arc Arc) Compress(paths []string) error {
 	var headers []header.Header
 
 	for _, path := range paths { // Получение списка файлов и директории
@@ -85,7 +85,7 @@ func (arc Arc) Compress(paths []string) (err error) {
 }
 
 // Сжимает файл блоками
-func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error) {
+func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 	inFile, err := os.Open(fi.Path())
 	if err != nil {
 		return fmt.Errorf("compressFile: %v", err)
@@ -150,11 +150,8 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 }
 
 // Загружает данные в буферы несжатых данных
-func (Arc) loadUncompressedBuf(r io.Reader) (int64, error) {
-	var (
-		read, n int64
-		err     error
-	)
+func (Arc) loadUncompressedBuf(r io.Reader) (read int64, err error) {
+	var n int64
 
 	for i := 0; i < ncpu; i++ {
 		lim := io.LimitReader(r, c.BufferSize)
