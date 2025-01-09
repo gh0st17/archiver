@@ -127,36 +127,30 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
-		pos, _ := arcFile.Seek(8, io.SeekCurrent)
+		pos, _ := arcFile.Seek(8, io.SeekCurrent) // Пропуск признака конца файла
 		log.Println("Empty size, set to pos:", pos)
 		return nil
 	}
 
-	for i := 0; i < ncpu; i++ {
-		if cap(compressedBuf[i]) < int(arc.maxCompLen) {
-			compressedBuf[i] = make([]byte, arc.maxCompLen)
-			uncompressedBuf[i] = make([]byte, c.BufferSize)
-		}
-	}
-
 	var (
-		eof error
+		n   int64
 		crc = fi.CRC()
 	)
-	for eof == nil {
-		if _, eof = arc.loadCompressedBuf(arcFile); eof != nil {
-			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
-				return fmt.Errorf("decompressFile: %v", eof)
-			}
-		}
-
-		if err = arc.decompressBuffers(&crc); err != nil {
+	for n != -1 {
+		if n, err = arc.loadCompressedBuf(arcFile); err != nil {
 			return fmt.Errorf("decompressFile: %v", err)
 		}
 
-		for i := 0; i < ncpu && len(compressedBuf[i]) > 0; i++ {
-			outFile.Write(uncompressedBuf[i])
-			compressedBuf[i] = compressedBuf[i][:cap(compressedBuf[i])]
+		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
+			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
+		}
+
+		if err = arc.decompressBuffers(); err != nil {
+			return fmt.Errorf("decompressFile: %v", err)
+		}
+
+		for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
+			decompressedBuf[i].WriteTo(outFile)
 		}
 	}
 	fi.SetDamaged(crc != 0)
@@ -165,75 +159,54 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, output
 }
 
 // Загружает данные в буферы сжатых данных
-func (Arc) loadCompressedBuf(r io.ReadSeeker) (int, error) {
-	var (
-		read, n    int
-		bufferSize int64
-		err, eof   error
-	)
-
-	skip := func(i int) {
-		compressedBuf[i] = compressedBuf[i][:0]
-		log.Println("compressedBuf", i, "doesn't need, skipping")
-	}
+func (Arc) loadCompressedBuf(r io.ReadSeeker) (read int64, err error) {
+	var n, bufferSize int64
 
 	pos, _ := r.Seek(0, io.SeekCurrent)
 	log.Println("loadCompBuf: start reading from pos: ", pos)
 
 	for i := 0; i < ncpu; i++ {
-		if eof == io.EOF {
-			skip(i)
-			continue
-		}
-
 		if err = binary.Read(r, binary.LittleEndian, &bufferSize); err != nil {
 			return 0, fmt.Errorf("loadCompressedBuf: can't binary read: %v", err)
 		}
 
 		if bufferSize == -1 {
 			log.Println("Read EOF")
-			skip(i)
-			eof = io.EOF
-			continue
+			return -1, nil
 		}
 		log.Println("Read length of compressed data:", bufferSize)
 
-		compressedBuf[i] = compressedBuf[i][:bufferSize]
-
-		if n, eof = io.ReadFull(r, compressedBuf[i]); eof != nil {
-			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
-				return 0, fmt.Errorf("loadCompressedBuf: can't read: %v", eof)
+		lim := io.LimitReader(r, bufferSize)
+		if n, err = compressedBuf[i].ReadFrom(lim); err != nil {
+			if err != io.EOF && err != io.ErrUnexpectedEOF {
+				return 0, fmt.Errorf("loadCompressedBuf: can't read: %v", err)
 			}
 		}
-		decompByteBuf[i].Write(compressedBuf[i])
 
 		read += n
 	}
 
-	return read, eof
+	return read, nil
 }
 
 // Распаковывает данные в буферах сжатых данных
-func (arc Arc) decompressBuffers(crc *uint32) error {
+func (arc Arc) decompressBuffers() error {
 	var (
 		errChan = make(chan error, ncpu)
 		wg      sync.WaitGroup
 	)
 
-	for i := 0; i < ncpu && len(compressedBuf[i]) > 0; i++ {
-		*crc ^= crc32.Checksum(compressedBuf[i], crct)
-
+	for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 
-			decompressor := c.NewReader(arc.CompType, decompByteBuf[i])
+			decompressor := c.NewReader(arc.CompType, compressedBuf[i])
 			defer decompressor.Close()
-			n, err := decompressor.Read(&uncompressedBuf[i])
+			_, err := decompressedBuf[i].ReadFrom(decompressor)
 			if err != nil {
 				errChan <- err
 			}
-			uncompressedBuf[i] = uncompressedBuf[i][:n]
 		}(i)
 	}
 

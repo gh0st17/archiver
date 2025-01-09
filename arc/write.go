@@ -27,12 +27,6 @@ func (arc Arc) writeHeaderDirs(dirs []*header.DirItem) (*os.File, error) {
 		return nil, err
 	}
 
-	// Пишем размер максимального блока
-	err = binary.Write(arcFile, binary.LittleEndian, arc.maxCompLen)
-	if err != nil {
-		return nil, err
-	}
-
 	// Пишем количество заголовков директории
 	err = binary.Write(arcFile, binary.LittleEndian, int64(len(dirs)))
 	if err != nil {

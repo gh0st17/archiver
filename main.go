@@ -26,7 +26,9 @@ func main() {
 	go func() {
 		<-sigChan
 		fmt.Println("Прерываю...")
-		a.RemoveTmp()
+		if len(p.InputPaths) > 0 {
+			a.RemoveTmp()
+		}
 		os.Exit(0)
 	}()
 

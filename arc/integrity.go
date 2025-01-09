@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-	"log"
 )
 
 // Проверяет целостность данных в архиве
@@ -52,45 +51,34 @@ func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 		fmt.Println(fi.Path() + ": Файл поврежден")
 	} else {
 		fmt.Println(fi.Path() + ": OK")
-		log.Println("CRC matched")
 	}
 
 	return nil
 }
 
-func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (header.Size, error) {
+func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (read header.Size, err error) {
 	var (
-		totalRead header.Size
-		n         int
-		err, eof  error
-		crc       uint32
+		n   int64
+		crc = fi.CRC()
 	)
 
-	for i := 0; i < ncpu; i++ {
-		if cap(compressedBuf[i]) < int(arc.maxCompLen) {
-			compressedBuf[i] = make([]byte, arc.maxCompLen)
-		}
-	}
-
-	for eof == nil {
-		if n, eof = arc.loadCompressedBuf(arcFile); eof != nil {
-			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
-				return 0, fmt.Errorf("check CRC: %v", eof)
-			}
-		} else {
-			totalRead += header.Size(n)
+	for n != -1 {
+		if n, err = arc.loadCompressedBuf(arcFile); err != nil {
+			return 0, fmt.Errorf("check CRC: %v", err)
 		}
 
-		for i := 0; i < ncpu && len(compressedBuf[i]) > 0; i++ {
-			crc ^= crc32.Checksum(compressedBuf[i], crct)
-			compressedBuf[i] = compressedBuf[i][:cap(compressedBuf[i])]
+		read += header.Size(n)
+
+		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
+			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
+			compressedBuf[i].Reset()
 		}
 	}
-	fi.SetDamaged(crc != fi.CRC())
+	fi.SetDamaged(crc != 0)
 
 	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
 		return 0, err
 	}
 
-	return totalRead, nil
+	return read, nil
 }

@@ -12,7 +12,6 @@ import (
 	"os"
 	"sort"
 	"sync"
-	"sync/atomic"
 )
 
 // Создает архив
@@ -82,12 +81,6 @@ func (arc Arc) Compress(paths []string) (err error) {
 		}
 	}
 
-	arcFile.Seek(3, io.SeekStart)
-	err = binary.Write(arcFile, binary.LittleEndian, arc.maxCompLen)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -100,47 +93,43 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 	defer inFile.Close()
 
 	var (
-		totalRead  header.Size
-		maxCompLen atomic.Int64
-		n          int
-		eof        error
+		totalRead header.Size
+		n         int64
+		crc       uint32
 	)
 
-	for i := 0; i < ncpu; i++ {
-		if cap(uncompressedBuf[i]) < int(c.BufferSize) {
-			uncompressedBuf[i] = make([]byte, c.BufferSize)
-		}
-	}
-
-	for eof == nil {
-		if n, eof = arc.loadUncompressedBuf(inFile); eof != nil {
-			if eof != io.EOF && eof != io.ErrUnexpectedEOF {
-				return fmt.Errorf("compressFile: can't load buf: %v", eof)
+	for {
+		if n, err = arc.loadUncompressedBuf(inFile); err != nil {
+			if err != io.EOF && err != io.ErrUnexpectedEOF {
+				return fmt.Errorf("compressFile: can't load buf: %v", err)
 			}
-		} else {
-			totalRead += header.Size(n)
 		}
 
-		if err = arc.compressBuffers(&maxCompLen); err != nil {
+		if err = arc.compressBuffers(); err != nil {
 			return fmt.Errorf("compressFile: can't compress buf: %v", err)
 		}
 
-		crc := fi.CRC()
-		for i := 0; i < ncpu && len(uncompressedBuf[i]) > 0 && len(compressedBuf[i]) > 0; i++ {
-			err = binary.Write(arcFile, binary.LittleEndian, int64(len(compressedBuf[i])))
+		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
+			err = binary.Write(arcFile, binary.LittleEndian, int64(compressedBuf[i].Len()))
 			if err != nil {
 				return fmt.Errorf("compressFile: can't binary write %v", err)
 			}
 
-			crc ^= crc32.Checksum(compressedBuf[i], crct)
+			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
-			if _, err = arcFile.Write(compressedBuf[i]); err != nil {
+			if _, err = compressedBuf[i].WriteTo(arcFile); err != nil {
 				return fmt.Errorf("compressFile: can't write '%s' %v", arc.ArchivePath, err)
 			}
-			log.Println("Written compressed data:", len(compressedBuf[i]))
+			log.Println("Written compressed data:", n)
 		}
-		fi.SetCRC(crc)
+
+		if n == 0 {
+			break
+		}
+
+		totalRead += header.Size(n)
 	}
+	fi.SetCRC(crc)
 
 	// Пишем признак конца файла
 	err = binary.Write(arcFile, binary.LittleEndian, int64(-1))
@@ -148,20 +137,12 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 		return fmt.Errorf("compressFile: can't binary write EOF: %v", err)
 	}
 	log.Println("Written EOF")
+
 	// Пишем контрольную сумму
 	if err = binary.Write(arcFile, binary.LittleEndian, fi.CRC()); err != nil {
 		return err
 	}
 	log.Printf("Written CRC: %X\n", fi.CRC())
-
-	if arc.maxCompLen < maxCompLen.Load() {
-		arc.maxCompLen = maxCompLen.Load()
-		log.Println("Max comp len now is:", arc.maxCompLen)
-	}
-
-	for i := 0; i < ncpu; i++ {
-		uncompressedBuf[i] = uncompressedBuf[i][:cap(uncompressedBuf[i])]
-	}
 
 	fmt.Println(fi.Path())
 
@@ -169,57 +150,46 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) (err error)
 }
 
 // Загружает данные в буферы несжатых данных
-func (Arc) loadUncompressedBuf(r io.Reader) (int, error) {
+func (Arc) loadUncompressedBuf(r io.Reader) (int64, error) {
 	var (
-		read, n int
+		read, n int64
 		err     error
 	)
 
 	for i := 0; i < ncpu; i++ {
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			uncompressedBuf[i] = uncompressedBuf[i][:0]
-			log.Println("uncompressedBuf", i, "doesn't need, skipping")
-			continue
-		}
-
-		if n, err = io.ReadFull(r, uncompressedBuf[i]); err != nil {
-			if err != io.EOF && err != io.ErrUnexpectedEOF {
-				return 0, fmt.Errorf("loadUncompressedBuf: can't read: %v", err)
-			}
+		lim := io.LimitReader(r, c.BufferSize)
+		if n, err = decompressedBuf[i].ReadFrom(lim); err != nil {
+			return 0, fmt.Errorf("loadUncompressedBuf: can't read: %v", err)
 		}
 
 		read += n
-		uncompressedBuf[i] = uncompressedBuf[i][:n]
+		if err == io.EOF {
+			break
+		}
 	}
 
-	return read, err
+	return read, nil
 }
 
 // Сжимает данные в буферах несжатых данных
-func (arc Arc) compressBuffers(maxCompLen *atomic.Int64) error {
+func (arc Arc) compressBuffers() error {
 	var (
 		wg      sync.WaitGroup
 		errChan = make(chan error, ncpu)
 	)
 
-	for i := 0; i < ncpu && len(uncompressedBuf[i]) > 0; i++ {
+	for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 
-			compByteBuf[i].Reset()
-			compressor := c.NewWriter(arc.CompType, compByteBuf[i], c.Level(-1))
-			_, err := compressor.Write(uncompressedBuf[i])
+			compressor := c.NewWriter(arc.CompType, compressedBuf[i], c.Level(-1))
+			_, err := decompressedBuf[i].WriteTo(compressor)
 			if err != nil {
 				errChan <- err
 			}
 			if err = compressor.Close(); err != nil {
 				errChan <- err
-			}
-			compressedBuf[i] = compByteBuf[i].Bytes()
-
-			if len(compressedBuf[i]) > int(maxCompLen.Load()) {
-				maxCompLen.Store(int64(len(compressedBuf[i])))
 			}
 		}(i)
 	}

@@ -1,7 +1,6 @@
 package compressor
 
 import (
-	"bytes"
 	"compress/flate"
 	"compress/gzip"
 	"compress/lzw"
@@ -10,7 +9,7 @@ import (
 	"io"
 )
 
-const BufferSize int64 = 1_048_576 // 1M
+const BufferSize int64 = 524288 // 512K
 
 type Type byte
 
@@ -120,16 +119,8 @@ func (w Writer) Write(p []byte) (int, error) {
 func (w Writer) Close() error { return w.writer.Close() }
 
 // Распаковывает из внутреннего reader в p len(p) байт
-func (r Reader) Read(p *[]byte) (int, error) {
-	buf := bytes.NewBuffer(nil)
-	n, err := io.Copy(buf, r.reader)
-	if err != nil {
-		return 0, err
-	}
-
-	*p = buf.Bytes()
-
-	return int(n), nil
+func (r Reader) Read(p []byte) (int, error) {
+	return r.reader.Read(p)
 }
 
 func (r Reader) Close() error { return r.reader.Close() }

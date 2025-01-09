@@ -17,10 +17,8 @@ const magicNumber uint16 = 0x5717
 var (
 	crct            = crc32.MakeTable(crc32.Koopman)
 	ncpu            = runtime.NumCPU()
-	uncompressedBuf = make([][]byte, ncpu)
-	compressedBuf   = make([][]byte, ncpu)
-	compByteBuf     = make([]*bytes.Buffer, ncpu)
-	decompByteBuf   = make([]*bytes.Buffer, ncpu)
+	compressedBuf   = make([]*bytes.Buffer, ncpu)
+	decompressedBuf = make([]*bytes.Buffer, ncpu)
 )
 
 // Структура параметров архива
@@ -28,7 +26,6 @@ type Arc struct {
 	ArchivePath string
 	CompType    c.Type
 	DataOffset  int64
-	maxCompLen  int64
 }
 
 // Возвращает новый Arc из входных параметров программы
@@ -84,7 +81,7 @@ func (arc Arc) RemoveTmp() {
 
 func init() {
 	for i := 0; i < ncpu; i++ {
-		compByteBuf[i] = bytes.NewBuffer(nil)
-		decompByteBuf[i] = bytes.NewBuffer(compressedBuf[i])
+		compressedBuf[i] = bytes.NewBuffer(nil)
+		decompressedBuf[i] = bytes.NewBuffer(nil)
 	}
 }

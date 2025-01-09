@@ -78,11 +78,6 @@ func (arc *Arc) readHeaders() ([]header.Header, error) {
 
 	arcFile.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
 
-	// Читаем размер блока
-	if err = binary.Read(arcFile, binary.LittleEndian, &arc.maxCompLen); err != nil {
-		return nil, err
-	}
-
 	if dirs, err = arc.readDirsAndHeader(arcFile); err != nil {
 		return nil, fmt.Errorf("read headers: %v", err)
 	}
