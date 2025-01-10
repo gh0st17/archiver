@@ -2,6 +2,7 @@ package arc
 
 import (
 	"archiver/arc/header"
+	"archiver/errtype"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -71,7 +72,7 @@ func (arc *Arc) readHeaders() (headers []header.Header, err error) {
 
 	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
-		return nil, err
+		return nil, errtype.ErrRuntime("не могу открыть файл архива", err)
 	}
 	defer arcFile.Close()
 
@@ -83,12 +84,12 @@ func (arc *Arc) readHeaders() (headers []header.Header, err error) {
 
 	arc.dataOffset, err = arcFile.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return nil, err
+		return nil, errtype.ErrRuntime("ошибка чтения смещения данных", err)
 	}
-	log.Println("Data Offset:", arc.dataOffset)
+	log.Println("Смещение данных:", arc.dataOffset)
 
 	if files, err = arc.readFileHeaders(arcFile); err != nil {
-		return nil, fmt.Errorf("read headers: %v", err)
+		return nil, errtype.ErrRuntime("ошибка чтения заголовков файлов", err)
 	}
 
 	for _, dir := range dirs {
@@ -106,13 +107,15 @@ func (arc *Arc) readDirsAndHeader(arcFile io.Reader) (dirs []header.DirItem, err
 	// Читаем количество элементов
 	var headersCount int64
 	if err = binary.Read(arcFile, binary.LittleEndian, &headersCount); err != nil {
-		return nil, err
+		return nil, errtype.ErrRuntime("ошибка чтения числа заголовков дирктории", err)
 	}
 	dirs = make([]header.DirItem, headersCount)
 
 	// Читаем заголовки
 	for i := int64(0); i < headersCount; i++ {
-		dirs[i].Read(arcFile)
+		if err = dirs[i].Read(arcFile); err != nil {
+			errtype.ErrRuntime("ошибка чтения заголовка директории", err)
+		}
 	}
 
 	return dirs, nil
@@ -133,18 +136,18 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 			if err == io.EOF {
 				break
 			}
-			return nil, err
+			return nil, errtype.ErrRuntime("ошибка чтения заголовка файла", err)
 		}
 
 		pos, _ := arcFile.Seek(0, io.SeekCurrent)
-		log.Println("Read file data from pos:", pos)
-		if dataSize, err = arc.readSize(arcFile); err != nil {
-			return nil, err
+		log.Println("Читаю размер сжатых данных с позиции:", pos)
+		if dataSize, err = arc.skipFile(arcFile); err != nil {
+			return nil, errtype.ErrRuntime("ошибка чтения размера сжатых данных", err)
 		}
 		fi.SetCSize(dataSize)
 
 		if err = binary.Read(arcFile, binary.LittleEndian, &crc); err != nil {
-			return nil, err
+			return nil, errtype.ErrRuntime("ошибка чтения CRC", err)
 		}
 		fi.SetCRC(crc)
 
@@ -154,23 +157,23 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 	return files, nil
 }
 
-func (arc Arc) readSize(arcFile io.ReadSeeker) (read header.Size, err error) {
+// Пропускает файл в arcFile
+func (arc Arc) skipFile(arcFile io.ReadSeeker) (read header.Size, err error) {
 	var bufferSize int64
 
-	for {
-		if err = binary.Read(arcFile, binary.LittleEndian, &bufferSize); err != nil {
-			return 0, fmt.Errorf("readSize: can't binary read: %v", err)
-		}
-
-		if bufferSize == -1 {
-			break
-		}
-
-		if _, err = arcFile.Seek(bufferSize, io.SeekCurrent); err != nil {
-			return 0, fmt.Errorf("readSize: can't seek: %v", err)
-		}
-
+	for bufferSize != -1 {
 		read += header.Size(bufferSize)
+		if _, err = arcFile.Seek(bufferSize, io.SeekCurrent); err != nil {
+			return 0, errtype.ErrDecompress("ошибка пропуска блока сжатых данных", err)
+		}
+
+		if err = binary.Read(arcFile, binary.LittleEndian, &bufferSize); err != nil {
+			return 0, errtype.ErrDecompress("не могу прочитать размер буфера", err)
+		}
+	}
+
+	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
+		return 0, errtype.ErrDecompress("ошибка пропуска контрольной суммы", err)
 	}
 
 	return read, nil

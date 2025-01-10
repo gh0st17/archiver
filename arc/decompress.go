@@ -3,6 +3,7 @@ package arc
 import (
 	"archiver/arc/header"
 	c "archiver/compressor"
+	"archiver/errtype"
 	"archiver/filesystem"
 	"bufio"
 	"encoding/binary"
@@ -19,14 +20,18 @@ import (
 func (arc Arc) prepareArcFile() (arcFile *os.File, err error) {
 	arcFile, err = os.Open(arc.arcPath)
 	if err != nil {
-		return nil, fmt.Errorf("prepareArcFile: can't open archive: %v", err)
+		return nil, errtype.ErrDecompress(
+			"ошибка при открытии архива", err,
+		)
 	}
 
 	pos, err := arcFile.Seek(arc.dataOffset, io.SeekStart)
 	if err != nil {
-		return nil, fmt.Errorf("prepareArcFile: can't seek: %v", err)
+		return nil, errtype.ErrDecompress(
+			"ошибка установки в позицию смещения данных", err,
+		)
 	}
-	log.Println("Prepare: pos set to ", pos)
+	log.Println("Позиция установлена:", pos)
 
 	return arcFile, nil
 }
@@ -35,7 +40,7 @@ func (arc Arc) prepareArcFile() (arcFile *os.File, err error) {
 func (arc Arc) Decompress(outputDir string, integ bool) error {
 	headers, err := arc.readHeaders()
 	if err != nil {
-		return fmt.Errorf("decompress: can't read headers: %v", err)
+		return errtype.ErrDecompress("ошибка чтения заголовоков", err)
 	}
 
 	arcFile, err := arc.prepareArcFile()
@@ -63,14 +68,16 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		fi := h.(*header.FileItem)
 		outPath = filepath.Join(outputDir, fi.Path())
 		if err = filesystem.CreatePath(filepath.Dir(outPath)); err != nil {
-			return fmt.Errorf("decompress: can't create path '%s': %v", outPath, err)
+			return errtype.ErrDecompress(
+				fmt.Sprintf("не могу создать путь до файла '%s'", outPath), err,
+			)
 		}
 
 		skipLen = int64(len(fi.Path())) + 32
 		if dataPos, err = arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
 			return err
 		}
-		log.Println("Skipped", skipLen, "bytes of file header, read from pos:", dataPos)
+		log.Println("Пропушенно", skipLen, "байт заголовка, читаю с позиции", dataPos)
 
 		if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
 			if arc.replaceInput(outPath, arcFile) {
@@ -91,7 +98,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		}
 
 		if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
-			return fmt.Errorf("decompress: %v", err)
+			return err
 		}
 
 		if dataPos, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
@@ -130,10 +137,16 @@ func (Arc) findFileIdx(headers []header.Header, outputDir string) (int, error) {
 		outPath := filepath.Join(outputDir, di.Path())
 		if _, err := os.Stat(outPath); errors.Is(err, os.ErrNotExist) {
 			if err = filesystem.CreatePath(outPath); err != nil {
-				return 0, fmt.Errorf("findFileIdx: can't create path '%s': %v", outPath, err)
+				return 0, errtype.ErrDecompress(
+					fmt.Sprintf("не могу создать путь до директории '%s'", outPath), err,
+				)
 			}
 			if err = os.Chtimes(outPath, di.Atim(), di.Mtim()); err != nil {
-				return 0, err
+				return 0, errtype.ErrDecompress(
+					fmt.Sprintf(
+						"не могу установить аттрибуты времени для директории '%s'", outPath,
+					), err,
+				)
 			}
 		}
 
@@ -147,6 +160,7 @@ func (Arc) findFileIdx(headers []header.Header, outputDir string) (int, error) {
 	return firstFileIdx, nil
 }
 
+// Обрабатывает вопрос замены файла
 func (arc Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 	var input rune
 	stdin := bufio.NewReader(os.Stdin)
@@ -157,6 +171,7 @@ func (arc Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 		switch input {
 		case 'A', 'a', 'В', 'в':
 			arc.replaceAll = true
+			return false
 		case 'Y', 'y', 'Д', 'д':
 		case 'N', 'n', 'Н', 'н':
 			arc.skipFile(arcFile)
@@ -175,14 +190,17 @@ func (arc Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string) error {
 	outFile, err := os.Create(outPath)
 	if err != nil {
-		return fmt.Errorf("decompressFile: %v", err)
+		return errtype.ErrDecompress("не могу создать файл для распаковки", err)
 	}
 	defer outFile.Close()
 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
-		pos, _ := arcFile.Seek(8, io.SeekCurrent) // Пропуск признака конца файла
-		log.Println("Empty size, set to pos:", pos)
+		var pos int64
+		if pos, err = arcFile.Seek(8, io.SeekCurrent); err != nil {
+			return errtype.ErrDecompress("ошибка пропуска признака EOF", err)
+		}
+		log.Println("Нулевой размер, перемещаю на позицию:", pos)
 		return nil
 	}
 
@@ -192,9 +210,9 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 	)
 	for n != -1 {
 		pos, _ := arcFile.Seek(0, io.SeekCurrent)
-		log.Println("loadCompBuf: start reading from pos: ", pos)
+		log.Println("Чтение блоков с позиции:", pos)
 		if n, err = arc.loadCompressedBuf(arcFile); err != nil {
-			return fmt.Errorf("decompressFile: %v", err)
+			return errtype.ErrDecompress("ошибка чтения сжатых блоков", err)
 		}
 
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
@@ -202,7 +220,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 		}
 
 		if err = arc.decompressBuffers(); err != nil {
-			return fmt.Errorf("decompressFile: %v", err)
+			return errtype.ErrDecompress("ошибка распаковки буферов", err)
 		}
 
 		for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
@@ -220,18 +238,18 @@ func (Arc) loadCompressedBuf(r io.Reader) (read int64, err error) {
 
 	for i := 0; i < ncpu; i++ {
 		if err = binary.Read(r, binary.LittleEndian, &bufferSize); err != nil {
-			return 0, fmt.Errorf("loadCompressedBuf: can't binary read: %v", err)
+			return 0, errtype.ErrDecompress("не могу прочитать размер блок сжатых данных", err)
 		}
 
 		if bufferSize == -1 {
-			log.Println("Read EOF")
+			log.Println("Прочитан EOF")
 			return -1, nil
 		}
-		log.Println("Read length of compressed data:", bufferSize)
+		log.Println("Прочитан блок сжатых данных:", bufferSize)
 
 		lim := io.LimitReader(r, bufferSize)
 		if n, err = compressedBuf[i].ReadFrom(lim); err != nil {
-			return 0, fmt.Errorf("loadCompressedBuf: can't read: %v", err)
+			return 0, errtype.ErrDecompress("не могу прочитать блок сжатых данных", err)
 		}
 
 		read += n
@@ -256,7 +274,7 @@ func (arc Arc) decompressBuffers() error {
 			defer decompressor.Close()
 			_, err := decompressedBuf[i].ReadFrom(decompressor)
 			if err != nil {
-				errChan <- err
+				errChan <- errtype.ErrDecompress("ошибка чтения декомпрессора", err)
 			}
 		}(i)
 	}
@@ -267,30 +285,8 @@ func (arc Arc) decompressBuffers() error {
 	}()
 
 	for err := range errChan {
-		return fmt.Errorf("decompressBuf: %v", err)
+		return err
 	}
 
 	return nil
-}
-
-// Пропускает файл в arcFile
-func (arc Arc) skipFile(arcFile io.ReadSeeker) (read header.Size, err error) {
-	var bufferSize header.Size
-
-	for bufferSize != -1 {
-		read += bufferSize
-		if _, err = arcFile.Seek(int64(bufferSize), io.SeekCurrent); err != nil {
-			return 0, err
-		}
-
-		if err = binary.Read(arcFile, binary.LittleEndian, &bufferSize); err != nil {
-			return 0, fmt.Errorf("skipFile: can't binary read: %v", err)
-		}
-	}
-
-	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-		return 0, err
-	}
-
-	return read, nil
 }

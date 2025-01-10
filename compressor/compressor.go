@@ -110,7 +110,7 @@ func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
 func (w Writer) Write(p []byte) (n int, err error) {
 	n, err = w.writer.Write(p)
 	if err != nil {
-		return 0, fmt.Errorf("compressor write error: %v", err)
+		return 0, err
 	}
 
 	return n, nil

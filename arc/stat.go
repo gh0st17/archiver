@@ -2,6 +2,7 @@ package arc
 
 import (
 	"archiver/arc/header"
+	"archiver/errtype"
 	"fmt"
 	"sort"
 )
@@ -11,7 +12,7 @@ func (arc Arc) ViewStat() error {
 	// 	Читаем элементы
 	headers, err := arc.readHeaders()
 	if err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка чтения заголовков", err)
 	}
 	sort.Sort(header.ByPath(headers))
 
@@ -38,7 +39,7 @@ func (arc Arc) ViewList() error {
 	// 	Читаем элементы
 	headers, err := arc.readHeaders()
 	if err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка чтения заголовков", err)
 	}
 	sort.Sort(header.ByPath(headers))
 

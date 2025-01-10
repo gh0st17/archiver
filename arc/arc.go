@@ -2,6 +2,7 @@ package arc
 
 import (
 	c "archiver/compressor"
+	"archiver/errtype"
 	"archiver/filesystem"
 	"bytes"
 	"encoding/binary"
@@ -37,7 +38,9 @@ func NewArc(arcPath string, inPaths []string, ct c.Type, replaceAll bool) (*Arc,
 	}
 
 	if filesystem.DirExists(arc.arcPath) {
-		return nil, fmt.Errorf("'%s' это директория", filepath.Base(arc.arcPath))
+		return nil, errtype.ErrRuntime(
+			fmt.Sprintf("'%s' это директория", filepath.Base(arc.arcPath)), nil,
+		)
 	}
 
 	if len(inPaths) > 0 {
@@ -59,7 +62,9 @@ func NewArc(arcPath string, inPaths []string, ct c.Type, replaceAll bool) (*Arc,
 			return nil, err
 		}
 		if magic != magicNumber {
-			return nil, fmt.Errorf("'%s' не архив Arc", info.Name())
+			return nil, errtype.ErrRuntime(
+				fmt.Sprintf("'%s' не архив Arc", info.Name()), nil,
+			)
 		}
 
 		var compType byte
@@ -70,7 +75,7 @@ func NewArc(arcPath string, inPaths []string, ct c.Type, replaceAll bool) (*Arc,
 		if compType <= byte(c.ZLib) {
 			arc.ct = c.Type(compType)
 		} else {
-			return nil, fmt.Errorf("неизвестный тип компрессора")
+			return nil, errtype.ErrRuntime("неизвестный тип компрессора", nil)
 		}
 	}
 

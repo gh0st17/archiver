@@ -2,6 +2,7 @@ package arc
 
 import (
 	"archiver/arc/header"
+	"archiver/errtype"
 	"encoding/binary"
 	"os"
 )
@@ -12,30 +13,29 @@ func (arc Arc) writeHeaderDirs(dirs []*header.DirItem) (arcFile *os.File, err er
 	// Создаем файл
 	arcFile, err = os.Create(arc.arcPath)
 	if err != nil {
-		return nil, err
+		return nil, errtype.ErrRuntime("не могу создать файл архива", err)
 	}
 
 	// Пишем магическое число
-	err = binary.Write(arcFile, binary.LittleEndian, magicNumber)
-	if err != nil {
-		return nil, err
+	if err = binary.Write(arcFile, binary.LittleEndian, magicNumber); err != nil {
+		return nil, errtype.ErrRuntime("ошибка записи магического числа", err)
 	}
 
 	// Пишем тип компрессора
-	err = binary.Write(arcFile, binary.LittleEndian, arc.ct)
-	if err != nil {
-		return nil, err
+	if err = binary.Write(arcFile, binary.LittleEndian, arc.ct); err != nil {
+		return nil, errtype.ErrRuntime("ошибка записи типа компрессора", err)
 	}
 
 	// Пишем количество заголовков директории
-	err = binary.Write(arcFile, binary.LittleEndian, int64(len(dirs)))
-	if err != nil {
-		return nil, err
+	if err = binary.Write(arcFile, binary.LittleEndian, int64(len(dirs))); err != nil {
+		return nil, errtype.ErrRuntime("ошибка записи количества заголовков", err)
 	}
 
 	// Пишем заголовки
 	for _, di := range dirs {
-		di.Write(arcFile)
+		if err = di.Write(arcFile); err != nil {
+			return nil, errtype.ErrRuntime("ошибка записи заголовка директории", err)
+		}
 	}
 
 	return arcFile, nil

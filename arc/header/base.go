@@ -1,6 +1,7 @@
 package header
 
 import (
+	"archiver/errtype"
 	"archiver/filesystem"
 	"encoding/binary"
 	"fmt"
@@ -42,23 +43,23 @@ func (b *Base) Read(r io.Reader) error {
 
 	// Читаем размер строки имени файла или директории
 	if err = binary.Read(r, binary.LittleEndian, &length); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка чтения длины пути элемента", err)
 	}
 
 	// Читаем имя файла
 	filePathBytes = make([]byte, length)
 	if _, err := io.ReadFull(r, filePathBytes); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка чтения пути элемента", err)
 	}
 
 	// Читаем время модификации
 	if err = binary.Read(r, binary.LittleEndian, &unixMTime); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка чтения времени модификации", err)
 	}
 
 	// Читаем время доступа
 	if err = binary.Read(r, binary.LittleEndian, &unixATime); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка чтения времени доступа", err)
 	}
 
 	*b = Base{
@@ -79,24 +80,24 @@ func (b Base) Write(w io.Writer) (err error) {
 
 	b.path = filesystem.Clean(b.path)
 	if err = binary.Write(w, binary.LittleEndian, int64(len(b.path))); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка записи длины пути элемента", err)
 	}
 
 	// Пишем имя файла или директории
 	if err = binary.Write(w, binary.BigEndian, []byte(b.path)); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка записи пути элемента", err)
 	}
 
 	atime, mtime := b.accTime.Unix(), b.modTime.Unix()
 
 	// Пишем время модификации
 	if err = binary.Write(w, binary.LittleEndian, mtime); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка записи времени модификации", err)
 	}
 
 	// Пишем имя время доступа
 	if err = binary.Write(w, binary.LittleEndian, atime); err != nil {
-		return err
+		return errtype.ErrRuntime("ошибка записи времени доступа", err)
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package arc
 
 import (
 	"archiver/arc/header"
+	"archiver/errtype"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -11,7 +12,7 @@ import (
 func (arc Arc) IntegrityTest() error {
 	headers, err := arc.readHeaders()
 	if err != nil {
-		return fmt.Errorf("integrity test: can't read headers: %v", err)
+		return errtype.ErrIntegrity("ошибка чтения заголовков", err)
 	}
 
 	arcFile, err := arc.prepareArcFile()
@@ -23,7 +24,7 @@ func (arc Arc) IntegrityTest() error {
 	for _, h := range headers {
 		if fi, ok := h.(*header.FileItem); ok {
 			if err = arc.checkFile(fi, arcFile); err != nil {
-				return fmt.Errorf("integrity test: %v", err)
+				return errtype.ErrIntegrity("ошибка проверки файла", err)
 			}
 		}
 	}
@@ -40,11 +41,11 @@ func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 
 	skipLen := int64(len(fi.Path())) + 32
 	if _, err := arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
-		return err
+		return errtype.ErrIntegrity("ошибка пропуска заголовка", err)
 	}
 
 	if _, err := arc.checkCRC(fi, arcFile); err != nil {
-		return err
+		return errtype.ErrIntegrity("ошибка проверки CRC", err)
 	}
 
 	if fi.IsDamaged() {
@@ -67,7 +68,7 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (read header
 
 	for n != -1 {
 		if n, err = arc.loadCompressedBuf(arcFile); err != nil {
-			return 0, fmt.Errorf("check CRC: %v", err)
+			return 0, errtype.ErrIntegrity("ошибка чтения сжатых блоков", err)
 		}
 
 		read += header.Size(n)
@@ -80,7 +81,7 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (read header
 	fi.SetDamaged(crc != 0)
 
 	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-		return 0, err
+		return 0, errtype.ErrIntegrity("ошибка пропуска CRC", err)
 	}
 
 	return read, nil

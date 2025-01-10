@@ -3,6 +3,7 @@ package arc
 import (
 	"archiver/arc/header"
 	c "archiver/compressor"
+	"archiver/errtype"
 	"archiver/filesystem"
 	"encoding/binary"
 	"fmt"
@@ -25,7 +26,7 @@ func (arc Arc) Compress(paths []string) error {
 			if dirHeaders, err := fetchDir(path); err == nil {
 				headers = append(headers, dirHeaders...)
 			} else {
-				return fmt.Errorf("compress: can't fetch dir: %v", err)
+				return errtype.ErrCompress("не могу получить директории", err)
 			}
 			continue
 		}
@@ -33,29 +34,36 @@ func (arc Arc) Compress(paths []string) error {
 		if h, err := fetchFile(path); err == nil { // Добавалние файла в заголовок
 			headers = append(headers, h)
 		} else {
-			return fmt.Errorf("compress: can't fetch file: %v", err)
+			return errtype.ErrCompress("не могу получить директории", err)
 		}
 	}
 
 	dirs, files := arc.sortHeaders(headers)
 
 	closeRemove := func(arcFile io.Closer) {
-		arcFile.Close()
+		if err := arcFile.Close(); err != nil {
+			errtype.ErrCompress("ошибка закрытия файла архива", err)
+		}
 		arc.RemoveTmp()
 	}
 
 	arcFile, err := arc.writeHeaderDirs(dirs)
 	if err != nil {
 		closeRemove(arcFile)
-		return fmt.Errorf("compress: %v", err)
+		return errtype.ErrCompress(
+			"не могу записать заголовки директории", err,
+		)
 	}
 	defer arcFile.Close()
 
 	for _, fi := range files {
-		fi.Write(arcFile)
+		if err = fi.Write(arcFile); err != nil {
+			closeRemove(arcFile)
+			return errtype.ErrCompress("ошибка записи заголовка файла", err)
+		}
 		if err = arc.compressFile(fi, arcFile); err != nil {
 			closeRemove(arcFile)
-			return fmt.Errorf("compressHeaders: %v", err)
+			return errtype.ErrCompress("не могу сжать файл", err)
 		}
 	}
 
@@ -94,7 +102,10 @@ func (Arc) sortHeaders(headers []header.Header) ([]*header.DirItem, []*header.Fi
 func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 	inFile, err := os.Open(fi.Path())
 	if err != nil {
-		return fmt.Errorf("compressFile: %v", err)
+		return errtype.ErrCompress(
+			fmt.Sprintf("не могу открыть входной файл '%s' для сжатия", fi.Path()),
+			err,
+		)
 	}
 	defer inFile.Close()
 
@@ -106,29 +117,26 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 
 	for {
 		if n, err = arc.loadUncompressedBuf(inFile); err != nil {
-			if err != io.EOF && err != io.ErrUnexpectedEOF {
-				return fmt.Errorf("compressFile: can't load buf: %v", err)
-			}
+			return errtype.ErrCompress("ошибка чтения не сжатых блоков", err)
 		}
 
 		if err = arc.compressBuffers(); err != nil {
-			return fmt.Errorf("compressFile: can't compress buf: %v", err)
+			return errtype.ErrCompress("ошибка сжатия буфферов", err)
 		}
 
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
-			err = binary.Write(arcFile, binary.LittleEndian, int64(compressedBuf[i].Len()))
-			if err != nil {
-				return fmt.Errorf("compressFile: can't binary write %v", err)
+			if err = binary.Write(arcFile, binary.LittleEndian, int64(compressedBuf[i].Len())); err != nil {
+				return errtype.ErrCompress("ошибка записи длины блока", err)
 			}
 
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
 			// Пишем сжатый блок
 			if _, err = compressedBuf[i].WriteTo(arcFile); err != nil {
-				return fmt.Errorf("compressFile: can't write '%s' %v", arc.arcPath, err)
+				return errtype.ErrCompress("ошибка записи буфера в файл архива", err)
 			}
-			log.Println("Written compressed data:", n)
+			log.Println("Записан сжатый буфер:", n)
 		}
 
 		if n == 0 {
@@ -140,17 +148,16 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 	fi.SetCRC(crc)
 
 	// Пишем признак конца файла
-	err = binary.Write(arcFile, binary.LittleEndian, int64(-1))
-	if err != nil {
-		return fmt.Errorf("compressFile: can't binary write EOF: %v", err)
+	if err = binary.Write(arcFile, binary.LittleEndian, int64(-1)); err != nil {
+		return errtype.ErrCompress("ошибка записи EOF", err)
 	}
-	log.Println("Written EOF")
+	log.Println("Записан EOF")
 
 	// Пишем контрольную сумму
 	if err = binary.Write(arcFile, binary.LittleEndian, fi.CRC()); err != nil {
-		return err
+		return errtype.ErrCompress("ошибка записи CRC", err)
 	}
-	log.Printf("Written CRC: %X\n", fi.CRC())
+	log.Printf("Записан CRC: %X\n", fi.CRC())
 
 	fmt.Println(fi.Path())
 
@@ -164,7 +171,7 @@ func (Arc) loadUncompressedBuf(r io.Reader) (read int64, err error) {
 	for i := 0; i < ncpu; i++ {
 		lim := io.LimitReader(r, c.BufferSize)
 		if n, err = decompressedBuf[i].ReadFrom(lim); err != nil {
-			return 0, fmt.Errorf("loadUncompressedBuf: can't read: %v", err)
+			return 0, errtype.ErrCompress("ошибка чтения в несжатый буфер", err)
 		}
 
 		read += n
@@ -188,10 +195,10 @@ func (arc Arc) compressBuffers() error {
 			compressor := c.NewWriter(arc.ct, compressedBuf[i], c.Level(-1))
 			_, err := decompressedBuf[i].WriteTo(compressor)
 			if err != nil {
-				errChan <- err
+				errChan <- errtype.ErrCompress("ошибка записи в компрессор", err)
 			}
 			if err = compressor.Close(); err != nil {
-				errChan <- err
+				errChan <- errtype.ErrCompress("ошибка закрытия компрессора", err)
 			}
 		}(i)
 	}
@@ -202,7 +209,7 @@ func (arc Arc) compressBuffers() error {
 	}()
 
 	for err := range errChan {
-		return fmt.Errorf("compressBuf: %v", err)
+		return err
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"archiver/arc"
+	"archiver/errtype"
 	"archiver/params"
 	"fmt"
 	"os"
@@ -47,8 +48,7 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Println("arc:", err)
-		os.Exit(1)
+		errtype.HandleError(*err.(*errtype.Error))
 	}
 
 	if p.MemStat {
