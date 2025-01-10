@@ -46,6 +46,8 @@ func (e Error) Error() string {
 	}
 }
 
+func (e Error) Err() error { return e.err }
+
 func ErrRuntime(message string, err error) error {
 	return &Error{
 		message: message,

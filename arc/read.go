@@ -133,7 +133,7 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 		var fi header.FileItem
 
 		if err = fi.Read(arcFile); err != nil {
-			if err == io.EOF {
+			if err.(*errtype.Error).Err() == io.EOF {
 				break
 			}
 			return nil, errtype.ErrRuntime("ошибка чтения заголовка файла", err)
@@ -167,7 +167,6 @@ func (arc Arc) skipFileData(arcFile io.ReadSeeker) (read header.Size, err error)
 	var bufferSize int64
 
 	for bufferSize != -1 {
-		read += header.Size(bufferSize)
 		if _, err = arcFile.Seek(bufferSize, io.SeekCurrent); err != nil {
 			return 0, errtype.ErrDecompress("ошибка пропуска блока сжатых данных", err)
 		}
@@ -175,6 +174,8 @@ func (arc Arc) skipFileData(arcFile io.ReadSeeker) (read header.Size, err error)
 		if err = binary.Read(arcFile, binary.LittleEndian, &bufferSize); err != nil {
 			return 0, errtype.ErrDecompress("не могу прочитать размер буфера", err)
 		}
+
+		read += header.Size(bufferSize)
 	}
 
 	return read, nil

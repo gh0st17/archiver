@@ -1,6 +1,7 @@
 package arc_test
 
 import (
+	"archiver/errtype"
 	"archiver/filesystem"
 	"bytes"
 	"crypto/md5"
@@ -67,7 +68,7 @@ func hashFileMD5(filePath string) (MD5hash, error) {
 
 	for {
 		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
+		if err != nil && err.(*errtype.Error).Err() != io.EOF {
 			return nil, fmt.Errorf("ошибка при чтении файла: %v", err)
 		}
 		if n == 0 {
