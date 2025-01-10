@@ -141,9 +141,14 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 
 		pos, _ := arcFile.Seek(0, io.SeekCurrent)
 		log.Println("Читаю размер сжатых данных с позиции:", pos)
-		if dataSize, err = arc.skipFile(arcFile); err != nil {
+		if dataSize, err = arc.skipFileData(arcFile); err != nil {
 			return nil, errtype.ErrRuntime("ошибка чтения размера сжатых данных", err)
 		}
+
+		if dataSize == 0 {
+			break
+		}
+
 		fi.SetCSize(dataSize)
 
 		if err = binary.Read(arcFile, binary.LittleEndian, &crc); err != nil {
@@ -158,7 +163,7 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 }
 
 // Пропускает файл в arcFile
-func (arc Arc) skipFile(arcFile io.ReadSeeker) (read header.Size, err error) {
+func (arc Arc) skipFileData(arcFile io.ReadSeeker) (read header.Size, err error) {
 	var bufferSize int64
 
 	for bufferSize != -1 {
@@ -170,10 +175,6 @@ func (arc Arc) skipFile(arcFile io.ReadSeeker) (read header.Size, err error) {
 		if err = binary.Read(arcFile, binary.LittleEndian, &bufferSize); err != nil {
 			return 0, errtype.ErrDecompress("не могу прочитать размер буфера", err)
 		}
-	}
-
-	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-		return 0, errtype.ErrDecompress("ошибка пропуска контрольной суммы", err)
 	}
 
 	return read, nil

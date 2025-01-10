@@ -174,7 +174,7 @@ func (arc Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 			return false
 		case 'Y', 'y', 'Д', 'д':
 		case 'N', 'n', 'Н', 'н':
-			arc.skipFile(arcFile)
+			arc.skipFileData(arcFile)
 			return true
 		default:
 			stdin.ReadString('\n')

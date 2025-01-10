@@ -111,12 +111,12 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 
 	var (
 		totalRead header.Size
-		n         int64
+		n, nn     int64
 		crc       uint32
 	)
 
 	for {
-		if n, err = arc.loadUncompressedBuf(inFile); err != nil {
+		if nn, err = arc.loadUncompressedBuf(inFile); err != nil {
 			return errtype.ErrCompress("ошибка чтения не сжатых блоков", err)
 		}
 
@@ -133,13 +133,13 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
 			// Пишем сжатый блок
-			if _, err = compressedBuf[i].WriteTo(arcFile); err != nil {
+			if n, err = compressedBuf[i].WriteTo(arcFile); err != nil {
 				return errtype.ErrCompress("ошибка записи буфера в файл архива", err)
 			}
 			log.Println("Записан сжатый буфер:", n)
 		}
 
-		if n == 0 {
+		if nn == 0 {
 			break
 		}
 
