@@ -141,11 +141,9 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 
 		pos, _ := arcFile.Seek(0, io.SeekCurrent)
 		log.Println("Читаю размер сжатых данных с позиции:", pos)
-		if dataSize, err = arc.skipFileData(arcFile); err != nil {
+		if dataSize, err = arc.skipFileData(arcFile, false); err != nil {
 			return nil, errtype.ErrRuntime("ошибка чтения размера сжатых данных", err)
-		}
-
-		if dataSize == 0 {
+		} else if dataSize == 0 {
 			break
 		}
 
@@ -163,7 +161,7 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 }
 
 // Пропускает файл в arcFile
-func (arc Arc) skipFileData(arcFile io.ReadSeeker) (read header.Size, err error) {
+func (arc Arc) skipFileData(arcFile io.ReadSeeker, skipCRC bool) (read header.Size, err error) {
 	var bufferSize int64
 
 	for bufferSize != -1 {
@@ -176,6 +174,12 @@ func (arc Arc) skipFileData(arcFile io.ReadSeeker) (read header.Size, err error)
 		}
 
 		read += header.Size(bufferSize)
+	}
+
+	if skipCRC {
+		if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
+			return 0, errtype.ErrDecompress("ошибка пропуска CRC", err)
+		}
 	}
 
 	return read, nil

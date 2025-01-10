@@ -192,10 +192,15 @@ func (arc Arc) compressBuffers() error {
 		go func(i int) {
 			defer wg.Done()
 
-			compressor := c.NewWriter(arc.ct, compressedBuf[i], c.Level(-1))
-			_, err := decompressedBuf[i].WriteTo(compressor)
+			compressor, err := c.NewWriter(arc.ct, compressedBuf[i], c.Level(-1))
+			if err != nil {
+				errChan <- errtype.ErrCompress("ошибка создания компрессора", err)
+				return
+			}
+			_, err = decompressedBuf[i].WriteTo(compressor)
 			if err != nil {
 				errChan <- errtype.ErrCompress("ошибка записи в компрессор", err)
+				return
 			}
 			if err = compressor.Close(); err != nil {
 				errChan <- errtype.ErrCompress("ошибка закрытия компрессора", err)

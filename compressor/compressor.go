@@ -1,11 +1,11 @@
 package compressor
 
 import (
+	"archiver/errtype"
 	"compress/flate"
 	"compress/gzip"
 	"compress/lzw"
 	"compress/zlib"
-	"fmt"
 	"io"
 )
 
@@ -40,19 +40,19 @@ type Reader struct {
 }
 
 // Возвращает нового читателя типа typ
-func NewReader(typ Type, r io.Reader) Reader {
+func NewReader(typ Type, r io.Reader) (*Reader, error) {
 	reader, err := newReader(typ, r)
 	if err != nil {
 		if err == io.EOF {
-			panic(fmt.Sprintf("compressor: new reader: %v", err))
+			return nil, errtype.ErrRuntime("читатель достиг EOF", err)
 		}
 
-		panic(fmt.Sprint("не могу создать новый reader: ", err))
+		return nil, errtype.ErrRuntime("не могу создать новый декомпрессор", err)
 	}
 
-	return Reader{
+	return &Reader{
 		reader: reader,
-	}
+	}, nil
 }
 
 // Выбирает читателя согласно typ
@@ -67,7 +67,7 @@ func newReader(typ Type, r io.Reader) (io.ReadCloser, error) {
 	case Nop:
 		return io.NopCloser(r), nil
 	default:
-		panic("new reader: неизвестный тип компрессора")
+		return nil, errtype.ErrRuntime("неизвестный тип компрессора", nil)
 	}
 }
 
@@ -76,18 +76,18 @@ type Writer struct {
 }
 
 // Возвращает нового писателя типа typ
-func NewWriter(typ Type, w io.Writer, l Level) Writer {
+func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
 	writer, err := newWriter(typ, w, l)
 	if err != nil {
 		if err == io.EOF {
-			panic(fmt.Sprintf("compressor: new writer: %v", err))
+			return nil, errtype.ErrRuntime("писатель достиг EOF", err)
 		}
-		panic(fmt.Sprint("не могу создать новый writer:", err))
+		return nil, errtype.ErrRuntime("не могу создать новый компрессор", err)
 	}
 
-	return Writer{
+	return &Writer{
 		writer: writer,
-	}
+	}, nil
 }
 
 // Выбирает писателя согласно typ
@@ -102,7 +102,7 @@ func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
 	case Nop:
 		return nopWriteCloser{Writer: w}, nil
 	default:
-		panic("newWriter: неизвестный тип компрессора")
+		return nil, errtype.ErrRuntime("неизвестный тип компрессора", nil)
 	}
 }
 

@@ -22,7 +22,7 @@ func (e Error) Error() string {
 		{
 		}
 	case errors.Is(e.err, gzip.ErrHeader) || errors.Is(e.err, zlib.ErrHeader):
-		eMessage = "ошибка заголовка"
+		eMessage = "ошибка заголовка сжатых данных"
 	case errors.Is(e.err, gzip.ErrChecksum) || errors.Is(e.err, zlib.ErrChecksum):
 		eMessage = "неверная контрольная сумма"
 	case errors.Is(e.err, os.ErrPermission):

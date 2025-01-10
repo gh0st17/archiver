@@ -173,7 +173,7 @@ func (arc *Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 			arc.replaceAll = true
 		case 'Y', 'y', 'Д', 'д':
 		case 'N', 'n', 'Н', 'н':
-			arc.skipFileData(arcFile)
+			arc.skipFileData(arcFile, true)
 			return true
 		default:
 			stdin.ReadString('\n')
@@ -269,9 +269,13 @@ func (arc Arc) decompressBuffers() error {
 		go func(i int) {
 			defer wg.Done()
 
-			decompressor := c.NewReader(arc.ct, compressedBuf[i])
+			decompressor, err := c.NewReader(arc.ct, compressedBuf[i])
+			if err != nil {
+				errChan <- errtype.ErrCompress("ошибка создания декомпрессора", err)
+				return
+			}
 			defer decompressor.Close()
-			_, err := decompressedBuf[i].ReadFrom(decompressor)
+			_, err = decompressedBuf[i].ReadFrom(decompressor)
 			if err != nil {
 				errChan <- errtype.ErrDecompress("ошибка чтения декомпрессора", err)
 			}
