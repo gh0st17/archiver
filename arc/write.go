@@ -10,7 +10,7 @@ import (
 // директории в файл архива
 func (arc Arc) writeHeaderDirs(dirs []*header.DirItem) (arcFile *os.File, err error) {
 	// Создаем файл
-	arcFile, err = os.Create(arc.ArchivePath)
+	arcFile, err = os.Create(arc.arcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func (arc Arc) writeHeaderDirs(dirs []*header.DirItem) (arcFile *os.File, err er
 	}
 
 	// Пишем тип компрессора
-	err = binary.Write(arcFile, binary.LittleEndian, arc.CompType)
+	err = binary.Write(arcFile, binary.LittleEndian, arc.ct)
 	if err != nil {
 		return nil, err
 	}

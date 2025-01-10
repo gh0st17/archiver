@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,8 +30,8 @@ func CreatePath(path string) error {
 	for _, pathPart := range splitedPath {
 		fullPath = filepath.Join(fullPath, pathPart)
 
-		if !DirExists(fullPath) {
-			if err := os.Mkdir(fullPath, 0755); err != nil {
+		if err := os.Mkdir(fullPath, 0755); err != nil {
+			if !errors.Is(err, os.ErrExist) {
 				return err
 			}
 		}

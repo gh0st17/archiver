@@ -23,25 +23,27 @@ var (
 
 // Структура параметров архива
 type Arc struct {
-	ArchivePath string
-	CompType    c.Type
-	DataOffset  int64
+	arcPath    string
+	ct         c.Type
+	dataOffset int64
+	replaceAll bool
 }
 
 // Возвращает новый Arc из входных параметров программы
-func NewArc(arcPath string, inPaths []string, ct c.Type) (*Arc, error) {
+func NewArc(arcPath string, inPaths []string, ct c.Type, replaceAll bool) (*Arc, error) {
 	arc := &Arc{
-		ArchivePath: arcPath,
+		arcPath:    arcPath,
+		replaceAll: replaceAll,
 	}
 
-	if filesystem.DirExists(arc.ArchivePath) {
-		return nil, fmt.Errorf("'%s' это директория", filepath.Base(arc.ArchivePath))
+	if filesystem.DirExists(arc.arcPath) {
+		return nil, fmt.Errorf("'%s' это директория", filepath.Base(arc.arcPath))
 	}
 
 	if len(inPaths) > 0 {
-		arc.CompType = ct
+		arc.ct = ct
 	} else {
-		arcFile, err := os.Open(arc.ArchivePath)
+		arcFile, err := os.Open(arc.arcPath)
 		if err != nil {
 			return nil, err
 		}
@@ -66,7 +68,7 @@ func NewArc(arcPath string, inPaths []string, ct c.Type) (*Arc, error) {
 		}
 
 		if compType <= byte(c.ZLib) {
-			arc.CompType = c.Type(compType)
+			arc.ct = c.Type(compType)
 		} else {
 			return nil, fmt.Errorf("неизвестный тип компрессора")
 		}
@@ -76,7 +78,7 @@ func NewArc(arcPath string, inPaths []string, ct c.Type) (*Arc, error) {
 }
 
 func (arc Arc) RemoveTmp() {
-	os.Remove(arc.ArchivePath)
+	os.Remove(arc.arcPath)
 }
 
 func init() {

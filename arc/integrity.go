@@ -11,7 +11,7 @@ import (
 func (arc Arc) IntegrityTest() error {
 	headers, err := arc.readHeaders()
 	if err != nil {
-		return fmt.Errorf("decompress: can't read headers: %v", err)
+		return fmt.Errorf("integrity test: can't read headers: %v", err)
 	}
 
 	arcFile, err := arc.prepareArcFile()

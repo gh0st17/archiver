@@ -37,29 +37,7 @@ func (arc Arc) Compress(paths []string) error {
 		}
 	}
 
-	// Проверяет, содержит ли срез уникалные значения
-	// Если нет, то удаляет дубликаты
-	seen := make(map[string]struct{})
-	uniqueHeaders := make([]header.Header, 0, len(headers))
-	for _, h := range headers {
-		if _, exists := seen[h.Path()]; !exists {
-			seen[h.Path()] = struct{}{}
-			uniqueHeaders = append(uniqueHeaders, h)
-		}
-	}
-	headers = uniqueHeaders
-
-	sort.Sort(header.ByPath(headers))
-
-	var dirs []*header.DirItem
-	var files []*header.FileItem
-	for _, h := range headers {
-		if d, ok := h.(*header.DirItem); ok {
-			dirs = append(dirs, d)
-		} else {
-			files = append(files, h.(*header.FileItem))
-		}
-	}
+	dirs, files := arc.sortHeaders(headers)
 
 	closeRemove := func(arcFile io.Closer) {
 		arcFile.Close()
@@ -82,6 +60,34 @@ func (arc Arc) Compress(paths []string) error {
 	}
 
 	return nil
+}
+
+// Проверяет, содержит ли срез уникалные значения
+// Если нет, то удаляет дубликаты. Сортирует пути.
+// Разделяет заголовки на директории и файлы
+func (Arc) sortHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
+	seen := make(map[string]struct{})
+	uniqueHeaders := make([]header.Header, 0, len(headers))
+	for _, h := range headers {
+		if _, exists := seen[h.Path()]; !exists {
+			seen[h.Path()] = struct{}{}
+			uniqueHeaders = append(uniqueHeaders, h)
+		}
+	}
+	headers = uniqueHeaders
+
+	sort.Sort(header.ByPath(headers))
+
+	var dirs []*header.DirItem
+	var files []*header.FileItem
+	for _, h := range headers {
+		if d, ok := h.(*header.DirItem); ok {
+			dirs = append(dirs, d)
+		} else {
+			files = append(files, h.(*header.FileItem))
+		}
+	}
+	return dirs, files
 }
 
 // Сжимает файл блоками
@@ -110,6 +116,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 		}
 
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
+			// Пишем длину сжатого блока
 			err = binary.Write(arcFile, binary.LittleEndian, int64(compressedBuf[i].Len()))
 			if err != nil {
 				return fmt.Errorf("compressFile: can't binary write %v", err)
@@ -117,8 +124,9 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
+			// Пишем сжатый блок
 			if _, err = compressedBuf[i].WriteTo(arcFile); err != nil {
-				return fmt.Errorf("compressFile: can't write '%s' %v", arc.ArchivePath, err)
+				return fmt.Errorf("compressFile: can't write '%s' %v", arc.arcPath, err)
 			}
 			log.Println("Written compressed data:", n)
 		}
@@ -160,9 +168,6 @@ func (Arc) loadUncompressedBuf(r io.Reader) (read int64, err error) {
 		}
 
 		read += n
-		if err == io.EOF {
-			break
-		}
 	}
 
 	return read, nil
@@ -171,8 +176,8 @@ func (Arc) loadUncompressedBuf(r io.Reader) (read int64, err error) {
 // Сжимает данные в буферах несжатых данных
 func (arc Arc) compressBuffers() error {
 	var (
-		wg      sync.WaitGroup
 		errChan = make(chan error, ncpu)
+		wg      sync.WaitGroup
 	)
 
 	for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
@@ -180,7 +185,7 @@ func (arc Arc) compressBuffers() error {
 		go func(i int) {
 			defer wg.Done()
 
-			compressor := c.NewWriter(arc.CompType, compressedBuf[i], c.Level(-1))
+			compressor := c.NewWriter(arc.ct, compressedBuf[i], c.Level(-1))
 			_, err := decompressedBuf[i].WriteTo(compressor)
 			if err != nil {
 				errChan <- err

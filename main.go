@@ -13,7 +13,8 @@ import (
 func main() {
 	p := params.ParseParams()
 	a, err := arc.NewArc(
-		p.ArchivePath, p.InputPaths, p.CompType,
+		p.ArchivePath, p.InputPaths,
+		p.CompType, p.ReplaceAll,
 	)
 	if err != nil {
 		fmt.Println("arc:", err)

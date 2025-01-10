@@ -69,7 +69,7 @@ func (arc *Arc) readHeaders() (headers []header.Header, err error) {
 		files []header.FileItem
 	)
 
-	arcFile, err := os.OpenFile(arc.ArchivePath, os.O_RDONLY, 0644)
+	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +81,11 @@ func (arc *Arc) readHeaders() (headers []header.Header, err error) {
 		return nil, fmt.Errorf("read headers: %v", err)
 	}
 
-	arc.DataOffset, err = arcFile.Seek(0, io.SeekCurrent)
+	arc.dataOffset, err = arcFile.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Data Offset:", arc.DataOffset)
+	log.Println("Data Offset:", arc.dataOffset)
 
 	if files, err = arc.readFileHeaders(arcFile); err != nil {
 		return nil, fmt.Errorf("read headers: %v", err)

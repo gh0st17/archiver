@@ -15,7 +15,7 @@ func (arc Arc) ViewStat() error {
 	}
 	sort.Sort(header.ByPath(headers))
 
-	fmt.Printf("Тип компрессора: %s\n", arc.CompType)
+	fmt.Printf("Тип компрессора: %s\n", arc.ct)
 	header.PrintStatHeader()
 
 	var original, compressed header.Size
