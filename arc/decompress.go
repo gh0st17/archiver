@@ -161,7 +161,7 @@ func (Arc) findFileIdx(headers []header.Header, outputDir string) (int, error) {
 }
 
 // Обрабатывает вопрос замены файла
-func (arc Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
+func (arc *Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 	var input rune
 	stdin := bufio.NewReader(os.Stdin)
 	for {
@@ -171,7 +171,6 @@ func (arc Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 		switch input {
 		case 'A', 'a', 'В', 'в':
 			arc.replaceAll = true
-			return false
 		case 'Y', 'y', 'Д', 'д':
 		case 'N', 'n', 'Н', 'н':
 			arc.skipFileData(arcFile)
