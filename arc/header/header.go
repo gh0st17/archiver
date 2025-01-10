@@ -3,6 +3,7 @@ package header
 import (
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"strings"
 )
@@ -87,6 +88,11 @@ func PrintStatHeader() {
 // Печатает итог статистики
 func PrintSummary(compressed, original Size) {
 	ratio := float32(compressed) / float32(original) * 100.0
+
+	if math.IsNaN(float64(ratio)) {
+		ratio = 0.0
+	}
+
 	fmt.Printf( // Выводим итог
 		"%-*s %11s %11s %7.2f\n",
 		maxFilePathWidth, "Итого",

@@ -55,6 +55,10 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		return err
 	}
 
+	if firstFileIdx >= len(headers) { // В архиве нет файлов
+		return nil
+	}
+
 	for _, h := range headers[firstFileIdx:] {
 		fi := h.(*header.FileItem)
 		outPath = filepath.Join(outputDir, fi.Path())
@@ -135,6 +139,9 @@ func (Arc) findFileIdx(headers []header.Header, outputDir string) (int, error) {
 
 		fmt.Println(outPath)
 		firstFileIdx++
+		if firstFileIdx >= len(headers) {
+			break
+		}
 	}
 
 	return firstFileIdx, nil
