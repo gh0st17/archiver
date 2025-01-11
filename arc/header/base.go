@@ -46,6 +46,12 @@ func (b *Base) Read(r io.Reader) error {
 		return errtype.ErrRuntime("ошибка чтения длины пути элемента", err)
 	}
 
+	if length < 1 || length >= 1024 {
+		return errtype.ErrRuntime(
+			fmt.Sprintf("некорректная длина (%d) пути элемента", length), nil,
+		)
+	}
+
 	// Читаем имя файла
 	filePathBytes = make([]byte, length)
 	if _, err := io.ReadFull(r, filePathBytes); err != nil {
