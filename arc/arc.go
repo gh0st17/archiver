@@ -20,6 +20,7 @@ var (
 	ncpu            = runtime.NumCPU()
 	compressedBuf   = make([]*bytes.Buffer, ncpu)
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
+	writeBuf        = bytes.NewBuffer(nil)
 )
 
 // Структура параметров архива
