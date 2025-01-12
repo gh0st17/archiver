@@ -60,7 +60,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		if dataPos, err = arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
 			return err
 		}
-		log.Println("Пропушенно", skipLen, "байт заголовка, читаю с позиции", dataPos)
+		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции", dataPos)
 
 		if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
 			if arc.replaceInput(outPath, arcFile) {
@@ -176,7 +176,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 			}
 		}
 
-		if (writeBuf.Len() >= int(c.BufferSize)) || read == -1 {
+		if int64(writeBuf.Len()) >= c.BufferSize || read == -1 {
 			if wrote, err = writeBuf.WriteTo(outFile); err != nil {
 				return errtype.ErrCompress("ошибка записи буфера в файл архива", err)
 			}

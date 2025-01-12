@@ -89,6 +89,10 @@ func (arc Arc) RemoveTmp() {
 func init() {
 	for i := 0; i < ncpu; i++ {
 		compressedBuf[i] = bytes.NewBuffer(nil)
+		compressedBuf[i].Grow(int(c.BufferSize))
 		decompressedBuf[i] = bytes.NewBuffer(nil)
+		decompressedBuf[i].Grow(int(c.BufferSize))
 	}
+
+	writeBuf.Grow(int(c.BufferSize))
 }
