@@ -53,6 +53,13 @@ func (arc Arc) Compress(paths []string) error {
 		)
 	}
 
+	for i := 0; i < ncpu; i++ {
+		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
+		if err != nil {
+			return errtype.ErrCompress("ошибка иницализации компрессора", err)
+		}
+	}
+
 	for _, fi := range files {
 		if err = fi.Write(arcFile); err != nil {
 			closeRemove(arcFile)
@@ -142,6 +149,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 				return errtype.ErrCompress("ошибка чтения из буфера сжатых данных", err)
 			}
 			log.Println("В буфер записан блок размера:", wrote)
+			compressor[i].Reset(compressedBuf[i])
 		}
 
 		if writeBuf.Len() > 0 && read > 0 {
@@ -196,17 +204,12 @@ func (arc Arc) compressBuffers() error {
 		go func(i int) {
 			defer wg.Done()
 
-			compressor, err := c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
-			if err != nil {
-				errChan <- errtype.ErrCompress("ошибка иницализации компрессора", err)
-				return
-			}
-			_, err = decompressedBuf[i].WriteTo(compressor)
+			_, err := decompressedBuf[i].WriteTo(compressor[i])
 			if err != nil {
 				errChan <- errtype.ErrCompress("ошибка записи в компрессор", err)
 				return
 			}
-			if err = compressor.Close(); err != nil {
+			if err = compressor[i].Close(); err != nil {
 				errChan <- errtype.ErrCompress("ошибка закрытия компрессора", err)
 			}
 		}(i)

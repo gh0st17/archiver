@@ -71,9 +71,25 @@ func newReader(typ Type, r io.Reader) (io.ReadCloser, error) {
 	}
 }
 
-type Writer struct {
-	writer io.WriteCloser
+type WriteCloserReset interface {
+	io.WriteCloser
+	Reset(io.Writer)
 }
+
+// Адаптер для lzw.Writer
+type lzwWriter struct {
+	*lzw.Writer
+}
+
+func (lw lzwWriter) Reset(w io.Writer) {
+	lw.Writer.Reset(w, lzw.MSB, 8)
+}
+
+type Writer struct {
+	writer WriteCloserReset
+}
+
+func (w *Writer) Reset(iow io.Writer) { w.writer.Reset(iow) }
 
 // Возвращает нового писателя типа typ
 func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
@@ -91,12 +107,12 @@ func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
 }
 
 // Выбирает писателя согласно typ
-func newWriter(typ Type, w io.Writer, l Level) (io.WriteCloser, error) {
+func newWriter(typ Type, w io.Writer, l Level) (WriteCloserReset, error) {
 	switch typ {
 	case GZip:
 		return gzip.NewWriterLevel(w, int(l))
 	case LempelZivWelch:
-		return lzw.NewWriter(w, lzw.MSB, 8), nil
+		return &lzwWriter{lzw.NewWriter(w, lzw.MSB, 8).(*lzw.Writer)}, nil
 	case ZLib:
 		return zlib.NewWriterLevel(w, int(l))
 	case Nop:

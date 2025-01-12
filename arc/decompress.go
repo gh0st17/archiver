@@ -58,7 +58,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 		skipLen = int64(len(fi.Path())) + 32
 		if dataPos, err = arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
-			return err
+			return errtype.ErrDecompress("ошибка пропуска заголовка", err)
 		}
 		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции", dataPos)
 

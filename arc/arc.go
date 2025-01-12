@@ -21,6 +21,7 @@ var (
 	ncpu            = runtime.NumCPU()
 	compressedBuf   = make([]*bytes.Buffer, ncpu)
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
+	compressor      = make([]*c.Writer, ncpu)
 	writeBuf        = bytes.NewBuffer(nil)
 )
 
@@ -33,10 +34,9 @@ type Arc struct {
 }
 
 // Возвращает новый Arc из входных параметров программы
-func NewArc(p params.Params) (*Arc, error) {
-	arc := &Arc{
+func NewArc(p params.Params) (arc *Arc, err error) {
+	arc = &Arc{
 		arcPath:    p.ArcPath,
-		cl:         p.Cl,
 		replaceAll: p.ReplaceAll,
 	}
 
@@ -48,6 +48,7 @@ func NewArc(p params.Params) (*Arc, error) {
 
 	if len(p.InputPaths) > 0 {
 		arc.ct = p.Ct
+		arc.cl = p.Cl
 	} else {
 		arcFile, err := os.Open(arc.arcPath)
 		if err != nil {
