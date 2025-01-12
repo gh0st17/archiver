@@ -7,7 +7,6 @@ import (
 	"archiver/filesystem"
 	"bufio"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -17,35 +16,11 @@ import (
 	"sync"
 )
 
-func (arc Arc) prepareArcFile() (arcFile *os.File, err error) {
-	arcFile, err = os.Open(arc.arcPath)
-	if err != nil {
-		return nil, errtype.ErrDecompress(
-			"ошибка при открытии архива", err,
-		)
-	}
-
-	pos, err := arcFile.Seek(arc.dataOffset, io.SeekStart)
-	if err != nil {
-		return nil, errtype.ErrDecompress(
-			"ошибка установки в позицию смещения данных", err,
-		)
-	}
-	log.Println("Позиция установлена:", pos)
-
-	return arcFile, nil
-}
-
 // Распаковывает архив
 func (arc Arc) Decompress(outputDir string, integ bool) error {
-	headers, err := arc.readHeaders()
+	headers, arcFile, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrDecompress("ошибка чтения заголовоков", err)
-	}
-
-	arcFile, err := arc.prepareArcFile()
-	if err != nil {
-		return err
 	}
 	defer arcFile.Close()
 
@@ -53,20 +28,28 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	var (
 		outPath          string
 		skipLen, dataPos int64
-		firstFileIdx     int
 	)
 
-	if firstFileIdx, err = arc.findFileIdx(headers, outputDir); err != nil {
-		return err
-	}
+	for _, h := range headers {
+		outPath = filepath.Join(outputDir, h.Path())
+		if di, ok := h.(*header.DirItem); ok {
+			if err = filesystem.CreatePath(outPath); err != nil {
+				return errtype.ErrDecompress(
+					fmt.Sprintf("не могу создать путь до директории '%s'", outPath), err,
+				)
+			}
+			if err = os.Chtimes(outPath, di.Atim(), di.Mtim()); err != nil {
+				return errtype.ErrDecompress(
+					fmt.Sprintf(
+						"не могу установить аттрибуты времени для директории '%s'", outPath,
+					), err,
+				)
+			}
 
-	if firstFileIdx >= len(headers) { // В архиве нет файлов
-		return nil
-	}
+			continue
+		}
 
-	for _, h := range headers[firstFileIdx:] {
 		fi := h.(*header.FileItem)
-		outPath = filepath.Join(outputDir, fi.Path())
 		if err = filesystem.CreatePath(filepath.Dir(outPath)); err != nil {
 			return errtype.ErrDecompress(
 				fmt.Sprintf("не могу создать путь до файла '%s'", outPath), err,
@@ -98,16 +81,20 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		}
 
 		if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
-			return err
+			return errtype.ErrDecompress("ошибка распаковки файла", err)
 		}
 
 		if dataPos, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-			return err
+			return errtype.ErrDecompress("ошибка пропуска CRC", err)
 		}
 		log.Println("Skipped CRC, new arcFile pos:", dataPos)
 
 		if err = os.Chtimes(outPath, fi.Atim(), fi.Mtim()); err != nil {
-			return err
+			return errtype.ErrDecompress(
+				fmt.Sprintf(
+					"не могу установить аттрибуты времени для  '%s'", outPath,
+				), err,
+			)
 		}
 
 		if fi.IsDamaged() {
@@ -118,46 +105,6 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	}
 
 	return nil
-}
-
-// Возвращает первый индекс, указывающий на файл.
-// Воссоздает пути для распаковки если они не существуют.
-func (Arc) findFileIdx(headers []header.Header, outputDir string) (int, error) {
-	var (
-		di           *header.DirItem
-		ok           bool
-		firstFileIdx int
-	)
-
-	for {
-		if di, ok = headers[firstFileIdx].(*header.DirItem); !ok {
-			break
-		}
-
-		outPath := filepath.Join(outputDir, di.Path())
-		if _, err := os.Stat(outPath); errors.Is(err, os.ErrNotExist) {
-			if err = filesystem.CreatePath(outPath); err != nil {
-				return 0, errtype.ErrDecompress(
-					fmt.Sprintf("не могу создать путь до директории '%s'", outPath), err,
-				)
-			}
-			if err = os.Chtimes(outPath, di.Atim(), di.Mtim()); err != nil {
-				return 0, errtype.ErrDecompress(
-					fmt.Sprintf(
-						"не могу установить аттрибуты времени для директории '%s'", outPath,
-					), err,
-				)
-			}
-		}
-
-		fmt.Println(outPath)
-		firstFileIdx++
-		if firstFileIdx >= len(headers) {
-			break
-		}
-	}
-
-	return firstFileIdx, nil
 }
 
 // Обрабатывает вопрос замены файла
@@ -195,12 +142,12 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
-		var pos int64
-		if pos, err = arcFile.Seek(8, io.SeekCurrent); err != nil {
+		if pos, err := arcFile.Seek(8, io.SeekCurrent); err != nil {
 			return errtype.ErrDecompress("ошибка пропуска признака EOF", err)
+		} else {
+			log.Println("Нулевой размер, перемещаю на позицию:", pos)
+			return nil
 		}
-		log.Println("Нулевой размер, перемещаю на позицию:", pos)
-		return nil
 	}
 
 	var (
@@ -254,7 +201,7 @@ func (Arc) loadCompressedBuf(arcFile io.Reader) (read int64, err error) {
 			log.Println("Прочитан EOF")
 			return -1, nil
 		}
-		log.Println("Прочитан блок сжатых данных:", bufferSize)
+		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
 
 		lim := io.LimitReader(arcFile, bufferSize)
 		if n, err = compressedBuf[i].ReadFrom(lim); err != nil {

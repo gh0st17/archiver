@@ -10,7 +10,7 @@ import (
 // Печатает информации о сжатии архива
 func (arc Arc) ViewStat() error {
 	// 	Читаем элементы
-	headers, err := arc.readHeaders()
+	headers, _, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrRuntime("ошибка чтения заголовков", err)
 	}
@@ -37,7 +37,7 @@ func (arc Arc) ViewStat() error {
 // Печатает список файлов в архиве
 func (arc Arc) ViewList() error {
 	// 	Читаем элементы
-	headers, err := arc.readHeaders()
+	headers, _, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrRuntime("ошибка чтения заголовков", err)
 	}

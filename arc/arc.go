@@ -27,7 +27,6 @@ var (
 type Arc struct {
 	arcPath    string
 	ct         c.Type
-	dataOffset int64
 	replaceAll bool
 }
 

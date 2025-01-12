@@ -10,14 +10,9 @@ import (
 
 // Проверяет целостность данных в архиве
 func (arc Arc) IntegrityTest() error {
-	headers, err := arc.readHeaders()
+	headers, arcFile, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrIntegrity("ошибка чтения заголовков", err)
-	}
-
-	arcFile, err := arc.prepareArcFile()
-	if err != nil {
-		return err
 	}
 	defer arcFile.Close()
 
@@ -34,11 +29,6 @@ func (arc Arc) IntegrityTest() error {
 
 // Распаковывает файл с проверкой CRC каждого блока сжатых данных
 func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
-	// Если размер файла равен 0, то пропускаем
-	if fi.UcSize() == 0 {
-		return nil
-	}
-
 	skipLen := int64(len(fi.Path())) + 32
 	if _, err := arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
 		return errtype.ErrIntegrity("ошибка пропуска заголовка", err)

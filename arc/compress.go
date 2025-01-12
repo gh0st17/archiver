@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sort"
 	"sync"
 )
 
@@ -38,12 +37,10 @@ func (arc Arc) Compress(paths []string) error {
 		}
 	}
 
-	dirs, files := arc.sortHeaders(headers)
+	dirs, files := arc.splitHeaders(headers)
 
 	closeRemove := func(arcFile io.Closer) {
-		if err := arcFile.Close(); err != nil {
-			errtype.ErrCompress("ошибка закрытия файла архива", err)
-		}
+		arcFile.Close()
 		arc.RemoveTmp()
 	}
 
@@ -54,26 +51,26 @@ func (arc Arc) Compress(paths []string) error {
 			"не могу записать заголовки директории", err,
 		)
 	}
-	defer arcFile.Close()
 
 	for _, fi := range files {
 		if err = fi.Write(arcFile); err != nil {
 			closeRemove(arcFile)
 			return errtype.ErrCompress("ошибка записи заголовка файла", err)
 		}
-		if err = arc.compressFile(fi.Path(), arcFile); err != nil {
+		if err = arc.compressFile(fi, arcFile); err != nil {
 			closeRemove(arcFile)
 			return errtype.ErrCompress("не могу сжать файл", err)
 		}
 	}
+	arcFile.Close()
 
 	return nil
 }
 
 // Проверяет, содержит ли срез уникалные значения
-// Если нет, то удаляет дубликаты. Сортирует пути.
+// Если нет, то удаляет дубликаты.
 // Разделяет заголовки на директории и файлы
-func (Arc) sortHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
+func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
 	seen := make(map[string]struct{})
 	uniqueHeaders := make([]header.Header, 0, len(headers))
 	for _, h := range headers {
@@ -83,8 +80,6 @@ func (Arc) sortHeaders(headers []header.Header) ([]*header.DirItem, []*header.Fi
 		}
 	}
 	headers = uniqueHeaders
-
-	sort.Sort(header.ByPath(headers))
 
 	var dirs []*header.DirItem
 	var files []*header.FileItem
@@ -99,11 +94,11 @@ func (Arc) sortHeaders(headers []header.Header) ([]*header.DirItem, []*header.Fi
 }
 
 // Сжимает файл блоками
-func (arc *Arc) compressFile(inPath string, arcFile io.Writer) error {
-	inFile, err := os.Open(inPath)
+func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
+	inFile, err := os.Open(fi.Path())
 	if err != nil {
 		return errtype.ErrCompress(
-			fmt.Sprintf("не могу открыть входной файл '%s' для сжатия", inPath),
+			fmt.Sprintf("не могу открыть входной файл '%s' для сжатия", fi.Path()),
 			err,
 		)
 	}
@@ -119,39 +114,40 @@ func (arc *Arc) compressFile(inPath string, arcFile io.Writer) error {
 			return errtype.ErrCompress("ошибка чтения не сжатых блоков", err)
 		}
 
+		if read == 0 {
+			break
+		}
+
 		if err = arc.compressBuffers(); err != nil {
 			return errtype.ErrCompress("ошибка сжатия буфферов", err)
 		}
 
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
-			if err = binary.Write(writeBuf, binary.LittleEndian, int64(compressedBuf[i].Len())); err != nil {
+			length := int64(compressedBuf[i].Len())
+			if err = binary.Write(writeBuf, binary.LittleEndian, length); err != nil {
 				return errtype.ErrCompress("ошибка записи длины блока", err)
 			}
 
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
 			// Пишем сжатый блок
-			if _, err = writeBuf.ReadFrom(compressedBuf[i]); err != nil {
+			if wrote, err = writeBuf.ReadFrom(compressedBuf[i]); err != nil {
 				return errtype.ErrCompress("ошибка чтения из буфера сжатых данных", err)
 			}
+			log.Println("В буфер записан блок размера:", wrote)
 		}
 
-		if (writeBuf.Len() >= int(c.BufferSize)) || read == 0 {
-			if wrote, err = writeBuf.WriteTo(arcFile); err != nil {
+		if writeBuf.Len() > 0 && read > 0 {
+			if _, err = writeBuf.WriteTo(arcFile); err != nil {
 				return errtype.ErrCompress("ошибка записи буфера в файл архива", err)
 			}
-			log.Println("Записан сжатый буфер:", wrote)
-		}
-
-		if read == 0 {
-			break
 		}
 	}
 
 	// Пишем признак конца файла
 	if err = binary.Write(arcFile, binary.LittleEndian, int64(-1)); err != nil {
-		return errtype.ErrCompress("ошибка записи EOF", err)
+		return errtype.ErrCompress("ошибка записи EOF (-1)", err)
 	}
 	log.Println("Записан EOF")
 
@@ -161,7 +157,7 @@ func (arc *Arc) compressFile(inPath string, arcFile io.Writer) error {
 	}
 	log.Printf("Записан CRC: %X\n", crc)
 
-	fmt.Println(inPath)
+	fmt.Println(fi.Path())
 
 	return nil
 }
