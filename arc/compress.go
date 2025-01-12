@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -71,25 +72,30 @@ func (arc Arc) Compress(paths []string) error {
 // Если нет, то удаляет дубликаты.
 // Разделяет заголовки на директории и файлы
 func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
-	seen := make(map[string]struct{})
-	uniqueHeaders := make([]header.Header, 0, len(headers))
+	var (
+		dirs  []*header.DirItem
+		files []*header.FileItem
+	)
+
+	seen := make(map[string]struct{}, len(headers))
 	for _, h := range headers {
+		if len(h.Path()) > 1023 {
+			fmt.Printf(
+				"Длина пути к '%s' первышает максимально допустимую (1023)\n",
+				filepath.Base(h.Path()),
+			)
+			continue
+		}
 		if _, exists := seen[h.Path()]; !exists {
 			seen[h.Path()] = struct{}{}
-			uniqueHeaders = append(uniqueHeaders, h)
+			if d, ok := h.(*header.DirItem); ok {
+				dirs = append(dirs, d)
+			} else {
+				files = append(files, h.(*header.FileItem))
+			}
 		}
 	}
-	headers = uniqueHeaders
 
-	var dirs []*header.DirItem
-	var files []*header.FileItem
-	for _, h := range headers {
-		if d, ok := h.(*header.DirItem); ok {
-			dirs = append(dirs, d)
-		} else {
-			files = append(files, h.(*header.FileItem))
-		}
-	}
 	return dirs, files
 }
 
