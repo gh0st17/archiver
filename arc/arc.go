@@ -4,6 +4,7 @@ import (
 	c "archiver/compressor"
 	"archiver/errtype"
 	"archiver/filesystem"
+	"archiver/params"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -27,14 +28,16 @@ var (
 type Arc struct {
 	arcPath    string
 	ct         c.Type
+	cl         c.Level
 	replaceAll bool
 }
 
 // Возвращает новый Arc из входных параметров программы
-func NewArc(arcPath string, inPaths []string, ct c.Type, replaceAll bool) (*Arc, error) {
+func NewArc(p params.Params) (*Arc, error) {
 	arc := &Arc{
-		arcPath:    arcPath,
-		replaceAll: replaceAll,
+		arcPath:    p.ArcPath,
+		cl:         p.Cl,
+		replaceAll: p.ReplaceAll,
 	}
 
 	if filesystem.DirExists(arc.arcPath) {
@@ -43,8 +46,8 @@ func NewArc(arcPath string, inPaths []string, ct c.Type, replaceAll bool) (*Arc,
 		)
 	}
 
-	if len(inPaths) > 0 {
-		arc.ct = ct
+	if len(p.InputPaths) > 0 {
+		arc.ct = p.Ct
 	} else {
 		arcFile, err := os.Open(arc.arcPath)
 		if err != nil {

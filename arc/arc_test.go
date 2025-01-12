@@ -22,9 +22,9 @@ var (
 	archivePath = filepath.Join(os.TempDir(), arcName)
 	outPath     = filepath.Join(os.TempDir(), "/out")
 	params      = p.Params{
-		ArchivePath: archivePath,
-		OutputDir:   outPath,
-		Level:       -1,
+		ArcPath:   archivePath,
+		OutputDir: outPath,
+		Cl:        -1,
 	}
 	rootEnts []os.DirEntry
 	stdout   = os.Stdout
@@ -84,7 +84,7 @@ func runTestAll(t *testing.T, ct compressor.Type) {
 	initRootEnts(t)
 	t.Log("Testing archivate all files in",
 		testPath, "with", ct, "algorithm")
-	params.CompType = ct
+	params.Ct = ct
 	runAll(t)
 	clearArcOut()
 }
@@ -94,7 +94,7 @@ func runTestByEntry(t *testing.T, ct compressor.Type) {
 	initRootEnts(t)
 	t.Log("Testing archivate by directory with",
 		ct, "algorithm")
-	params.CompType = ct
+	params.Ct = ct
 	runByEntry(t)
 	clearArcOut()
 }
@@ -110,21 +110,18 @@ func runTestByFile(t *testing.T, ct compressor.Type) {
 	}
 
 	t.Log("Testing archivate by file with", ct, "algorithm")
-	params.CompType = ct
+	params.Ct = ct
 	runByFile(t, rootPaths)
 	clearArcOut()
 }
 
 func baseTesting(t *testing.T, path string) {
-	archive, err := arc.NewArc(
-		params.ArchivePath, params.InputPaths,
-		params.CompType, true,
-	)
+	archive, err := arc.NewArc(params)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Testing %s compress '%s'", params.CompType, path)
+	t.Logf("Testing %s compress '%s'", params.Ct, path)
 	disableStdout()
 	if err = archive.Compress(params.InputPaths); err != nil {
 		enableStdout()
@@ -132,7 +129,7 @@ func baseTesting(t *testing.T, path string) {
 	}
 	enableStdout()
 
-	t.Logf("Testing %s decompress '%s'", params.CompType, path)
+	t.Logf("Testing %s decompress '%s'", params.Ct, path)
 	disableStdout()
 	if err = archive.Decompress(params.OutputDir, false); err != nil {
 		enableStdout()

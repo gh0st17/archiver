@@ -190,7 +190,7 @@ func (arc Arc) compressBuffers() error {
 		go func(i int) {
 			defer wg.Done()
 
-			compressor, err := c.NewWriter(arc.ct, compressedBuf[i], c.Level(-1))
+			compressor, err := c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
 			if err != nil {
 				errChan <- errtype.ErrCompress("ошибка иницализации компрессора", err)
 				return

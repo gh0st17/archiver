@@ -12,11 +12,11 @@ import (
 )
 
 type Params struct {
-	InputPaths  []string
-	OutputDir   string
-	ArchivePath string
-	CompType    compressor.Type
-	Level       compressor.Level
+	InputPaths []string
+	OutputDir  string
+	ArcPath    string
+	Ct         compressor.Type
+	Cl         compressor.Level
 	PrintStat,
 	PrintList,
 	IntegTest,
@@ -88,11 +88,11 @@ func ParseParams() (p Params) {
 
 // Проверяет параметр уровня сжатия
 func (p *Params) checkCompLevel(level int) {
-	p.Level = compressor.Level(level)
-	if p.Level < -2 && p.Level > 9 {
+	p.Cl = compressor.Level(level)
+	if p.Cl < -2 || p.Cl > 9 {
 		printError(compLevelError)
-	} else if p.Level == 0 {
-		p.CompType = compressor.Nop
+	} else if p.Cl == 0 {
+		p.Ct = compressor.Nop
 	}
 }
 
@@ -102,11 +102,11 @@ func (p *Params) checkCompType(compType string) {
 
 	switch compType {
 	case "gzip":
-		p.CompType = compressor.GZip
+		p.Ct = compressor.GZip
 	case "lzw":
-		p.CompType = compressor.LempelZivWelch
+		p.Ct = compressor.LempelZivWelch
 	case "zlib":
-		p.CompType = compressor.ZLib
+		p.Ct = compressor.ZLib
 	default:
 		printError(compTypeError)
 	}
@@ -123,12 +123,12 @@ func (p *Params) checkPaths() {
 
 	if pathsLen > 0 {
 		p.InputPaths = append(p.InputPaths, flag.Args()[1:]...)
-		p.ArchivePath = flag.Arg(0)
+		p.ArcPath = flag.Arg(0)
 	} else if argsLen == 1 {
-		p.ArchivePath = flag.Arg(0)
+		p.ArcPath = flag.Arg(0)
 	}
 
-	if isContain(p.InputPaths, p.ArchivePath) {
+	if isContain(p.InputPaths, p.ArcPath) {
 		printError(containsError)
 	}
 }
