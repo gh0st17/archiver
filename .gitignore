@@ -8,3 +8,4 @@ out/
 !testdata
 !testdata/README.md
 __debug**
+*.prof

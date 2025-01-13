@@ -23,7 +23,7 @@ var (
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
 	decompressor    = make([]*c.Reader, ncpu)
-	writeBuf        = bytes.NewBuffer(nil)
+	writeBuf        *bytes.Buffer
 )
 
 // Структура параметров архива
@@ -93,11 +93,9 @@ func (arc Arc) RemoveTmp() {
 
 func init() {
 	for i := 0; i < ncpu; i++ {
-		compressedBuf[i] = bytes.NewBuffer(nil)
-		compressedBuf[i].Grow(int(c.BufferSize))
-		decompressedBuf[i] = bytes.NewBuffer(nil)
-		decompressedBuf[i].Grow(int(c.BufferSize))
+		compressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
+		decompressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
 	}
 
-	writeBuf.Grow(int(c.BufferSize))
+	writeBuf = bytes.NewBuffer(make([]byte, 0, int(c.BufferSize)*ncpu))
 }
