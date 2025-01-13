@@ -177,12 +177,12 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcFile io.Writer) error {
 }
 
 // Загружает данные в буферы несжатых данных
-func (Arc) loadUncompressedBuf(r io.Reader) (read int64, err error) {
+func (Arc) loadUncompressedBuf(arcFile io.Reader) (read int64, err error) {
 	var n int64
 
-	for i := 0; i < ncpu; i++ {
-		lim := io.LimitReader(r, c.BufferSize)
-		if n, err = decompressedBuf[i].ReadFrom(lim); err != nil {
+	for i := 0; i < ncpu && err != io.EOF; i++ {
+		n, err = io.CopyN(decompressedBuf[i], arcFile, c.BufferSize)
+		if err != nil && err != io.EOF {
 			return 0, errtype.ErrCompress("ошибка чтения в несжатый буфер", err)
 		}
 

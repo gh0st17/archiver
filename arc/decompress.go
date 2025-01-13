@@ -209,8 +209,7 @@ func (arc Arc) loadCompressedBuf(arcFile io.Reader, crc *uint32) (read int64, er
 		}
 		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
 
-		lim := io.LimitReader(arcFile, bufferSize)
-		if n, err = compressedBuf[i].ReadFrom(lim); err != nil {
+		if n, err = io.CopyN(compressedBuf[i], arcFile, bufferSize); err != nil {
 			return 0, errtype.ErrDecompress("не могу прочитать блок сжатых данных", err)
 		}
 		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
