@@ -75,7 +75,37 @@ func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
 	if d, err = compressor.NewReader(ct, compBuf); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = decompBuf.ReadFrom(d); err != nil {
+		t.Fatal(err)
+	}
+	if err = d.Close(); err != nil {
+		t.Fatal(err)
+	}
+	outMD5 = hashBytes(decompBuf.Bytes())
 
+	if !compareMD5(inMD5, outMD5) {
+		t.Errorf("Expected %s got %s", inMD5, outMD5)
+		t.Fail()
+	}
+
+	decompBuf.Reset()
+	for i := 0; i < dataSize; i++ {
+		k := rng.Intn(len(lowEntropyVal))
+		decompBuf.Write([]byte{lowEntropyVal[k]})
+	}
+	inMD5 = hashBytes(decompBuf.Bytes())
+
+	c.Reset(compBuf)
+	if _, err = decompBuf.WriteTo(c); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = d.Reset(compBuf); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = decompBuf.ReadFrom(d); err != nil {
 		t.Fatal(err)
 	}
