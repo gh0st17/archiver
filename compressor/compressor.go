@@ -35,8 +35,49 @@ const (
 	BestCompression    Level = flate.BestCompression
 )
 
-type Reader struct {
+type ReadCloserReset interface {
+	io.ReadCloser
+	Reset(io.Reader) error
+}
+
+// Адаптер для lzw.Reader
+type lzwReader struct {
+	*lzw.Reader
+}
+
+func (lr lzwReader) Reset(r io.Reader) error {
+	lr.Reader.Reset(r, lzw.MSB, 8)
+	return nil
+}
+
+// Адаптер для zlib.Reader
+type zlibReader struct {
 	reader io.ReadCloser
+}
+
+func (zr zlibReader) Read(p []byte) (int, error) {
+	return zr.reader.Read(p)
+}
+
+func (zr zlibReader) Close() error {
+	return zr.reader.Close()
+}
+
+func (zr *zlibReader) Reset(r io.Reader) error {
+	newReader, err := zlib.NewReader(r)
+	if err != nil {
+		return err
+	}
+	zr.reader = newReader
+	return nil
+}
+
+type Reader struct {
+	reader ReadCloserReset
+}
+
+func (rd *Reader) Reset(r io.Reader) error {
+	return rd.reader.Reset(r)
 }
 
 // Возвращает нового читателя типа typ
@@ -56,16 +97,20 @@ func NewReader(typ Type, r io.Reader) (*Reader, error) {
 }
 
 // Выбирает читателя согласно typ
-func newReader(typ Type, r io.Reader) (io.ReadCloser, error) {
+func newReader(typ Type, r io.Reader) (ReadCloserReset, error) {
 	switch typ {
 	case GZip:
 		return gzip.NewReader(r)
 	case LempelZivWelch:
-		return lzw.NewReader(r, lzw.MSB, 8), nil
+		return &lzwReader{lzw.NewReader(r, lzw.MSB, 8).(*lzw.Reader)}, nil
 	case ZLib:
-		return zlib.NewReader(r)
+		z, err := zlib.NewReader(r)
+		if err != nil {
+			return nil, errtype.ErrRuntime("Zlib new", err)
+		}
+		return &zlibReader{z}, nil
 	case Nop:
-		return io.NopCloser(r), nil
+		return &nopReader{io.NopCloser(r)}, nil
 	default:
 		return nil, errtype.ErrRuntime("неизвестный тип компрессора", nil)
 	}

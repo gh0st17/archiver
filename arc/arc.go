@@ -22,6 +22,7 @@ var (
 	compressedBuf   = make([]*bytes.Buffer, ncpu)
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
+	decompressor    = make([]*c.Reader, ncpu)
 	writeBuf        = bytes.NewBuffer(nil)
 )
 

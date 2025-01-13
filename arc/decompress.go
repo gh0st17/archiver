@@ -72,7 +72,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 			arc.checkCRC(fi, arcFile)
 
 			if fi.IsDamaged() {
-				fmt.Printf("Пропускаю повежденный '%s'\n", fi.Path())
+				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.Path())
 				continue
 			} else {
 				arcFile.Seek(dataPos, io.SeekStart)
@@ -102,6 +102,11 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		} else {
 			fmt.Println(outPath)
 		}
+	}
+
+	// Сброс декомпрессоров перед новым использованием этой функции
+	for i := 0; i < ncpu; i++ {
+		decompressor[i] = nil
 	}
 
 	return nil
@@ -153,18 +158,16 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 	var (
 		read, wrote int64
 		crc         = fi.CRC()
+		eof         error
 	)
-	for read != -1 {
+	for eof != io.EOF {
 		pos, _ := arcFile.Seek(0, io.SeekCurrent)
 		log.Println("Чтение блоков с позиции:", pos)
-		if read, err = arc.loadCompressedBuf(arcFile); err != nil {
-			return errtype.ErrDecompress("ошибка чтения сжатых блоков", err)
+
+		if read, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
+			return errtype.ErrDecompress("ошибка чтения сжатых блоков", eof)
 		}
 		log.Println("Загружено сжатых буферов размера:", read)
-
-		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
-			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
-		}
 
 		if err = arc.decompressBuffers(); err != nil {
 			return errtype.ErrDecompress("ошибка распаковки буферов", err)
@@ -176,7 +179,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 			}
 		}
 
-		if int64(writeBuf.Len()) >= c.BufferSize || read == -1 {
+		if int64(writeBuf.Len()) >= c.BufferSize || eof == io.EOF {
 			if wrote, err = writeBuf.WriteTo(outFile); err != nil {
 				return errtype.ErrCompress("ошибка записи буфера в файл архива", err)
 			}
@@ -189,7 +192,11 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 }
 
 // Загружает данные в буферы сжатых данных
-func (Arc) loadCompressedBuf(arcFile io.Reader) (read int64, err error) {
+//
+// Возвращает количество прочитанных байт и ошибку.
+// Если err == io.EOF, то был прочитан признак конца файла,
+// новых данных для файла не будет.
+func (arc Arc) loadCompressedBuf(arcFile io.Reader, crc *uint32) (read int64, err error) {
 	var n, bufferSize int64
 
 	for i := 0; i < ncpu; i++ {
@@ -199,7 +206,7 @@ func (Arc) loadCompressedBuf(arcFile io.Reader) (read int64, err error) {
 
 		if bufferSize == -1 {
 			log.Println("Прочитан EOF")
-			return -1, nil
+			return read, io.EOF
 		}
 		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
 
@@ -207,7 +214,15 @@ func (Arc) loadCompressedBuf(arcFile io.Reader) (read int64, err error) {
 		if n, err = compressedBuf[i].ReadFrom(lim); err != nil {
 			return 0, errtype.ErrDecompress("не могу прочитать блок сжатых данных", err)
 		}
+		*crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
+		if decompressor[i] == nil {
+			if decompressor[i], err = c.NewReader(arc.ct, compressedBuf[i]); err != nil {
+				panic(errtype.ErrDecompress("NewReader", err))
+			}
+		} else {
+			decompressor[i].Reset(compressedBuf[i])
+		}
 		read += n
 	}
 
@@ -226,13 +241,8 @@ func (arc Arc) decompressBuffers() error {
 		go func(i int) {
 			defer wg.Done()
 
-			decompressor, err := c.NewReader(arc.ct, compressedBuf[i])
-			if err != nil {
-				errChan <- errtype.ErrCompress("ошибка иницализации декомпрессора", err)
-				return
-			}
-			defer decompressor.Close()
-			_, err = decompressedBuf[i].ReadFrom(decompressor)
+			defer decompressor[i].Close()
+			_, err := decompressedBuf[i].ReadFrom(decompressor[i])
 			if err != nil {
 				errChan <- errtype.ErrDecompress("ошибка чтения декомпрессора", err)
 			}

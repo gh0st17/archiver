@@ -4,7 +4,6 @@ import (
 	"archiver/arc/header"
 	"archiver/errtype"
 	"fmt"
-	"hash/crc32"
 	"io"
 )
 
@@ -54,17 +53,17 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (read header
 	var (
 		n   int64
 		crc = fi.CRC()
+		eof error
 	)
 
-	for n != -1 {
-		if n, err = arc.loadCompressedBuf(arcFile); err != nil {
-			return 0, errtype.ErrIntegrity("ошибка чтения сжатых блоков", err)
+	for eof != io.EOF {
+		if n, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
+			return 0, errtype.ErrIntegrity("ошибка чтения сжатых блоков", eof)
 		}
 
 		read += header.Size(n)
 
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
-			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 			compressedBuf[i].Reset()
 		}
 	}
