@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"path/filepath"
 )
 
 // Описание файла
@@ -68,6 +69,15 @@ func (fi FileItem) Write(w io.Writer) (err error) {
 	// Пишем размер файла до сжатия
 	if err = binary.Write(w, binary.LittleEndian, fi.ucSize); err != nil {
 		return errtype.ErrRuntime("ошибка записи длины файла до сжатия", err)
+	}
+
+	return nil
+}
+
+func (fi FileItem) RestorePath(outDir string) error {
+	outDir = filepath.Join(outDir, fi.path)
+	if err := fi.createPath(filepath.Dir(outDir)); err != nil {
+		return err
 	}
 
 	return nil

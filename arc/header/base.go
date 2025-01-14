@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -17,12 +19,6 @@ type Base struct {
 
 // Возвращает путь до элемента
 func (b Base) Path() string { return b.path }
-
-// Возвращает время последнего доступа
-func (b Base) Atim() time.Time { return b.accTime }
-
-// Возвращает время последней модификации
-func (b Base) Mtim() time.Time { return b.modTime }
 
 func NewBase(path string, atim, mtim time.Time) Base {
 	return Base{
@@ -107,4 +103,20 @@ func (b Base) Write(w io.Writer) (err error) {
 	}
 
 	return nil
+}
+func (b Base) RestoreTime(outDir string) error {
+	outDir = filepath.Join(outDir, b.path)
+	if err := os.Chtimes(outDir, b.accTime, b.modTime); err != nil {
+		return errtype.ErrDecompress(
+			fmt.Sprintf(
+				"не могу установить аттрибуты времени для директории '%s'", outDir,
+			), err,
+		)
+	}
+
+	return nil
+}
+
+func (b Base) createPath(outDir string) error {
+	return filesystem.CreatePath(outDir)
 }

@@ -4,7 +4,6 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/errtype"
-	"archiver/filesystem"
 	"bufio"
 	"encoding/binary"
 	"fmt"
@@ -28,80 +27,58 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	var (
 		outPath          string
 		skipLen, dataPos int64
+		fi               *header.FileItem
+		ok               bool
 	)
 
 	for _, h := range headers {
-		outPath = filepath.Join(outputDir, h.Path())
-		if di, ok := h.(*header.DirItem); ok {
-			if err = filesystem.CreatePath(outPath); err != nil {
-				return errtype.ErrDecompress(
-					fmt.Sprintf("не могу создать путь до директории '%s'", outPath), err,
-				)
-			}
-			if err = os.Chtimes(outPath, di.Atim(), di.Mtim()); err != nil {
-				return errtype.ErrDecompress(
-					fmt.Sprintf(
-						"не могу установить аттрибуты времени для директории '%s'", outPath,
-					), err,
-				)
-			}
-
-			continue
-		}
-
-		fi := h.(*header.FileItem)
-		if err = filesystem.CreatePath(filepath.Dir(outPath)); err != nil {
+		if err = h.RestorePath(outputDir); err != nil {
 			return errtype.ErrDecompress(
-				fmt.Sprintf("не могу создать путь до файла '%s'", outPath), err,
+				fmt.Sprintf("не могу создать путь для '%s'", h.Path()), err,
 			)
 		}
-
-		skipLen = int64(len(fi.Path())) + 32
-		if dataPos, err = arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
-			return errtype.ErrDecompress("ошибка пропуска заголовка", err)
-		}
-		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции", dataPos)
-
-		if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
-			if arc.replaceInput(outPath, arcFile) {
-				continue
+		if fi, ok = h.(*header.FileItem); ok {
+			outPath = filepath.Join(outputDir, fi.Path())
+			skipLen = int64(len(fi.Path())) + 32
+			if dataPos, err = arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
+				return errtype.ErrDecompress("ошибка пропуска заголовка", err)
 			}
-		}
+			log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции", dataPos)
 
-		if integ { // --xinteg
-			arc.checkCRC(fi, arcFile)
+			if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
+				if arc.replaceInput(outPath, arcFile) {
+					continue
+				}
+			}
+
+			if integ { // --xinteg
+				arc.checkCRC(fi, arcFile)
+
+				if fi.IsDamaged() {
+					fmt.Printf("Пропускаю поврежденный '%s'\n", fi.Path())
+					continue
+				} else {
+					arcFile.Seek(dataPos, io.SeekStart)
+					log.Println("Set to pos:", dataPos+skipLen)
+				}
+			}
+
+			if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
+				return errtype.ErrDecompress("ошибка распаковки файла", err)
+			}
+
+			if dataPos, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
+				return errtype.ErrDecompress("ошибка пропуска CRC", err)
+			}
+			log.Println("Skipped CRC, new arcFile pos:", dataPos)
 
 			if fi.IsDamaged() {
-				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.Path())
-				continue
+				fmt.Printf("%s: CRC сумма не совпадает\n", outPath)
 			} else {
-				arcFile.Seek(dataPos, io.SeekStart)
-				log.Println("Set to pos:", dataPos+skipLen)
+				fmt.Println(outPath)
 			}
 		}
-
-		if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
-			return errtype.ErrDecompress("ошибка распаковки файла", err)
-		}
-
-		if dataPos, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-			return errtype.ErrDecompress("ошибка пропуска CRC", err)
-		}
-		log.Println("Skipped CRC, new arcFile pos:", dataPos)
-
-		if err = os.Chtimes(outPath, fi.Atim(), fi.Mtim()); err != nil {
-			return errtype.ErrDecompress(
-				fmt.Sprintf(
-					"не могу установить аттрибуты времени для '%s'", outPath,
-				), err,
-			)
-		}
-
-		if fi.IsDamaged() {
-			fmt.Printf("%s: CRC сумма не совпадает\n", outPath)
-		} else {
-			fmt.Println(outPath)
-		}
+		h.RestoreTime(outputDir)
 	}
 
 	// Сброс декомпрессоров перед новым использованием этой функции

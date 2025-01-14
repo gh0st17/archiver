@@ -22,10 +22,12 @@ const (
 )
 
 type Header interface {
-	Path() string            // Путь к элементу заголовка
-	Read(r io.Reader) error  // Считывет данные из `r`
-	Write(w io.Writer) error // Записывает данные в `w`
-	String() string          // fmt.Stringer
+	Path() string                    // Путь к элементу заголовка
+	RestorePath(outDir string) error // Воостанавливает свой путь в ФС
+	RestoreTime(outDir string) error // Воостанавливает свой путь в ФС
+	Read(r io.Reader) error          // Считывет данные из `r`
+	Write(w io.Writer) error         // Записывает данные в `w`
+	String() string                  // fmt.Stringer
 }
 
 // Реализация sort.Interface
