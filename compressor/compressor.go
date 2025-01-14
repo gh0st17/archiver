@@ -2,6 +2,7 @@ package compressor
 
 import (
 	"archiver/errtype"
+	"bytes"
 	"compress/flate"
 	"compress/gzip"
 	"compress/lzw"
@@ -74,7 +75,6 @@ func (zr *zlibReader) Reset(r io.Reader) error {
 
 type Reader struct {
 	reader ReadCloserReset
-	buf    []byte
 }
 
 // Возвращает нового читателя типа typ
@@ -90,7 +90,6 @@ func NewReader(typ Type, r io.Reader) (*Reader, error) {
 
 	return &Reader{
 		reader: reader,
-		buf:    make([]byte, BufferSize),
 	}, nil
 }
 
@@ -114,16 +113,14 @@ func newReader(typ Type, r io.Reader) (ReadCloserReset, error) {
 	}
 }
 
-// Распаковывает из внутреннего [Reader.reader] в p len(p) байт
+// Распаковывает из внутреннего [Reader.reader] в p
 func (rd Reader) Read(p []byte) (int, error) {
-	n, err := rd.reader.Read(rd.buf)
+	n, err := io.CopyN(bytes.NewBuffer(p[:0]), rd.reader, BufferSize)
 	if err != nil && err != io.EOF || n == 0 {
 		return 0, err
 	}
 
-	p = p[:n]
-	copy(p, rd.buf[:n])
-	return n, nil
+	return int(n), nil
 }
 
 func (r Reader) Close() error { return r.reader.Close() }
