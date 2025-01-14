@@ -74,10 +74,7 @@ func (zr *zlibReader) Reset(r io.Reader) error {
 
 type Reader struct {
 	reader ReadCloserReset
-}
-
-func (rd *Reader) Reset(r io.Reader) error {
-	return rd.reader.Reset(r)
+	buf    []byte
 }
 
 // Возвращает нового читателя типа typ
@@ -93,6 +90,7 @@ func NewReader(typ Type, r io.Reader) (*Reader, error) {
 
 	return &Reader{
 		reader: reader,
+		buf:    make([]byte, BufferSize),
 	}, nil
 }
 
@@ -116,6 +114,22 @@ func newReader(typ Type, r io.Reader) (ReadCloserReset, error) {
 	}
 }
 
+// Распаковывает из внутреннего [Reader.reader] в p len(p) байт
+func (rd Reader) Read(p []byte) (int, error) {
+	n, err := rd.reader.Read(rd.buf)
+	if err != nil && err != io.EOF || n == 0 {
+		return 0, err
+	}
+
+	p = p[:n]
+	copy(p, rd.buf[:n])
+	return n, nil
+}
+
+func (r Reader) Close() error { return r.reader.Close() }
+
+func (rd *Reader) Reset(r io.Reader) error { return rd.reader.Reset(r) }
+
 type WriteCloserReset interface {
 	io.WriteCloser
 	Reset(io.Writer)
@@ -133,8 +147,6 @@ func (lw lzwWriter) Reset(w io.Writer) {
 type Writer struct {
 	writer WriteCloserReset
 }
-
-func (w *Writer) Reset(iow io.Writer) { w.writer.Reset(iow) }
 
 // Возвращает нового писателя типа typ
 func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
@@ -179,9 +191,4 @@ func (w Writer) Write(p []byte) (n int, err error) {
 
 func (w Writer) Close() error { return w.writer.Close() }
 
-// Распаковывает из внутреннего reader в p len(p) байт
-func (r Reader) Read(p []byte) (int, error) {
-	return r.reader.Read(p)
-}
-
-func (r Reader) Close() error { return r.reader.Close() }
+func (w *Writer) Reset(iow io.Writer) { w.writer.Reset(iow) }

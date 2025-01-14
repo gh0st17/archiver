@@ -99,3 +99,13 @@ func init() {
 
 	writeBuf = bytes.NewBuffer(make([]byte, 0, int(c.BufferSize)*ncpu))
 }
+
+func (Arc) PrintMemStat() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	fmt.Printf("\nАллоцированная память: %8d KB\n", m.Alloc/1024)
+	fmt.Printf("Всего аллокаций:       %8d KB\n", m.TotalAlloc/1024)
+	fmt.Printf("Системная память:      %8d KB\n", m.Sys/1024)
+	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
+}
