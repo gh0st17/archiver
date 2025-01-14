@@ -123,9 +123,9 @@ func (rd Reader) Read(p []byte) (int, error) {
 	return int(n), nil
 }
 
-func (r Reader) Close() error { return r.reader.Close() }
+func (rd Reader) Close() error { return rd.reader.Close() }
 
-func (rd *Reader) Reset(r io.Reader) error { return rd.reader.Reset(r) }
+func (rd Reader) Reset(r io.Reader) error { return rd.reader.Reset(r) }
 
 type WriteCloserReset interface {
 	io.WriteCloser
@@ -177,8 +177,8 @@ func newWriter(typ Type, w io.Writer, l Level) (WriteCloserReset, error) {
 }
 
 // Сжимает из p len(p) байт во внутренний writer
-func (w Writer) Write(p []byte) (n int, err error) {
-	n, err = w.writer.Write(p)
+func (wr Writer) Write(p []byte) (n int, err error) {
+	n, err = wr.writer.Write(p)
 	if err != nil {
 		return 0, err
 	}
@@ -186,6 +186,6 @@ func (w Writer) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (w Writer) Close() error { return w.writer.Close() }
+func (wr Writer) Close() error { return wr.writer.Close() }
 
-func (w *Writer) Reset(iow io.Writer) { w.writer.Reset(iow) }
+func (wr Writer) Reset(w io.Writer) { wr.writer.Reset(w) }

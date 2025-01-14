@@ -17,25 +17,13 @@ import (
 
 // Создает архив
 func (arc Arc) Compress(paths []string) error {
-	var headers []header.Header
+	var (
+		headers []header.Header
+		err     error
+	)
 
-	for _, path := range paths { // Получение списка файлов и директории
-		// Добавление директории в заголовок
-		// и ее рекурсивный обход
-		if filesystem.DirExists(path) {
-			if dirHeaders, err := fetchDir(path); err == nil {
-				headers = append(headers, dirHeaders...)
-			} else {
-				return errtype.ErrCompress("не могу получить директории", err)
-			}
-			continue
-		}
-
-		if h, err := fetchFile(path); err == nil { // Добавалние файла в заголовок
-			headers = append(headers, h)
-		} else {
-			return errtype.ErrCompress("не могу получить директории", err)
-		}
+	if headers, err = arc.fetchHeaders(paths); err != nil {
+		return err
 	}
 
 	dirs, files := arc.splitHeaders(headers)
@@ -73,6 +61,33 @@ func (arc Arc) Compress(paths []string) error {
 	arcFile.Close()
 
 	return nil
+}
+
+func (Arc) fetchHeaders(paths []string) (headers []header.Header, err error) {
+	var (
+		dirHeaders []header.Header
+		header     header.Header
+	)
+
+	for _, path := range paths { // Получение списка файлов и директории
+		// Добавление директории в заголовок
+		// и ее рекурсивный обход
+		if filesystem.DirExists(path) {
+			if dirHeaders, err = fetchDir(path); err == nil {
+				headers = append(headers, dirHeaders...)
+			} else {
+				return nil, errtype.ErrCompress("не могу получить директории", err)
+			}
+			continue
+		}
+
+		if header, err = fetchFile(path); err == nil { // Добавалние файла в заголовок
+			headers = append(headers, header)
+		} else {
+			return nil, errtype.ErrCompress("не могу получить директории", err)
+		}
+	}
+	return headers, nil
 }
 
 // Проверяет, содержит ли срез уникалные значения
