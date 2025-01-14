@@ -133,29 +133,31 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 	}
 
 	var (
-		wrote int64
-		crc   = fi.CRC()
-		eof   error
+		wrote, read int64
+		crc         = fi.CRC()
+		eof         error
 	)
 	for eof != io.EOF {
 		pos, _ := arcFile.Seek(0, io.SeekCurrent)
 		log.Println("Чтение блоков с позиции:", pos)
 
-		if _, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
+		if read, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
 			return errtype.ErrDecompress("ошибка чтения сжатых блоков", eof)
 		}
 
-		if err = arc.decompressBuffers(); err != nil {
-			return errtype.ErrDecompress("ошибка распаковки буферов", err)
-		}
+		if read > 0 {
+			if err = arc.decompressBuffers(); err != nil {
+				return errtype.ErrDecompress("ошибка распаковки буферов", err)
+			}
 
-		for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
-			if _, err = decompressedBuf[i].WriteTo(writeBuf); err != nil {
-				return errtype.ErrCompress("ошибка записи в буфера", err)
+			for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
+				if _, err = decompressedBuf[i].WriteTo(writeBuf); err != nil {
+					return errtype.ErrCompress("ошибка записи в буфера", err)
+				}
 			}
 		}
 
-		if int64(writeBuf.Len()) >= c.BufferSize || eof == io.EOF {
+		if writeBuf.Len() > 0 && (int64(writeBuf.Len()) >= c.BufferSize || eof == io.EOF) {
 			if wrote, err = writeBuf.WriteTo(outFile); err != nil {
 				return errtype.ErrCompress("ошибка записи буфера в файл архива", err)
 			}
@@ -183,8 +185,12 @@ func (arc Arc) loadCompressedBuf(arcFile io.Reader, crc *uint32) (read int64, er
 		if bufferSize == -1 {
 			log.Println("Прочитан EOF")
 			return read, io.EOF
+		} else if bufferSize>>1 > c.BufferSize {
+			return 0, errtype.ErrDecompress(
+				fmt.Sprintf("некорректный размер (%d) блока сжатых данных", bufferSize),
+				err,
+			)
 		}
-		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
 
 		if n, err = io.CopyN(compressedBuf[i], arcFile, bufferSize); err != nil {
 			return 0, errtype.ErrDecompress("не могу прочитать блок сжатых данных", err)
