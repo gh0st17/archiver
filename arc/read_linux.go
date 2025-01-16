@@ -12,8 +12,8 @@ import (
 // Возвращает временные метки доступа и изменения
 func amTimes(info os.FileInfo) (atime time.Time, mtime time.Time) {
 	stat := info.Sys().(*syscall.Stat_t)
-	atime = time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
-	mtime = time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
+	atime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	mtime = time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
 
 	return atime, mtime
 }
