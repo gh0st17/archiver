@@ -1,6 +1,7 @@
 package arc
 
 import (
+	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/errtype"
 	"archiver/filesystem"
@@ -23,7 +24,6 @@ var (
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
 	decompressor    = make([]*c.Reader, ncpu)
-	writeBuf        *bytes.Buffer
 )
 
 // Структура параметров архива
@@ -87,19 +87,12 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	return arc, nil
 }
 
+// Удаляет архив
 func (arc Arc) RemoveTmp() {
 	os.Remove(arc.arcPath)
 }
 
-func init() {
-	for i := 0; i < ncpu; i++ {
-		compressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
-		decompressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
-	}
-
-	writeBuf = bytes.NewBuffer(make([]byte, 0, int(c.BufferSize)*ncpu))
-}
-
+// Печать статистики использования памяти
 func (Arc) PrintMemStat() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -108,4 +101,48 @@ func (Arc) PrintMemStat() {
 	fmt.Printf("Всего аллокаций:       %8d KB\n", m.TotalAlloc/1024)
 	fmt.Printf("Системная память:      %8d KB\n", m.Sys/1024)
 	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
+}
+
+// Проверяет, содержит ли срез уникалные значения
+// Если нет, то удаляет дубликаты.
+// Разделяет заголовки на директории и файлы
+func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
+	var (
+		dirs  []*header.DirItem
+		files []*header.FileItem
+	)
+
+	seen := make(map[string]struct{}, len(headers))
+	for _, h := range headers {
+		if len(h.Path()) > 1023 {
+			fmt.Printf(
+				"Длина пути к '%s' первышает максимально допустимую (1023)\n",
+				filepath.Base(h.Path()),
+			)
+			continue
+		}
+		if _, exists := seen[h.Path()]; !exists {
+			seen[h.Path()] = struct{}{}
+			if d, ok := h.(*header.DirItem); ok {
+				dirs = append(dirs, d)
+			} else {
+				files = append(files, h.(*header.FileItem))
+			}
+		}
+	}
+
+	return dirs, files
+}
+
+// Проверяет корректность размера буфера.
+// Возвращает true если размер некорректный.
+func (Arc) checkBufferSize(bufferSize int64) bool {
+	return bufferSize < 0 || bufferSize>>1 > c.BufferSize
+}
+
+func init() {
+	for i := 0; i < ncpu; i++ {
+		compressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
+		decompressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
+	}
 }

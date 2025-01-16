@@ -3,7 +3,9 @@ package arc
 import (
 	"archiver/arc/header"
 	"archiver/errtype"
+	"archiver/filesystem"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -63,6 +65,34 @@ func fetchDir(path string) (headers []header.Header, err error) {
 	return headers, nil
 }
 
+// Собирает элементы файловой системы в заголовки
+func (Arc) fetchHeaders(paths []string) (headers []header.Header, err error) {
+	var (
+		dirHeaders []header.Header
+		header     header.Header
+	)
+
+	for _, path := range paths { // Получение списка файлов и директории
+		// Добавление директории в заголовок
+		// и ее рекурсивный обход
+		if filesystem.DirExists(path) {
+			if dirHeaders, err = fetchDir(path); err == nil {
+				headers = append(headers, dirHeaders...)
+			} else {
+				return nil, errtype.ErrCompress("не могу получить директории", err)
+			}
+			continue
+		}
+
+		if header, err = fetchFile(path); err == nil { // Добавалние файла в заголовок
+			headers = append(headers, header)
+		} else {
+			return nil, errtype.ErrCompress("не могу получить директории", err)
+		}
+	}
+	return headers, nil
+}
+
 // Читает заголовки из архива, определяет смещение данных
 func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err error) {
 	var (
@@ -116,6 +146,7 @@ func (arc *Arc) readDirsAndHeader(arcFile io.Reader) (dirs []header.DirItem, err
 	return dirs, nil
 }
 
+// Читает и возвращает заголовки файлов
 func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error) {
 	var (
 		files    []header.FileItem
@@ -163,6 +194,11 @@ func (arc Arc) skipFileData(arcFile io.ReadSeeker, skipCRC bool) (read header.Si
 
 		if bufferSize == -1 {
 			break
+		} else if arc.checkBufferSize(bufferSize) {
+			return 0, errtype.ErrDecompress(
+				fmt.Sprintf("некорректный размер (%d) блока сжатых данных", bufferSize),
+				err,
+			)
 		}
 
 		read += header.Size(bufferSize)
