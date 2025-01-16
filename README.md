@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gh0st17/archiver/releases/latest"><img src="https://img.shields.io/github/v/release/gh0st17/archiver?style=plastic"></a>
+  <a href="https://github.com/gh0st17/archiver-go/releases/latest"><img src="https://img.shields.io/github/v/release/gh0st17/archiver-go?style=plastic"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=plastic">
-  <img src="https://tokei.rs/b1/github/gh0st17/archiver?category=code">
+  <img src="https://tokei.rs/b1/github/gh0st17/archiver-go?category=code">
 </p>
 
 # О проекте
