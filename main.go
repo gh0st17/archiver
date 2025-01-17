@@ -32,14 +32,20 @@ func main() {
 
 	switch {
 	case len(p.InputPaths) > 0:
+		p.PrintNopLevelIgnore()
+		params.PrintPathsIgnore()
 		err = a.Compress(p.InputPaths)
 	case p.PrintStat:
+		params.PrintStatIgnore()
 		err = a.ViewStat()
 	case p.PrintList:
+		params.PrintListIgnore()
 		err = a.ViewList()
 	case p.IntegTest:
+		params.PrintIntegIgnore()
 		err = a.IntegrityTest()
 	default:
+		params.PrintDecompressIgnore()
 		err = a.Decompress(p.OutputDir, p.XIntegTest)
 	}
 

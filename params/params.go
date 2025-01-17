@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -49,8 +50,7 @@ func ParseParams() (p Params) {
 	var compType string
 	flag.StringVar(&compType, "c", "gzip", compDesc)
 
-	var help bool
-	flag.BoolVar(&help, "help", false, helpDesc)
+	help := flag.Bool("help", false, helpDesc)
 	flag.BoolVar(&p.PrintStat, "s", false, statDesc)
 	flag.BoolVar(&p.PrintList, "l", false, listDesc)
 	flag.BoolVar(&p.IntegTest, "integ", false, integDesc)
@@ -69,21 +69,81 @@ func ParseParams() (p Params) {
 		fmt.Print(versionText)
 		os.Exit(0)
 	}
-	if help {
+	if *help {
 		PrintHelp()
 		os.Exit(0)
 	}
-
-	p.checkCompType(compType)
-	p.checkCompLevel(level)
 
 	if (p.PrintList || p.PrintStat) && len(flag.Args()) == 0 {
 		printError(archivePathError)
 	}
 
 	p.checkPaths()
+	if len(p.InputPaths) > 0 {
+		p.checkCompType(compType)
+		p.checkCompLevel(level)
+	}
 
 	return p
+}
+
+// Явный вывод какие флаги игнорирует флаг
+// '-L' со значением '0'
+func (p Params) PrintNopLevelIgnore() {
+	if p.Cl == compressor.Level(0) {
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == "c" {
+				fmt.Println(zeroLevel)
+			}
+		})
+	}
+}
+
+var ignores = []string{
+	"f", "o", "xinteg", "integ", "l", "s", "c", "L",
+}
+
+// Явный вывод какие флаги игнорирует
+// наличие путей после имени архива
+func PrintPathsIgnore() {
+	printIgnore("Наличие путей после имени архива", ignores[:6])
+}
+
+// Явный вывод какие флаги игнорирует флаг '-s'
+func PrintStatIgnore() {
+	printIgnore("Наличие флага 's'", append(ignores[:5], ignores[6:]...))
+}
+
+// Явный вывод какие флаги игнорирует флаг '-l'
+func PrintListIgnore() {
+	printIgnore("Наличие флага 'l'", append(ignores[:4], ignores[5:]...))
+}
+
+// Явный вывод какие флаги игнорирует флаг '--integ'
+func PrintIntegIgnore() {
+	printIgnore("Наличие флага 'integ'", append(ignores[:3], ignores[4:]...))
+}
+
+// Явный вывод какие флаги игнорирует флаг
+// отсутствие путей после имени архива
+func PrintDecompressIgnore() {
+	printIgnore("Отсутствие путей после имени архива", ignores[3:])
+}
+
+// Общий шаблон вывода информации о том какие
+// флаги будут проигнорированы
+func printIgnore(fstr string, ignores []string) {
+	isVisit := false
+	flag.Visit(func(f *flag.Flag) {
+		if slices.Contains(ignores, f.Name) && !isVisit {
+			fmt.Printf("%s игнорирует флаги: '%s'", fstr, ignores[0])
+			for _, ignore := range ignores[1:] {
+				fmt.Printf(", '%s'", ignore)
+			}
+			fmt.Println()
+			isVisit = true
+		}
+	})
 }
 
 // Проверяет параметр уровня сжатия
@@ -128,7 +188,7 @@ func (p *Params) checkPaths() {
 		p.ArcPath = flag.Arg(0)
 	}
 
-	if isContain(p.InputPaths, p.ArcPath) {
+	if slices.Contains(p.InputPaths, p.ArcPath) {
 		printError(containsError)
 	}
 }
@@ -138,14 +198,4 @@ func printError(message string) {
 	fmt.Printf("%s\n\n", message)
 	PrintHelp()
 	os.Exit(1)
-}
-
-// Проверяет, содержится ли строка в массиве строк
-func isContain(slice []string, str string) bool {
-	for _, v := range slice {
-		if v == str {
-			return true
-		}
-	}
-	return false
 }

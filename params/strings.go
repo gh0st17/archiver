@@ -41,6 +41,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 	relaceAllDesc = "Автоматически заменять существующие файлы"
 	logDesc       = "Печатать логи"
 
+	zeroLevel = "Флаг '-L' со значением '0' игнорирует '-c'"
+
 	compLevelError            = "Уровень сжатия должен быть в пределах от -2 до 9"
 	compTypeError             = "Неизвестный тип компрессора"
 	archivePathInputPathError = "Имя архива и список файлов не указаны"
