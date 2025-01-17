@@ -12,6 +12,7 @@ type DirItem struct {
 
 func NewDirItem(base Base) DirItem { return DirItem{base} }
 
+// Создает директорию
 func (di DirItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, di.path)
 	if err := di.createPath(outDir); err != nil {

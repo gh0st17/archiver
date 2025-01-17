@@ -7,9 +7,8 @@ import (
 	"sort"
 )
 
-// Печатает информации о сжатии архива
+// Печатает информации об архиве
 func (arc Arc) ViewStat() error {
-	// 	Читаем элементы
 	headers, _, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrRuntime(ErrReadHeaders, err)
@@ -20,7 +19,6 @@ func (arc Arc) ViewStat() error {
 	header.PrintStatHeader()
 
 	var original, compressed header.Size
-	// Выводим элементы
 	for _, h := range headers {
 		fmt.Println(h)
 
@@ -36,7 +34,6 @@ func (arc Arc) ViewStat() error {
 
 // Печатает список файлов в архиве
 func (arc Arc) ViewList() error {
-	// 	Читаем элементы
 	headers, _, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrRuntime(ErrReadHeaders, err)

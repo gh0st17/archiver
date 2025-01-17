@@ -13,16 +13,18 @@ import (
 )
 
 type Params struct {
-	InputPaths []string
-	OutputDir  string
-	ArcPath    string
-	Ct         compressor.Type
-	Cl         compressor.Level
-	PrintStat,
-	PrintList,
-	IntegTest,
-	XIntegTest,
-	MemStat,
+	InputPaths []string         // Пути для архивирования
+	OutputDir  string           // Путь к директории для распаковки
+	ArcPath    string           // Путь к файлу архива
+	Ct         compressor.Type  // Тип компрессора
+	Cl         compressor.Level // Уровень сжатия
+	PrintStat  bool             // Флаг вывода информации об архиве
+	PrintList  bool             // Флаг вывода списка содержимого
+	IntegTest  bool             // Флаг проверки целостности
+	XIntegTest bool             // Флаг распаковки с учетом целостности
+	// Флаг вывода статистики использования ОЗУ после выполнения
+	MemStat bool
+	// Флаг замены всех файлов при распаковке без подтверждения
 	ReplaceAll bool
 }
 
@@ -50,21 +52,22 @@ func ParseParams() (p Params) {
 	var compType string
 	flag.StringVar(&compType, "c", "gzip", compDesc)
 
-	help := flag.Bool("help", false, helpDesc)
 	flag.BoolVar(&p.PrintStat, "s", false, statDesc)
 	flag.BoolVar(&p.PrintList, "l", false, listDesc)
 	flag.BoolVar(&p.IntegTest, "integ", false, integDesc)
 	flag.BoolVar(&p.XIntegTest, "xinteg", false, xIntegDesc)
 	flag.BoolVar(&p.MemStat, "mstat", false, memStatDesc)
 	flag.BoolVar(&p.ReplaceAll, "f", false, relaceAllDesc)
+
 	logging := flag.Bool("log", false, logDesc)
 	version := flag.Bool("V", false, versionDesc)
+	help := flag.Bool("help", false, helpDesc)
+
 	flag.Parse()
 
 	if !*logging {
 		log.SetOutput(io.Discard)
 	}
-
 	if *version {
 		fmt.Print(versionText)
 		os.Exit(0)
@@ -99,6 +102,8 @@ func (p Params) PrintNopLevelIgnore() {
 	}
 }
 
+// Флаги которые могут быть проигнорированы
+// другими флагами
 var ignores = []string{
 	"f", "o", "xinteg", "integ", "l", "s", "c", "L",
 }

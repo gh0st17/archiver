@@ -108,7 +108,7 @@ func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err er
 
 	arcFile.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
 
-	if dirs, err = arc.readDirsAndHeader(arcFile); err != nil {
+	if dirs, err = arc.readDirHeaders(arcFile); err != nil {
 		return nil, nil, errtype.ErrRuntime(ErrReadHeaders, err)
 	}
 
@@ -129,18 +129,17 @@ func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err er
 }
 
 // Читает заголовки директории из архива
-func (arc *Arc) readDirsAndHeader(arcFile io.Reader) (dirs []header.DirItem, err error) {
-	// Читаем количество элементов
-	var headersCount int64
+func (arc *Arc) readDirHeaders(arcFile io.Reader) (dirs []header.DirItem, err error) {
+	var headersCount int64 // Количество заголовков директории
 	if err = binary.Read(arcFile, binary.LittleEndian, &headersCount); err != nil {
 		return nil, errtype.ErrRuntime(ErrReadHeadersCount, err)
 	}
 	dirs = make([]header.DirItem, headersCount)
 
-	// Читаем заголовки
+	// Читаем заголовки директории
 	for i := int64(0); i < headersCount; i++ {
 		if err = dirs[i].Read(arcFile); err != nil {
-			return nil, errtype.ErrRuntime(ErrReadDirHeader, err)
+			return nil, errtype.ErrRuntime(ErrReadDirHeaders, err)
 		}
 	}
 
@@ -184,7 +183,7 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 	return files, nil
 }
 
-// Пропускает файл в arcFile
+// Пропускает файл в дескрипторе файла архива
 func (arc Arc) skipFileData(arcFile io.ReadSeeker, skipCRC bool) (read header.Size, err error) {
 	var bufferSize int64
 
@@ -196,7 +195,7 @@ func (arc Arc) skipFileData(arcFile io.ReadSeeker, skipCRC bool) (read header.Si
 		if bufferSize == -1 {
 			break
 		} else if arc.checkBufferSize(bufferSize) {
-			return 0, errtype.ErrDecompress(errBufSize(bufferSize), err)
+			return 0, errtype.ErrDecompress(ErrBufSize(bufferSize), err)
 		}
 
 		read += header.Size(bufferSize)

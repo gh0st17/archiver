@@ -88,7 +88,10 @@ func PrintPathsCheck(paths []string) {
 			if _, exists := prefix[deleted]; !exists {
 				prefix[deleted] = struct{}{}
 
-				fmt.Printf("Удаляется начальный '%s' из имен путей\n", deleted)
+				fmt.Printf(
+					"Удаляется начальный '%s' из имен путей\n",
+					deleted,
+				)
 			}
 		}
 	}

@@ -18,9 +18,13 @@ import (
 const magicNumber uint16 = 0x5717
 
 var (
-	crct            = crc32.MakeTable(crc32.Koopman)
-	ncpu            = runtime.NumCPU()
-	compressedBuf   = make([]*bytes.Buffer, ncpu)
+	// Полином CRC32
+	crct = crc32.MakeTable(crc32.Koopman)
+	// Количество доступных процессоров
+	ncpu = runtime.NumCPU()
+	// Буффер для сжатых данных
+	compressedBuf = make([]*bytes.Buffer, ncpu)
+	// Буфер для несжатых данных
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
 	decompressor    = make([]*c.Reader, ncpu)
@@ -28,9 +32,10 @@ var (
 
 // Структура параметров архива
 type Arc struct {
-	arcPath    string
-	ct         c.Type
-	cl         c.Level
+	arcPath string  // Путь к файлу архива
+	ct      c.Type  // Тип компрессора
+	cl      c.Level // Уровень сжатия
+	// Флаг замены файлов без подтверждения
 	replaceAll bool
 }
 
@@ -57,7 +62,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 		info, err := arcFile.Stat()
 		if err != nil {
-			return nil, err
+			return nil, errtype.ErrRuntime(ErrOpenArc, err)
 		}
 
 		var magic uint16

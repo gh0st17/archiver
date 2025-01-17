@@ -27,10 +27,10 @@ func NewBase(path string, atim, mtim time.Time) Base {
 // Сериализует в себя данные из r
 func (b *Base) Read(r io.Reader) error {
 	var (
-		err                  error
-		length               int16
-		filePathBytes        []byte
-		unixMTime, unixATime int64
+		err                error
+		length             int16
+		filePathBytes      []byte
+		unixMtim, unixAtim int64
 	)
 
 	// Читаем размер строки имени файла или директории
@@ -51,16 +51,16 @@ func (b *Base) Read(r io.Reader) error {
 	}
 
 	// Читаем время модификации
-	if err = binary.Read(r, binary.LittleEndian, &unixMTime); err != nil {
+	if err = binary.Read(r, binary.LittleEndian, &unixMtim); err != nil {
 		return err
 	}
 
 	// Читаем время доступа
-	if err = binary.Read(r, binary.LittleEndian, &unixATime); err != nil {
+	if err = binary.Read(r, binary.LittleEndian, &unixAtim); err != nil {
 		return err
 	}
 
-	mtim, atim := time.Unix(unixMTime, 0), time.Unix(unixATime, 0)
+	mtim, atim := time.Unix(unixMtim, 0), time.Unix(unixAtim, 0)
 	*b = NewBase(string(filePathBytes), mtim, atim)
 
 	return nil

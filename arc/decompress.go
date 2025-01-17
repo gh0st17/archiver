@@ -35,7 +35,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 	for _, fi := range files {
 		if err = fi.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(errRestorePath(fi.Path()), err)
+			return errtype.ErrDecompress(ErrRestorePath(fi.Path()), err)
 		}
 
 		skipLen = len(fi.Path()) + 26
@@ -52,9 +52,9 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		}
 
 		if integ { // --xinteg
-			arc.checkCRC(fi, arcFile)
+			_, err = arc.checkCRC(fi.CRC(), arcFile)
 
-			if fi.IsDamaged() {
+			if err == ErrWrongCRC {
 				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.Path())
 				continue
 			} else {
@@ -89,10 +89,11 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	return nil
 }
 
+// Воссоздает директории из заголовков
 func (Arc) restoreDirsPaths(dirs []*header.DirItem, outputDir string) error {
 	for _, di := range dirs {
 		if err := di.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(errRestorePath(di.Path()), err)
+			return errtype.ErrDecompress(ErrRestorePath(di.Path()), err)
 		}
 		di.RestoreTime(outputDir)
 	}
@@ -100,7 +101,7 @@ func (Arc) restoreDirsPaths(dirs []*header.DirItem, outputDir string) error {
 	return nil
 }
 
-// Обрабатывает вопрос замены файла
+// Обрабатывает диалог замены файла
 func (arc *Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 	var input rune
 	stdin := bufio.NewReader(os.Stdin)
@@ -191,7 +192,7 @@ func (arc Arc) loadCompressedBuf(arcBuf io.Reader, crc *uint32) (read int64, err
 			log.Println("Прочитан EOF")
 			return read, io.EOF
 		} else if arc.checkBufferSize(bufferSize) {
-			return 0, errtype.ErrDecompress(errBufSize(bufferSize), err)
+			return 0, errtype.ErrDecompress(ErrBufSize(bufferSize), err)
 		}
 
 		compressedBuf[i].Reset()
