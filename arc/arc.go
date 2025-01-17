@@ -99,8 +99,6 @@ func (Arc) PrintMemStat() {
 	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
 }
 
-// Проверяет, содержит ли срез уникалные значения
-// Если нет, то удаляет дубликаты.
 // Разделяет заголовки на директории и файлы
 func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
 	var (
@@ -108,7 +106,6 @@ func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.F
 		files []*header.FileItem
 	)
 
-	seen := make(map[string]struct{}, len(headers))
 	for _, h := range headers {
 		if len(h.Path()) > 1023 {
 			fmt.Printf(
@@ -117,13 +114,10 @@ func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.F
 			)
 			continue
 		}
-		if _, exists := seen[h.Path()]; !exists {
-			seen[h.Path()] = struct{}{}
-			if d, ok := h.(*header.DirItem); ok {
-				dirs = append(dirs, d)
-			} else {
-				files = append(files, h.(*header.FileItem))
-			}
+		if d, ok := h.(*header.DirItem); ok {
+			dirs = append(dirs, d)
+		} else {
+			files = append(files, h.(*header.FileItem))
 		}
 	}
 

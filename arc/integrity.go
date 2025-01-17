@@ -28,8 +28,8 @@ func (arc Arc) IntegrityTest() error {
 
 // Распаковывает файл с проверкой CRC каждого блока сжатых данных
 func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
-	skipLen := int64(len(fi.Path())) + 32
-	if _, err := arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
+	skipLen := len(fi.Path()) + 26
+	if _, err := arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
 		return errtype.ErrIntegrity(ErrSkipHeaders, err)
 	}
 

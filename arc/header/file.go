@@ -60,7 +60,7 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 	return nil
 }
 
-func (fi FileItem) Write(w io.Writer) (err error) {
+func (fi *FileItem) Write(w io.Writer) (err error) {
 	if err = fi.Base.Write(w); err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (fi FileItem) String() string {
 		ratio = 0
 	}
 
-	mtime := fi.modTime.Format(dateFormat)
+	mtime := fi.mtim.Format(dateFormat)
 	crc := func() string {
 		if fi.crc != 0 {
 			return fmt.Sprintf("%8X", fi.crc)

@@ -1,10 +1,10 @@
 package header
 
 import (
+	"archiver/filesystem"
 	"fmt"
 	"io"
 	"math"
-	"path/filepath"
 	"strings"
 )
 
@@ -22,10 +22,10 @@ const (
 )
 
 type Header interface {
-	Path() string            // Путь к элементу заголовка
-	Read(r io.Reader) error  // Считывет данные из `r`
-	Write(w io.Writer) error // Записывает данные в `w`
-	String() string          // fmt.Stringer
+	Path() string          // Путь к элементу заголовка
+	Read(io.Reader) error  // Считывет данные из `r`
+	Write(io.Writer) error // Записывает данные в `w`
+	String() string        // fmt.Stringer
 }
 
 // Реализация sort.Interface
@@ -56,16 +56,6 @@ func (bytes Size) String() string {
 		float64(bytes)/float64(div), []rune("КМГТПЭ")[exp])
 }
 
-// Проверяет наличие признака абсолютного пути
-func checkRootSlash(path *string) bool {
-	if filepath.IsAbs(*path) || strings.HasPrefix(*path, "/") {
-		*path = strings.TrimPrefix(*path, "/")
-		return true
-	}
-
-	return false
-}
-
 // Сокращает длинные имена файлов, добавляя '...' в начале
 func prefix(filename string) string {
 	if len(filename) > maxFilePathWidth {
@@ -74,6 +64,26 @@ func prefix(filename string) string {
 	} else {
 		return filename
 	}
+}
+
+// Проверяет пути к элементам и оставляет только
+// уникальные заголовки по этому критерию
+func DropDups(headers []Header) []Header {
+	var (
+		seen = map[string]struct{}{}
+		uniq []Header
+		path string
+	)
+
+	for _, h := range headers {
+		path = filesystem.Clean(h.Path())
+		if _, exists := seen[path]; !exists {
+			seen[path] = struct{}{}
+			uniq = append(uniq, h)
+		}
+	}
+
+	return uniq
 }
 
 // Печатает заголовок статистики

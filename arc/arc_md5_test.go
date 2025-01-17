@@ -53,7 +53,9 @@ func checkMD5(t *testing.T, path string) bool {
 	return true
 }
 
-const chunkSize = 10 * 1024 * 1024
+const chunkSize = md5.BlockSize * 10240
+
+var buffer = make([]byte, chunkSize)
 
 func hashFileMD5(filePath string) (MD5hash, error) {
 	file, err := os.Open(filePath)
@@ -63,7 +65,6 @@ func hashFileMD5(filePath string) (MD5hash, error) {
 	defer file.Close()
 
 	hash := md5.New()
-	buffer := make([]byte, chunkSize)
 
 	for {
 		n, err := file.Read(buffer)
