@@ -107,12 +107,12 @@ func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err er
 	arcFile.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
 
 	if dirs, err = arc.readDirsAndHeader(arcFile); err != nil {
-		return nil, nil, errtype.ErrRuntime(ErrReadDirHeaders, err)
+		return nil, nil, errtype.ErrRuntime(ErrReadHeaders, err)
 	}
 
 	dataPos, _ := arcFile.Seek(0, io.SeekCurrent)
 	if files, err = arc.readFileHeaders(arcFile); err != nil {
-		return nil, nil, errtype.ErrRuntime(ErrReadFileHeaders, err)
+		return nil, nil, errtype.ErrRuntime(ErrReadHeaders, err)
 	}
 	arcFile.Seek(dataPos, io.SeekStart)
 
