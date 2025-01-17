@@ -13,28 +13,28 @@ func (arc Arc) writeHeaderDirs(dirs []*header.DirItem) (arcFile *os.File, err er
 	// Создаем файл
 	arcFile, err = os.Create(arc.arcPath)
 	if err != nil {
-		return nil, errtype.ErrRuntime("не могу создать файл архива", err)
+		return nil, errtype.ErrRuntime(ErrCreateArc, err)
 	}
 
 	// Пишем магическое число
 	if err = binary.Write(arcFile, binary.LittleEndian, magicNumber); err != nil {
-		return nil, errtype.ErrRuntime("ошибка записи магического числа", err)
+		return nil, errtype.ErrRuntime(ErrMagic, err)
 	}
 
 	// Пишем тип компрессора
 	if err = binary.Write(arcFile, binary.LittleEndian, arc.ct); err != nil {
-		return nil, errtype.ErrRuntime("ошибка записи типа компрессора", err)
+		return nil, errtype.ErrRuntime(ErrWriteCompType, err)
 	}
 
 	// Пишем количество заголовков директории
 	if err = binary.Write(arcFile, binary.LittleEndian, int64(len(dirs))); err != nil {
-		return nil, errtype.ErrRuntime("ошибка записи количества заголовков", err)
+		return nil, errtype.ErrRuntime(ErrWriteHeadersCount, err)
 	}
 
 	// Пишем заголовки
 	for _, di := range dirs {
 		if err = di.Write(arcFile); err != nil {
-			return nil, errtype.ErrRuntime("ошибка записи заголовка директории", err)
+			return nil, errtype.ErrRuntime(ErrWriteDirHeader, err)
 		}
 	}
 

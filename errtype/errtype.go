@@ -10,9 +10,9 @@ import (
 )
 
 type Error struct {
-	message string
-	err     error
-	code    int
+	errMessage error
+	err        error
+	code       int
 }
 
 func (e Error) Error() string {
@@ -40,43 +40,43 @@ func (e Error) Error() string {
 	}
 
 	if e.err != nil {
-		return fmt.Sprintf("%s: %s", e.message, eMessage)
+		return fmt.Sprintf("%s: %s", e.errMessage, eMessage)
 	} else {
-		return fmt.Sprint(e.message)
+		return fmt.Sprint(e.errMessage)
 	}
 }
 
 func (e Error) Err() error { return e.err }
 
-func ErrRuntime(message string, err error) error {
+func ErrRuntime(errMessage error, err error) error {
 	return &Error{
-		message: message,
-		err:     err,
-		code:    1,
+		errMessage: errMessage,
+		err:        err,
+		code:       1,
 	}
 }
 
-func ErrCompress(message string, err error) error {
+func ErrCompress(errMessage error, err error) error {
 	return &Error{
-		message: message,
-		err:     err,
-		code:    2,
+		errMessage: errMessage,
+		err:        err,
+		code:       2,
 	}
 }
 
-func ErrDecompress(message string, err error) error {
+func ErrDecompress(errMessage error, err error) error {
 	return &Error{
-		message: message,
-		err:     err,
-		code:    3,
+		errMessage: errMessage,
+		err:        err,
+		code:       3,
 	}
 }
 
-func ErrIntegrity(message string, err error) error {
+func ErrIntegrity(errMessage error, err error) error {
 	return &Error{
-		message: message,
-		err:     err,
-		code:    4,
+		errMessage: errMessage,
+		err:        err,
+		code:       4,
 	}
 }
 

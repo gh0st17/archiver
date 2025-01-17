@@ -76,10 +76,10 @@ func NewReader(typ Type, r io.Reader) (*Reader, error) {
 	reader, err := newReader(typ, r)
 	if err != nil {
 		if err == io.EOF {
-			return nil, errtype.ErrRuntime("читатель достиг EOF", err)
+			return nil, err
 		}
 
-		return nil, errtype.ErrRuntime("не могу создать новый декомпрессор", err)
+		return nil, errtype.ErrRuntime(ErrDecompCreate, err)
 	}
 
 	return &Reader{
@@ -97,13 +97,13 @@ func newReader(typ Type, r io.Reader) (ReadCloserReset, error) {
 	case ZLib:
 		z, err := zlib.NewReader(r)
 		if err != nil {
-			return nil, errtype.ErrRuntime("Zlib new", err)
+			return nil, err
 		}
 		return &zlibReader{z}, nil
 	case Nop:
 		return &nopReader{io.NopCloser(r)}, nil
 	default:
-		return nil, errtype.ErrRuntime("неизвестный тип компрессора", nil)
+		return nil, errtype.ErrRuntime(ErrUnknownComp, nil)
 	}
 }
 
@@ -144,9 +144,9 @@ func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
 	writer, err := newWriter(typ, w, l)
 	if err != nil {
 		if err == io.EOF {
-			return nil, errtype.ErrRuntime("писатель достиг EOF", err)
+			return nil, err
 		}
-		return nil, errtype.ErrRuntime("не могу создать новый компрессор", err)
+		return nil, errtype.ErrRuntime(ErrCompCreate, err)
 	}
 
 	return &Writer{
@@ -166,7 +166,7 @@ func newWriter(typ Type, w io.Writer, l Level) (WriteCloserReset, error) {
 	case Nop:
 		return nopWriteCloser{Writer: w}, nil
 	default:
-		return nil, errtype.ErrRuntime("неизвестный тип компрессора", nil)
+		return nil, errtype.ErrRuntime(ErrUnknownComp, nil)
 	}
 }
 

@@ -30,7 +30,7 @@ func (arc Arc) Compress(paths []string) error {
 	for i := 0; i < ncpu; i++ {
 		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
 		if err != nil {
-			return errtype.ErrCompress("ошибка иницализации компрессора", err)
+			return errtype.ErrCompress(ErrCompressorInit, err)
 		}
 	}
 
@@ -42,20 +42,18 @@ func (arc Arc) Compress(paths []string) error {
 	arcFile, err := arc.writeHeaderDirs(dirs)
 	if err != nil {
 		closeRemove(arcFile)
-		return errtype.ErrCompress(
-			"не могу записать заголовки директории", err,
-		)
+		return errtype.ErrCompress(ErrWriteDirHeaders, err)
 	}
 	arcBuf := bufio.NewWriter(arcFile)
 
 	for _, fi := range files {
 		if err = fi.Write(arcBuf); err != nil {
 			closeRemove(arcFile)
-			return errtype.ErrCompress("ошибка записи заголовка файла", err)
+			return errtype.ErrCompress(ErrWriteFileHeader, err)
 		}
 		if err = arc.compressFile(fi, arcBuf); err != nil {
 			closeRemove(arcFile)
-			return errtype.ErrCompress("не могу сжать файл", err)
+			return errtype.ErrCompress(ErrCompressFile, err)
 		}
 	}
 	arcBuf.Flush()
@@ -68,10 +66,7 @@ func (arc Arc) Compress(paths []string) error {
 func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
 	inFile, err := os.Open(fi.Path())
 	if err != nil {
-		return errtype.ErrCompress(
-			fmt.Sprintf("не могу открыть входной файл '%s' для сжатия", fi.Path()),
-			err,
-		)
+		return errtype.ErrCompress(errOpenFileCompress(fi.Path()), err)
 	}
 	defer inFile.Close()
 	inBuf := bufio.NewReaderSize(inFile, int(c.BufferSize))
@@ -83,7 +78,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
 
 	for {
 		if read, err = arc.loadUncompressedBuf(inBuf); err != nil {
-			return errtype.ErrCompress("ошибка чтения не сжатых блоков", err)
+			return errtype.ErrCompress(ErrReadUncompressed, err)
 		}
 
 		if read == 0 {
@@ -91,21 +86,21 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
 		}
 
 		if err = arc.compressBuffers(); err != nil {
-			return errtype.ErrCompress("ошибка сжатия буфферов", err)
+			return errtype.ErrCompress(ErrCompress, err)
 		}
 
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
 			length := int64(compressedBuf[i].Len())
 			if err = binary.Write(arcBuf, binary.LittleEndian, length); err != nil {
-				return errtype.ErrCompress("ошибка записи длины блока", err)
+				return errtype.ErrCompress(ErrWriteBufLen, err)
 			}
 
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
 			// Пишем сжатый блок
 			if wrote, err = compressedBuf[i].WriteTo(arcBuf); err != nil {
-				return errtype.ErrCompress("ошибка чтения из буфера сжатых данных", err)
+				return errtype.ErrCompress(ErrReadCompressBuf, err)
 			}
 			log.Println("В буфер записан блок размера:", wrote)
 			compressor[i].Reset(compressedBuf[i])
@@ -114,13 +109,13 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
 
 	// Пишем признак конца файла
 	if err = binary.Write(arcBuf, binary.LittleEndian, int64(-1)); err != nil {
-		return errtype.ErrCompress("ошибка записи EOF (-1)", err)
+		return errtype.ErrCompress(ErrWriteEOF, err)
 	}
 	log.Println("Записан EOF")
 
 	// Пишем контрольную сумму
 	if err = binary.Write(arcBuf, binary.LittleEndian, crc); err != nil {
-		return errtype.ErrCompress("ошибка записи CRC", err)
+		return errtype.ErrCompress(ErrWriteCRC, err)
 	}
 	log.Printf("Записан CRC: %X\n", crc)
 
@@ -136,7 +131,7 @@ func (Arc) loadUncompressedBuf(inBuf io.Reader) (read int64, err error) {
 	for i := 0; i < ncpu && err != io.EOF; i++ {
 		n, err = io.CopyN(decompressedBuf[i], inBuf, c.BufferSize)
 		if err != nil && err != io.EOF {
-			return 0, errtype.ErrCompress("ошибка чтения в несжатый буфер", err)
+			return 0, errtype.ErrCompress(ErrReadUncompressBuf, err)
 		}
 
 		read += n
@@ -159,11 +154,11 @@ func (arc Arc) compressBuffers() error {
 
 			_, err := decompressedBuf[i].WriteTo(compressor[i])
 			if err != nil {
-				errChan <- errtype.ErrCompress("ошибка записи в компрессор", err)
+				errChan <- errtype.ErrCompress(ErrWriteCompressor, err)
 				return
 			}
 			if err = compressor[i].Close(); err != nil {
-				errChan <- errtype.ErrCompress("ошибка закрытия компрессора", err)
+				errChan <- errtype.ErrCompress(ErrCloseCompressor, err)
 			}
 		}(i)
 	}

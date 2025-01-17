@@ -1,7 +1,6 @@
 package header
 
 import (
-	"archiver/errtype"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -55,7 +54,7 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 
 	// Читаем размер файла до сжатия
 	if err = binary.Read(r, binary.LittleEndian, &(fi.ucSize)); err != nil {
-		return errtype.ErrRuntime("ошибка чтения длины файла до сжатия", err)
+		return err
 	}
 
 	return nil
@@ -68,7 +67,7 @@ func (fi FileItem) Write(w io.Writer) (err error) {
 
 	// Пишем размер файла до сжатия
 	if err = binary.Write(w, binary.LittleEndian, fi.ucSize); err != nil {
-		return errtype.ErrRuntime("ошибка записи длины файла до сжатия", err)
+		return err
 	}
 
 	return nil
