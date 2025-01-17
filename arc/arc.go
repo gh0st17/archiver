@@ -42,9 +42,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	}
 
 	if filesystem.DirExists(arc.arcPath) {
-		return nil, errtype.ErrRuntime(
-			fmt.Sprintf("'%s' это директория", filepath.Base(arc.arcPath)), nil,
-		)
+		return nil, errtype.ErrRuntime(errIsDir(filepath.Base(arc.arcPath)), nil)
 	}
 
 	if len(p.InputPaths) > 0 {
@@ -67,9 +65,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 			return nil, err
 		}
 		if magic != magicNumber {
-			return nil, errtype.ErrRuntime(
-				fmt.Sprintf("'%s' не архив Arc", info.Name()), nil,
-			)
+			return nil, errtype.ErrRuntime(errNotArc(info.Name()), nil)
 		}
 
 		var compType byte
@@ -80,7 +76,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		if compType <= byte(c.ZLib) {
 			arc.ct = c.Type(compType)
 		} else {
-			return nil, errtype.ErrRuntime("неизвестный тип компрессора", nil)
+			return nil, errtype.ErrRuntime(ErrUnknownComp, nil)
 		}
 	}
 

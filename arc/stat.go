@@ -12,7 +12,7 @@ func (arc Arc) ViewStat() error {
 	// 	Читаем элементы
 	headers, _, err := arc.readHeaders()
 	if err != nil {
-		return errtype.ErrRuntime("ошибка чтения заголовков", err)
+		return errtype.ErrRuntime(ErrReadHeaders, err)
 	}
 	sort.Sort(header.ByPath(headers))
 
@@ -39,7 +39,7 @@ func (arc Arc) ViewList() error {
 	// 	Читаем элементы
 	headers, _, err := arc.readHeaders()
 	if err != nil {
-		return errtype.ErrRuntime("ошибка чтения заголовков", err)
+		return errtype.ErrRuntime(ErrReadHeaders, err)
 	}
 	sort.Sort(header.ByPath(headers))
 
