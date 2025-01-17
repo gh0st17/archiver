@@ -31,11 +31,11 @@ var (
 	ErrWriteCompressor   = errors.New("ошибка записи в компрессор")
 	ErrCloseCompressor   = errors.New("ошибка закрытия компрессора")
 	ErrFetchDirs         = errors.New("не могу получить директории")
-)
 
-func errOpenFileCompress(path string) error {
-	return fmt.Errorf("не могу открыть входной файл '%s' для сжатия", path)
-}
+	ErrOpenFileCompress = func(path string) error {
+		return fmt.Errorf("не могу открыть входной файл '%s' для сжатия", path)
+	}
+)
 
 // Ошибки при распаковке
 var (
@@ -52,26 +52,27 @@ var (
 	ErrReadCompBuf    = errors.New("ошибка чтения блока")
 	ErrDecompInit     = errors.New("ошибка иницализации декомпрессора")
 	ErrReadDecomp     = errors.New("ошибка чтения декомпрессора")
+
+	ErrRestorePath = func(path string) error {
+		return fmt.Errorf("не могу создать путь для '%s'", path)
+	}
+
+	ErrBufSize = func(bufferSize int64) error {
+		return fmt.Errorf("некорректный размер (%d) блока сжатых данных", bufferSize)
+	}
 )
-
-func errRestorePath(path string) error {
-	return fmt.Errorf("не могу создать путь для '%s'", path)
-}
-
-func errBufSize(bufferSize int64) error {
-	return fmt.Errorf("некорректный размер (%d) блока сжатых данных", bufferSize)
-}
 
 // Ошибки проверки целостности
 var (
 	ErrCheckFile = errors.New("ошибка проверки файла")
 	ErrCheckCRC  = errors.New("ошибка проверки CRC")
+	ErrWrongCRC  = errors.New("CRC сумма не совпадает")
 )
 
 // Ошибки функции чтения
 var (
 	ErrOpenArc          = errors.New("не могу открыть файл архива")
-	ErrReadDirHeader    = errors.New("ошибка чтения заголовка директории")
+	ErrReadDirHeaders   = errors.New("ошибка чтения заголовка директории")
 	ErrReadFileHeader   = errors.New("ошибка чтения заголовка файла")
 	ErrReadHeadersCount = errors.New("ошибка чтения числа заголовков")
 	ErrReadCompSize     = errors.New("ошибка чтения размера сжатых данных")

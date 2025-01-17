@@ -11,7 +11,7 @@ import (
 
 const BufferSize int64 = 1048576 // 1М
 
-type Type byte
+type Type byte // Тип компрессора
 
 const (
 	Nop Type = iota
@@ -25,7 +25,7 @@ func (ct Type) String() string {
 	return [...]string{"Nop", "GZip", "LZW", "ZLib"}[ct]
 }
 
-type Level int
+type Level int // Уровень сжатия
 
 const (
 	HuffmanOnly        Level = flate.HuffmanOnly
@@ -121,7 +121,7 @@ func (rd *Reader) Close() error { return rd.reader.Close() }
 
 func (rd *Reader) Reset(r io.Reader) error { return rd.reader.Reset(r) }
 
-type WriteCloserReset interface {
+type WriteCloseResetter interface {
 	io.WriteCloser
 	Reset(io.Writer)
 }
@@ -136,7 +136,7 @@ func (lw *lzwWriter) Reset(w io.Writer) {
 }
 
 type Writer struct {
-	writer WriteCloserReset
+	writer WriteCloseResetter
 }
 
 // Возвращает нового писателя типа typ
@@ -155,7 +155,7 @@ func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
 }
 
 // Выбирает писателя согласно typ
-func newWriter(typ Type, w io.Writer, l Level) (WriteCloserReset, error) {
+func newWriter(typ Type, w io.Writer, l Level) (WriteCloseResetter, error) {
 	switch typ {
 	case GZip:
 		return gzip.NewWriterLevel(w, int(l))

@@ -72,7 +72,7 @@ func (arc Arc) Compress(paths []string) error {
 func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
 	inFile, err := os.Open(path)
 	if err != nil {
-		return errtype.ErrCompress(errOpenFileCompress(path), err)
+		return errtype.ErrCompress(ErrOpenFileCompress(path), err)
 	}
 	defer inFile.Close()
 	inBuf := bufio.NewReaderSize(inFile, int(c.BufferSize))
@@ -83,6 +83,7 @@ func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
 	)
 
 	for {
+		// Заполняем буферы несжатыми частями (блоками) файла
 		if read, err = arc.loadUncompressedBuf(inBuf); err != nil {
 			return errtype.ErrCompress(ErrReadUncompressed, err)
 		}
@@ -91,6 +92,7 @@ func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
 			break
 		}
 
+		// Сжимаем буферы
 		if err = arc.compressBuffers(); err != nil {
 			return errtype.ErrCompress(ErrCompress, err)
 		}
