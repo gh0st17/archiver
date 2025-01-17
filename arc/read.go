@@ -158,7 +158,7 @@ func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error)
 		var fi header.FileItem
 
 		if err = fi.Read(arcFile); err != nil {
-			if err.(*errtype.Error).Err() == io.EOF {
+			if err == io.EOF {
 				break
 			}
 			return nil, errtype.ErrRuntime(ErrReadFileHeader, err)

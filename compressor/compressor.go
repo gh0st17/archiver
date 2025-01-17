@@ -45,7 +45,7 @@ type lzwReader struct {
 	*lzw.Reader
 }
 
-func (lr lzwReader) Reset(r io.Reader) error {
+func (lr *lzwReader) Reset(r io.Reader) error {
 	lr.Reader.Reset(r, lzw.MSB, 8)
 	return nil
 }
@@ -55,11 +55,11 @@ type zlibReader struct {
 	reader io.ReadCloser
 }
 
-func (zr zlibReader) Read(p []byte) (int, error) {
+func (zr *zlibReader) Read(p []byte) (int, error) {
 	return zr.reader.Read(p)
 }
 
-func (zr zlibReader) Close() error {
+func (zr *zlibReader) Close() error {
 	return zr.reader.Close()
 }
 
@@ -117,9 +117,9 @@ func (rd *Reader) WriteTo(w io.Writer) (int64, error) {
 	return n, nil
 }
 
-func (rd Reader) Close() error { return rd.reader.Close() }
+func (rd *Reader) Close() error { return rd.reader.Close() }
 
-func (rd Reader) Reset(r io.Reader) error { return rd.reader.Reset(r) }
+func (rd *Reader) Reset(r io.Reader) error { return rd.reader.Reset(r) }
 
 type WriteCloserReset interface {
 	io.WriteCloser
@@ -131,7 +131,7 @@ type lzwWriter struct {
 	*lzw.Writer
 }
 
-func (lw lzwWriter) Reset(w io.Writer) {
+func (lw *lzwWriter) Reset(w io.Writer) {
 	lw.Writer.Reset(w, lzw.MSB, 8)
 }
 
@@ -171,7 +171,7 @@ func newWriter(typ Type, w io.Writer, l Level) (WriteCloserReset, error) {
 }
 
 // Сжимает из p len(p) байт во внутренний writer
-func (wr Writer) Write(p []byte) (n int, err error) {
+func (wr *Writer) Write(p []byte) (n int, err error) {
 	n, err = wr.writer.Write(p)
 	if err != nil {
 		return 0, err
@@ -180,6 +180,6 @@ func (wr Writer) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (wr Writer) Close() error { return wr.writer.Close() }
+func (wr *Writer) Close() error { return wr.writer.Close() }
 
-func (wr Writer) Reset(w io.Writer) { wr.writer.Reset(w) }
+func (wr *Writer) Reset(w io.Writer) { wr.writer.Reset(w) }
