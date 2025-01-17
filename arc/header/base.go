@@ -12,27 +12,23 @@ import (
 )
 
 type Base struct {
-	path    string
-	accTime time.Time
-	modTime time.Time
+	path string    // Путь к элементу
+	atim time.Time // Последнее время доступа к элементу
+	mtim time.Time // Последнее время измения элемента
 }
 
 // Возвращает путь до элемента
 func (b Base) Path() string { return b.path }
 
 func NewBase(path string, atim, mtim time.Time) Base {
-	return Base{
-		path:    path,
-		accTime: atim,
-		modTime: mtim,
-	}
+	return Base{path, atim, mtim}
 }
 
 // Сериализует в себя данные из r
 func (b *Base) Read(r io.Reader) error {
 	var (
 		err                  error
-		length               int64
+		length               int16
 		filePathBytes        []byte
 		unixMTime, unixATime int64
 	)
@@ -64,33 +60,26 @@ func (b *Base) Read(r io.Reader) error {
 		return err
 	}
 
-	*b = Base{
-		path:    string(filePathBytes),
-		modTime: time.Unix(unixMTime, 0),
-		accTime: time.Unix(unixATime, 0),
-	}
+	mtim, atim := time.Unix(unixMTime, 0), time.Unix(unixATime, 0)
+	*b = NewBase(string(filePathBytes), mtim, atim)
 
 	return nil
 }
 
 // Сериализует данные полей в писатель w
-func (b Base) Write(w io.Writer) (err error) {
+func (b *Base) Write(w io.Writer) (err error) {
 	// Пишем длину строки имени файла или директории
-	if checkRootSlash(&(b.path)) {
-		fmt.Println("Удаляется начальный '/'")
-	}
-
 	b.path = filesystem.Clean(b.path)
-	if err = binary.Write(w, binary.LittleEndian, int64(len(b.path))); err != nil {
+	if err = binary.Write(w, binary.LittleEndian, int16(len(b.path))); err != nil {
 		return err
 	}
 
 	// Пишем имя файла или директории
-	if err = binary.Write(w, binary.BigEndian, []byte(b.path)); err != nil {
+	if err = binary.Write(w, binary.LittleEndian, []byte(b.path)); err != nil {
 		return err
 	}
 
-	atime, mtime := b.accTime.Unix(), b.modTime.Unix()
+	atime, mtime := b.atim.Unix(), b.mtim.Unix()
 
 	// Пишем время модификации
 	if err = binary.Write(w, binary.LittleEndian, mtime); err != nil {
@@ -104,9 +93,10 @@ func (b Base) Write(w io.Writer) (err error) {
 
 	return nil
 }
+
 func (b Base) RestoreTime(outDir string) error {
 	outDir = filepath.Join(outDir, b.path)
-	if err := os.Chtimes(outDir, b.accTime, b.modTime); err != nil {
+	if err := os.Chtimes(outDir, b.atim, b.mtim); err != nil {
 		return err
 	}
 

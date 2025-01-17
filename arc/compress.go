@@ -4,6 +4,7 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/errtype"
+	"archiver/filesystem"
 	"bufio"
 	"encoding/binary"
 	"fmt"
@@ -17,13 +18,16 @@ import (
 // Создает архив
 func (arc Arc) Compress(paths []string) error {
 	var (
+		path    string
 		headers []header.Header
 		err     error
 	)
 
+	filesystem.PrintPathsCheck(paths)
 	if headers, err = arc.fetchHeaders(paths); err != nil {
 		return err
 	}
+	headers = header.DropDups(headers)
 
 	dirs, files := arc.splitHeaders(headers)
 
@@ -47,11 +51,13 @@ func (arc Arc) Compress(paths []string) error {
 	arcBuf := bufio.NewWriter(arcFile)
 
 	for _, fi := range files {
+		path = fi.Path()
 		if err = fi.Write(arcBuf); err != nil {
 			closeRemove(arcFile)
 			return errtype.ErrCompress(ErrWriteFileHeader, err)
 		}
-		if err = arc.compressFile(fi, arcBuf); err != nil {
+
+		if err = arc.compressFile(path, arcBuf); err != nil {
 			closeRemove(arcFile)
 			return errtype.ErrCompress(ErrCompressFile, err)
 		}
@@ -63,10 +69,10 @@ func (arc Arc) Compress(paths []string) error {
 }
 
 // Сжимает файл блоками
-func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
-	inFile, err := os.Open(fi.Path())
+func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
+	inFile, err := os.Open(path)
 	if err != nil {
-		return errtype.ErrCompress(errOpenFileCompress(fi.Path()), err)
+		return errtype.ErrCompress(errOpenFileCompress(path), err)
 	}
 	defer inFile.Close()
 	inBuf := bufio.NewReaderSize(inFile, int(c.BufferSize))
@@ -119,7 +125,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
 	}
 	log.Printf("Записан CRC: %X\n", crc)
 
-	fmt.Println(fi.Path())
+	fmt.Println(filesystem.Clean(path))
 
 	return nil
 }

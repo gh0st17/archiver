@@ -28,8 +28,9 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 	// 	Создаем файлы и директории
 	var (
-		outPath          string
-		skipLen, dataPos int64
+		outPath string
+		dataPos int64
+		skipLen int
 	)
 
 	for _, fi := range files {
@@ -37,8 +38,8 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 			return errtype.ErrDecompress(errRestorePath(fi.Path()), err)
 		}
 
-		skipLen = int64(len(fi.Path())) + 32
-		if dataPos, err = arcFile.Seek(skipLen, io.SeekCurrent); err != nil {
+		skipLen = len(fi.Path()) + 26
+		if dataPos, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
 			return errtype.ErrDecompress(ErrSkipHeaders, err)
 		}
 		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции:", dataPos)
@@ -58,7 +59,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 				continue
 			} else {
 				arcFile.Seek(dataPos, io.SeekStart)
-				log.Println("Файл цел, установлена позиция:", dataPos+skipLen)
+				log.Println("Файл цел, установлена позиция:", int(dataPos)+skipLen)
 			}
 		}
 

@@ -11,9 +11,11 @@ import (
 	fp "path/filepath"
 )
 
-// Собирает элементы из списка файлов
-func fetchFile(filepath string) (h header.Header, err error) {
-	file, err := os.OpenFile(filepath, os.O_RDONLY, 0444)
+// Проверяет чем является path, директорией или файлом,
+// возвращает интерфейс заголовка, указывающий на
+// соответствующий тип
+func fetchPath(path string) (h header.Header, err error) {
+	file, err := os.OpenFile(path, os.O_RDONLY, 0444)
 	if err != nil {
 		return nil, err
 	}
@@ -27,12 +29,12 @@ func fetchFile(filepath string) (h header.Header, err error) {
 
 	if info.IsDir() {
 		di := header.NewDirItem(
-			header.NewBase(fp.ToSlash(filepath), atime, mtime),
+			header.NewBase(fp.ToSlash(path), atime, mtime),
 		)
 		h = &di
 	} else {
 		fi := header.NewFileItem(
-			header.NewBase(fp.ToSlash(filepath), atime, mtime),
+			header.NewBase(fp.ToSlash(path), atime, mtime),
 			header.Size(info.Size()),
 		)
 		h = &fi
@@ -48,7 +50,7 @@ func fetchDir(path string) (headers []header.Header, err error) {
 			return err
 		}
 
-		header, err := fetchFile(path)
+		header, err := fetchPath(path)
 		if err != nil {
 			return err
 		}
@@ -83,7 +85,7 @@ func (Arc) fetchHeaders(paths []string) (headers []header.Header, err error) {
 			continue
 		}
 
-		if header, err = fetchFile(path); err == nil { // Добавалние файла в заголовок
+		if header, err = fetchPath(path); err == nil { // Добавалние файла в заголовок
 			headers = append(headers, header)
 		} else {
 			return nil, errtype.ErrCompress(ErrFetchDirs, err)

@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,6 +52,7 @@ func DirExists(dirPath string) bool {
 
 // Номализует путь
 func Clean(path string) string {
+	path = strings.TrimPrefix(path, "/")
 	parts := strings.Split(path, "/")
 	stack := []string{}
 
@@ -71,4 +73,23 @@ func Clean(path string) string {
 	}
 
 	return strings.Join(stack, "/")
+}
+
+// Печатает предупреждение что абсолютные и
+// относительные пути будут храниться в
+// упрощенном виде
+func PrintPathsCheck(paths []string) {
+	var prefix = map[string]struct{}{}
+	for _, p := range paths {
+		path := p
+		path = Clean(path)
+		deleted := strings.TrimSuffix(p, path)
+		if len(deleted) > 0 {
+			if _, exists := prefix[deleted]; !exists {
+				prefix[deleted] = struct{}{}
+
+				fmt.Printf("Удаляется начальный '%s' из имен путей\n", deleted)
+			}
+		}
+	}
 }
