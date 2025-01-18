@@ -1,6 +1,7 @@
 package header
 
 import (
+	"archiver/filesystem"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -72,7 +73,7 @@ func (fi *FileItem) Write(w io.Writer) (err error) {
 
 func (fi FileItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, fi.pathOnDisk)
-	if err := fi.createPath(filepath.Dir(outDir)); err != nil {
+	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
 		return err
 	}
 

@@ -12,16 +12,23 @@ import (
 	"time"
 )
 
-type Base struct {
-	pathOnDisk string    // Путь к элементу на диске
-	pathInArc  string    // Путь к элементу в архиве
-	atim       time.Time // Последнее время доступа к элементу
-	mtim       time.Time // Последнее время измения элемента
+type timeAttr struct {
+	atim time.Time // Последнее время доступа к элементу
+	mtim time.Time // Последнее время измения элемента
 }
 
-// Возвращает путь до элемента
-func (b Base) PathOnDisk() string { return b.pathOnDisk }
-func (b Base) PathInArc() string  { return b.pathInArc }
+type basePaths struct {
+	pathOnDisk string // Путь к элементу на диске
+	pathInArc  string // Путь к элементу в архиве
+}
+
+func (b basePaths) PathOnDisk() string { return b.pathOnDisk }
+func (b basePaths) PathInArc() string  { return b.pathInArc }
+
+type Base struct {
+	basePaths
+	timeAttr
+}
 
 func NewBase(pathOnDisk string, atim, mtim time.Time) (*Base, error) {
 	pathInArc := filesystem.Clean(pathOnDisk)
@@ -30,7 +37,10 @@ func NewBase(pathOnDisk string, atim, mtim time.Time) (*Base, error) {
 		return nil, errors.New("длина пути в архиве превышает допустимую")
 	}
 
-	return &Base{pathOnDisk, pathInArc, atim, mtim}, nil
+	return &Base{
+		basePaths{pathOnDisk, pathInArc},
+		timeAttr{atim, mtim},
+	}, nil
 }
 
 // Сериализует в себя данные из r
@@ -110,8 +120,4 @@ func (b Base) RestoreTime(outDir string) error {
 	}
 
 	return nil
-}
-
-func (b Base) createPath(outDir string) error {
-	return filesystem.CreatePath(outDir)
 }
