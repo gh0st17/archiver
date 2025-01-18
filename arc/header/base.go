@@ -12,16 +12,18 @@ import (
 )
 
 type Base struct {
-	path string    // Путь к элементу
-	atim time.Time // Последнее время доступа к элементу
-	mtim time.Time // Последнее время измения элемента
+	pathOnDisk string    // Путь к элементу на диске
+	pathInArc  string    // Путь к элементу в архиве
+	atim       time.Time // Последнее время доступа к элементу
+	mtim       time.Time // Последнее время измения элемента
 }
 
 // Возвращает путь до элемента
-func (b Base) Path() string { return b.path }
+func (b Base) PathOnDisk() string { return b.pathOnDisk }
+func (b Base) PathInArc() string  { return b.pathInArc }
 
-func NewBase(path string, atim, mtim time.Time) Base {
-	return Base{path, atim, mtim}
+func NewBase(pathOnDisk string, atim, mtim time.Time) Base {
+	return Base{pathOnDisk, filesystem.Clean(pathOnDisk), atim, mtim}
 }
 
 // Сериализует в себя данные из r
@@ -69,13 +71,12 @@ func (b *Base) Read(r io.Reader) error {
 // Сериализует данные полей в писатель w
 func (b *Base) Write(w io.Writer) (err error) {
 	// Пишем длину строки имени файла или директории
-	b.path = filesystem.Clean(b.path)
-	if err = binary.Write(w, binary.LittleEndian, int16(len(b.path))); err != nil {
+	if err = binary.Write(w, binary.LittleEndian, int16(len(b.pathInArc))); err != nil {
 		return err
 	}
 
 	// Пишем имя файла или директории
-	if err = binary.Write(w, binary.LittleEndian, []byte(b.path)); err != nil {
+	if err = binary.Write(w, binary.LittleEndian, []byte(b.pathInArc)); err != nil {
 		return err
 	}
 
@@ -95,7 +96,7 @@ func (b *Base) Write(w io.Writer) (err error) {
 }
 
 func (b Base) RestoreTime(outDir string) error {
-	outDir = filepath.Join(outDir, b.path)
+	outDir = filepath.Join(outDir, b.pathOnDisk)
 	if err := os.Chtimes(outDir, b.atim, b.mtim); err != nil {
 		return err
 	}

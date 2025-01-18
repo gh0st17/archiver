@@ -112,10 +112,10 @@ func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.F
 	)
 
 	for _, h := range headers {
-		if len(h.Path()) > 1023 {
+		if len(h.PathOnDisk()) > 1023 {
 			fmt.Printf(
 				"Длина пути к '%s' первышает максимально допустимую (1023)\n",
-				filepath.Base(h.Path()),
+				filepath.Base(h.PathOnDisk()),
 			)
 			continue
 		}

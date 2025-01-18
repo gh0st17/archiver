@@ -1,9 +1,7 @@
 package header
 
 import (
-	"archiver/filesystem"
 	"fmt"
-	"io"
 	"math"
 	"strings"
 )
@@ -22,10 +20,9 @@ const (
 )
 
 type Header interface {
-	Path() string          // Путь к элементу заголовка
-	Read(io.Reader) error  // Считывет данные из `r`
-	Write(io.Writer) error // Записывает данные в `w`
-	String() string        // fmt.Stringer
+	PathOnDisk() string // Путь к элементу заголовка
+	PathInArc() string  // Путь к элементу в архиве
+	String() string     // fmt.Stringer
 }
 
 // Реализация sort.Interface
@@ -34,7 +31,7 @@ type ByPath []Header
 func (a ByPath) Len() int      { return len(a) }
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByPath) Less(i, j int) bool {
-	return strings.ToLower(a[i].Path()) < strings.ToLower(a[j].Path())
+	return strings.ToLower(a[i].PathOnDisk()) < strings.ToLower(a[j].PathOnDisk())
 }
 
 type Size int64
@@ -76,7 +73,7 @@ func DropDups(headers []Header) []Header {
 	)
 
 	for _, h := range headers {
-		path = filesystem.Clean(h.Path())
+		path = h.PathInArc()
 		if _, exists := seen[path]; !exists {
 			seen[path] = struct{}{}
 			uniq = append(uniq, h)

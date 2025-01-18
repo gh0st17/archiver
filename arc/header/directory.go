@@ -14,7 +14,7 @@ func NewDirItem(base Base) DirItem { return DirItem{base} }
 
 // Создает директорию
 func (di DirItem) RestorePath(outDir string) error {
-	outDir = filepath.Join(outDir, di.path)
+	outDir = filepath.Join(outDir, di.pathOnDisk)
 	if err := di.createPath(outDir); err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func (di DirItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (di DirItem) String() string {
-	filename := prefix(di.path)
+	filename := prefix(di.pathOnDisk)
 	mtime := di.mtim.Format(dateFormat)
 
 	return fmt.Sprintf(

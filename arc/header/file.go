@@ -74,7 +74,7 @@ func (fi *FileItem) Write(w io.Writer) (err error) {
 }
 
 func (fi FileItem) RestorePath(outDir string) error {
-	outDir = filepath.Join(outDir, fi.path)
+	outDir = filepath.Join(outDir, fi.pathOnDisk)
 	if err := fi.createPath(filepath.Dir(outDir)); err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (fi FileItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (fi FileItem) String() string {
-	path := prefix(fi.path)
+	path := prefix(fi.pathOnDisk)
 
 	ratio := float32(fi.cSize) / float32(fi.ucSize) * 100.0
 	if math.IsInf(float64(ratio), 1) {

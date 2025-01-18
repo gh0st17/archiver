@@ -31,17 +31,17 @@ func (arc Arc) IntegrityTest() error {
 func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 	var err error
 
-	skipLen := len(fi.Path()) + 26
+	skipLen := len(fi.PathOnDisk()) + 26
 	if _, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
 		return errtype.ErrIntegrity(ErrSkipHeaders, err)
 	}
 
 	if _, err = arc.checkCRC(fi.CRC(), arcFile); err == ErrWrongCRC {
-		fmt.Println(fi.Path() + ": Файл поврежден")
+		fmt.Println(fi.PathOnDisk() + ": Файл поврежден")
 	} else if err != nil {
 		return errtype.ErrIntegrity(ErrCheckCRC, err)
 	} else {
-		fmt.Println(fi.Path() + ": OK")
+		fmt.Println(fi.PathOnDisk() + ": OK")
 	}
 
 	return nil

@@ -41,7 +41,7 @@ func (arc Arc) ViewList() error {
 	sort.Sort(header.ByPath(headers))
 
 	for _, h := range headers {
-		fmt.Println(h.Path())
+		fmt.Println(h.PathOnDisk())
 	}
 
 	return nil

@@ -35,16 +35,16 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 	for _, fi := range files {
 		if err = fi.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(ErrRestorePath(fi.Path()), err)
+			return errtype.ErrDecompress(ErrRestorePath(fi.PathOnDisk()), err)
 		}
 
-		skipLen = len(fi.Path()) + 26
+		skipLen = len(fi.PathOnDisk()) + 26
 		if dataPos, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
 			return errtype.ErrDecompress(ErrSkipHeaders, err)
 		}
 		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции:", dataPos)
 
-		outPath = filepath.Join(outputDir, fi.Path())
+		outPath = filepath.Join(outputDir, fi.PathOnDisk())
 		if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
 			if arc.replaceInput(outPath, arcFile) {
 				continue
@@ -55,7 +55,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 			_, err = arc.checkCRC(fi.CRC(), arcFile)
 
 			if err == ErrWrongCRC {
-				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.Path())
+				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
 				continue
 			} else {
 				arcFile.Seek(dataPos, io.SeekStart)
@@ -93,7 +93,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 func (Arc) restoreDirsPaths(dirs []*header.DirItem, outputDir string) error {
 	for _, di := range dirs {
 		if err := di.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(ErrRestorePath(di.Path()), err)
+			return errtype.ErrDecompress(ErrRestorePath(di.PathOnDisk()), err)
 		}
 		di.RestoreTime(outputDir)
 	}
