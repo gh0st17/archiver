@@ -105,10 +105,10 @@ func (Arc) PrintMemStat() {
 }
 
 // Разделяет заголовки на директории и файлы
-func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
+func (Arc) splitHeaders(headers []header.Header) ([]header.Header, []*header.FileItem) {
 	var (
-		dirs  []*header.DirItem
-		files []*header.FileItem
+		dirsSyms []header.Header
+		files    []*header.FileItem
 	)
 
 	for _, h := range headers {
@@ -120,13 +120,15 @@ func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.F
 			continue
 		}
 		if d, ok := h.(*header.DirItem); ok {
-			dirs = append(dirs, d)
+			dirsSyms = append(dirsSyms, d)
+		} else if s, ok := h.(*header.SymDirItem); ok {
+			dirsSyms = append(dirsSyms, s)
 		} else {
 			files = append(files, h.(*header.FileItem))
 		}
 	}
 
-	return dirs, files
+	return dirsSyms, files
 }
 
 // Проверяет корректность размера буфера.

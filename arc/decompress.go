@@ -23,8 +23,8 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	}
 	defer arcFile.Close()
 
-	dirs, files := arc.splitHeaders(headers)
-	arc.restoreDirsPaths(dirs, outputDir)
+	dirsSyms, files := arc.splitHeaders(headers)
+	arc.restoreDirsSymsPaths(dirsSyms, outputDir)
 
 	// 	Создаем файлы и директории
 	var (
@@ -90,12 +90,18 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 }
 
 // Воссоздает директории из заголовков
-func (Arc) restoreDirsPaths(dirs []*header.DirItem, outputDir string) error {
-	for _, di := range dirs {
-		if err := di.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(ErrRestorePath(di.PathOnDisk()), err)
+func (Arc) restoreDirsSymsPaths(dirsSyms []header.Header, outputDir string) error {
+	for _, h := range dirsSyms {
+		if di, ok := h.(*header.DirItem); ok {
+			if err := di.RestorePath(outputDir); err != nil {
+				return errtype.ErrDecompress(ErrRestorePath(di.PathOnDisk()), err)
+			}
+			di.RestoreTime(outputDir)
+		} else if si, ok := h.(*header.SymDirItem); ok {
+			if err := si.RestorePath(outputDir); err != nil {
+				return errtype.ErrDecompress(ErrRestorePath(si.PathOnDisk()), err)
+			}
 		}
-		di.RestoreTime(outputDir)
 	}
 
 	return nil

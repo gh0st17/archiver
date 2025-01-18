@@ -31,7 +31,7 @@ type ByPath []Header
 func (a ByPath) Len() int      { return len(a) }
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByPath) Less(i, j int) bool {
-	return strings.ToLower(a[i].PathOnDisk()) < strings.ToLower(a[j].PathOnDisk())
+	return strings.ToLower(a[i].PathInArc()) < strings.ToLower(a[j].PathInArc())
 }
 
 type Size int64

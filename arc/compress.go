@@ -29,9 +29,9 @@ func (arc Arc) Compress(paths []string) error {
 	}
 	headers = header.DropDups(headers)
 
-	dirs, files := arc.splitHeaders(headers)
+	dirsSyms, files := arc.splitHeaders(headers)
 
-	if len(dirs)+len(files) == 0 {
+	if len(dirsSyms)+len(files) == 0 {
 		return errtype.ErrCompress(errors.New("нет элементов для сжатия"), nil)
 	}
 
@@ -47,7 +47,7 @@ func (arc Arc) Compress(paths []string) error {
 		arc.RemoveTmp()
 	}
 
-	arcFile, err := arc.writeHeaderDirs(dirs)
+	arcFile, err := arc.writeHeaderDirsSyms(dirsSyms)
 	if err != nil {
 		closeRemove(arcFile)
 		return errtype.ErrCompress(ErrWriteDirHeaders, err)

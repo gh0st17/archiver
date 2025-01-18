@@ -5,6 +5,7 @@ import (
 	"archiver/errtype"
 	"archiver/filesystem"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -15,13 +16,7 @@ import (
 // возвращает интерфейс заголовка, указывающий на
 // соответствующий тип
 func fetchPath(path string) (h header.Header, err error) {
-	file, err := os.OpenFile(path, os.O_RDONLY, 0444)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	info, err := file.Stat()
+	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +27,15 @@ func fetchPath(path string) (h header.Header, err error) {
 		return nil, err
 	}
 
-	if info.IsDir() {
+	if info.Mode()&os.ModeSymlink != 0 {
+		if target, err := fp.EvalSymlinks(path); err != nil {
+			return nil, err
+		} else if target, err = fp.Abs(target); err != nil {
+			return nil, err
+		} else {
+			h = header.NewSymDirItem(path, target)
+		}
+	} else if info.Mode()&os.ModeDir != 0 {
 		h = header.NewDirItem(b)
 	} else {
 		h = header.NewFileItem(b, header.Size(info.Size()))
@@ -95,8 +98,8 @@ func (Arc) fetchHeaders(paths []string) (headers []header.Header, err error) {
 // Читает заголовки из архива, определяет смещение данных
 func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err error) {
 	var (
-		dirs  []header.DirItem
-		files []header.FileItem
+		dirsSyms []header.Header
+		files    []header.FileItem
 	)
 
 	arcFile, err = os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
@@ -106,7 +109,7 @@ func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err er
 
 	arcFile.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
 
-	if dirs, err = arc.readDirHeaders(arcFile); err != nil {
+	if dirsSyms, err = arc.readDirSymHeaders(arcFile); err != nil {
 		return nil, nil, errtype.ErrRuntime(ErrReadHeaders, err)
 	}
 
@@ -116,9 +119,7 @@ func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err er
 	}
 	arcFile.Seek(dataPos, io.SeekStart)
 
-	for _, dir := range dirs {
-		headers = append(headers, &dir)
-	}
+	headers = append(headers, dirsSyms...)
 	for _, file := range files {
 		headers = append(headers, &file)
 	}
@@ -127,21 +128,37 @@ func (arc *Arc) readHeaders() (headers []header.Header, arcFile *os.File, err er
 }
 
 // Читает заголовки директории из архива
-func (arc *Arc) readDirHeaders(arcFile io.Reader) (dirs []header.DirItem, err error) {
+func (arc *Arc) readDirSymHeaders(arcFile io.Reader) (dirsSyms []header.Header, err error) {
 	var headersCount int64 // Количество заголовков директории
-	if err = binary.Read(arcFile, binary.LittleEndian, &headersCount); err != nil {
+	if err = filesystem.BinaryRead(arcFile, &headersCount); err != nil {
 		return nil, errtype.ErrRuntime(ErrReadHeadersCount, err)
 	}
-	dirs = make([]header.DirItem, headersCount)
+	dirsSyms = make([]header.Header, headersCount)
 
 	// Читаем заголовки директории
 	for i := int64(0); i < headersCount; i++ {
-		if err = dirs[i].Read(arcFile); err != nil {
-			return nil, errtype.ErrRuntime(ErrReadDirHeaders, err)
+		var typ byte
+		if err = filesystem.BinaryRead(arcFile, &typ); err != nil {
+			return nil, errtype.ErrRuntime(errors.New("read type"), err)
+		}
+
+		switch typ {
+		case 0:
+			dirsSyms[i] = &header.DirItem{}
+			if err = dirsSyms[i].(*header.DirItem).Read(arcFile); err != nil {
+				return nil, errtype.ErrRuntime(ErrReadDirHeaders, err)
+			}
+		case 1:
+			dirsSyms[i] = &header.SymDirItem{}
+			if err = dirsSyms[i].(*header.SymDirItem).Read(arcFile); err != nil {
+				return nil, errtype.ErrRuntime(ErrReadDirHeaders, err)
+			}
+		default:
+			return nil, errtype.ErrRuntime(errors.New("unknown type"), err)
 		}
 	}
 
-	return dirs, nil
+	return dirsSyms, nil
 }
 
 // Читает и возвращает заголовки файлов

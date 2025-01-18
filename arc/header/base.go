@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -24,6 +25,43 @@ type basePaths struct {
 
 func (b basePaths) PathOnDisk() string { return b.pathOnDisk }
 func (b basePaths) PathInArc() string  { return b.pathInArc }
+
+func readPath(r io.Reader) (_ string, err error) {
+	var length int16
+
+	if err = binary.Read(r, binary.LittleEndian, &length); err != nil {
+		return "", err
+	}
+
+	if length < 1 || length > 1023 {
+		return "", errtype.ErrRuntime(
+			fmt.Errorf("некорректная длина (%d) пути элемента", length), nil,
+		)
+	}
+
+	pathBytes := make([]byte, length)
+	if _, err = io.ReadFull(r, pathBytes); err != nil {
+		return "", err
+	}
+
+	return string(pathBytes), nil
+}
+
+func writePath(w io.Writer, path string) (err error) {
+	// Пишем длину строки имени файла или директории
+	if err = binary.Write(w, binary.LittleEndian, int16(len(path))); err != nil {
+		return err
+	}
+	log.Println("arc.header.writePath: Записана длина пути:", int16(len(path)))
+
+	// Пишем имя файла или директории
+	if err = binary.Write(w, binary.LittleEndian, []byte(path)); err != nil {
+		return err
+	}
+	log.Println("arc.header.writePath: Записан путь:", path)
+
+	return nil
+}
 
 type Base struct {
 	basePaths
@@ -46,26 +84,14 @@ func NewBase(pathOnDisk string, atim, mtim time.Time) (*Base, error) {
 // Сериализует в себя данные из r
 func (b *Base) Read(r io.Reader) error {
 	var (
-		err                error
-		length             int16
-		filePathBytes      []byte
-		unixMtim, unixAtim int64
+		err      error
+		path     string
+		unixMtim int64
+		unixAtim int64
 	)
 
-	// Читаем размер строки имени файла или директории
-	if err = binary.Read(r, binary.LittleEndian, &length); err != nil {
-		return err
-	}
-
-	if length < 1 || length > 1023 {
-		return errtype.ErrRuntime(
-			fmt.Errorf("некорректная длина (%d) пути элемента", length), nil,
-		)
-	}
-
 	// Читаем имя файла
-	filePathBytes = make([]byte, length)
-	if _, err := io.ReadFull(r, filePathBytes); err != nil {
+	if path, err = readPath(r); err != nil {
 		return err
 	}
 
@@ -80,7 +106,7 @@ func (b *Base) Read(r io.Reader) error {
 	}
 
 	mtim, atim := time.Unix(unixMtim, 0), time.Unix(unixAtim, 0)
-	newBase, _ := NewBase(string(filePathBytes), mtim, atim)
+	newBase, _ := NewBase(path, mtim, atim)
 	*b = *newBase
 
 	return err
@@ -88,13 +114,8 @@ func (b *Base) Read(r io.Reader) error {
 
 // Сериализует данные полей в писатель w
 func (b *Base) Write(w io.Writer) (err error) {
-	// Пишем длину строки имени файла или директории
-	if err = binary.Write(w, binary.LittleEndian, int16(len(b.pathInArc))); err != nil {
-		return err
-	}
-
 	// Пишем имя файла или директории
-	if err = binary.Write(w, binary.LittleEndian, []byte(b.pathInArc)); err != nil {
+	if err = writePath(w, b.pathInArc); err != nil {
 		return err
 	}
 

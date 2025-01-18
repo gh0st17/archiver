@@ -1,8 +1,10 @@
 package filesystem
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,4 +97,12 @@ func PrintPathsCheck(paths []string) {
 			}
 		}
 	}
+}
+
+func BinaryWrite(w io.Writer, data any) error {
+	return binary.Write(w, binary.LittleEndian, data)
+}
+
+func BinaryRead(r io.Reader, data any) error {
+	return binary.Read(r, binary.LittleEndian, data)
 }
