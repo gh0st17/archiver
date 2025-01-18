@@ -27,17 +27,15 @@ func fetchPath(path string) (h header.Header, err error) {
 	}
 	atime, mtime := amTimes(info)
 
+	b, err := header.NewBase(fp.ToSlash(path), atime, mtime)
+	if err != nil {
+		return nil, err
+	}
+
 	if info.IsDir() {
-		di := header.NewDirItem(
-			header.NewBase(fp.ToSlash(path), atime, mtime),
-		)
-		h = &di
+		h = header.NewDirItem(b)
 	} else {
-		fi := header.NewFileItem(
-			header.NewBase(fp.ToSlash(path), atime, mtime),
-			header.Size(info.Size()),
-		)
-		h = &fi
+		h = header.NewFileItem(b, header.Size(info.Size()))
 	}
 
 	return h, nil

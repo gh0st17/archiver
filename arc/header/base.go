@@ -4,6 +4,7 @@ import (
 	"archiver/errtype"
 	"archiver/filesystem"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -22,8 +23,14 @@ type Base struct {
 func (b Base) PathOnDisk() string { return b.pathOnDisk }
 func (b Base) PathInArc() string  { return b.pathInArc }
 
-func NewBase(pathOnDisk string, atim, mtim time.Time) Base {
-	return Base{pathOnDisk, filesystem.Clean(pathOnDisk), atim, mtim}
+func NewBase(pathOnDisk string, atim, mtim time.Time) (*Base, error) {
+	pathInArc := filesystem.Clean(pathOnDisk)
+
+	if len(pathInArc) > 1023 {
+		return nil, errors.New("длина пути в архиве превышает допустимую")
+	}
+
+	return &Base{pathOnDisk, pathInArc, atim, mtim}, nil
 }
 
 // Сериализует в себя данные из r
@@ -40,7 +47,7 @@ func (b *Base) Read(r io.Reader) error {
 		return err
 	}
 
-	if length < 1 || length >= 1024 {
+	if length < 1 || length > 1023 {
 		return errtype.ErrRuntime(
 			fmt.Errorf("некорректная длина (%d) пути элемента", length), nil,
 		)
@@ -63,9 +70,10 @@ func (b *Base) Read(r io.Reader) error {
 	}
 
 	mtim, atim := time.Unix(unixMtim, 0), time.Unix(unixAtim, 0)
-	*b = NewBase(string(filePathBytes), mtim, atim)
+	newBase, _ := NewBase(string(filePathBytes), mtim, atim)
+	*b = *newBase
 
-	return nil
+	return err
 }
 
 // Сериализует данные полей в писатель w
