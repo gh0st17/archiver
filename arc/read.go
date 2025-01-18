@@ -43,61 +43,17 @@ func fetchPath(path string) (h header.Header, err error) {
 
 // Рекурсивно собирает элементы в директории
 func fetchDir(path string) (headers []header.Header, err error) {
-	var visited = map[string]struct{}{}
-
-	err = fp.WalkDir(path, func(path string, d os.DirEntry, err error) error {
+	err = fp.WalkDir(path, func(path string, _ os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		info, err := d.Info()
+		header, err := fetchPath(path)
 		if err != nil {
 			return err
 		}
 
-		// Проверка на символическую ссылку
-		if info.Mode()&os.ModeSymlink != 0 {
-			// Получение назначения ссылки
-			dst, err := os.Readlink(path)
-			if err != nil {
-				return err
-			}
-
-			// Указывает на абсолютный или отностительный путь?
-			if !fp.IsAbs(dst) {
-				dst = filesystem.Clean(fp.Join(fp.Dir(path), dst))
-			}
-
-			if _, seen := visited[dst]; seen {
-				return nil // Этот пусть уже посещен
-			}
-			visited[dst] = struct{}{}
-
-			if info, err = os.Stat(dst); err != nil {
-				return err
-			}
-
-			if info.IsDir() { // Ссылка указывает на директорию
-				lheaders, err := fetchDir(dst)
-				if err != nil {
-					return err
-				}
-				headers = append(headers, lheaders...)
-			} else { // Ссылка указывает на файл
-				lheader, err := fetchPath(dst)
-				if err != nil {
-					return err
-				}
-				headers = append(headers, lheader)
-			}
-		} else {
-			// Обычный путь
-			header, err := fetchPath(path)
-			if err != nil {
-				return err
-			}
-			headers = append(headers, header)
-		}
+		headers = append(headers, header)
 		return nil
 	})
 

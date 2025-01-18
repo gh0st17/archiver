@@ -40,11 +40,8 @@ func (fi *FileItem) SetCRC(crc uint32) { fi.crc = crc }
 // Устанавливает флаг наличия повреждении
 func (fi *FileItem) SetDamaged(damaged bool) { fi.damaged = damaged }
 
-func NewFileItem(base *Base, ucSize Size) FileItem {
-	return FileItem{
-		Base:   *base,
-		ucSize: ucSize,
-	}
+func NewFileItem(base *Base, ucSize Size) *FileItem {
+	return &FileItem{Base: *base, ucSize: ucSize}
 }
 
 func (fi *FileItem) Read(r io.Reader) (err error) {

@@ -7,6 +7,7 @@ import (
 	"archiver/filesystem"
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -29,6 +30,10 @@ func (arc Arc) Compress(paths []string) error {
 	headers = header.DropDups(headers)
 
 	dirs, files := arc.splitHeaders(headers)
+
+	if len(dirs)+len(files) == 0 {
+		return errtype.ErrCompress(errors.New("нет элементов для сжатия"), nil)
+	}
 
 	for i := 0; i < ncpu; i++ {
 		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)

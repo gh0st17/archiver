@@ -10,7 +10,7 @@ type DirItem struct {
 	Base
 }
 
-func NewDirItem(base *Base) DirItem { return DirItem{*base} }
+func NewDirItem(base *Base) *DirItem { return &DirItem{*base} }
 
 // Создает директорию
 func (di DirItem) RestorePath(outDir string) error {

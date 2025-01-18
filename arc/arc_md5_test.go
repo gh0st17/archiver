@@ -4,6 +4,7 @@ import (
 	"archiver/filesystem"
 	"bytes"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -95,4 +96,14 @@ func (s MD5hash) String() string {
 	}
 
 	return buf.String()
+}
+
+func testSymlink(path string) bool {
+	if info, err := os.Lstat(path); err != nil && errors.Is(err, os.ErrNotExist) {
+		return false
+	} else if err != nil {
+		panic(err)
+	} else {
+		return info.Mode()&os.ModeSymlink != 0
+	}
 }
