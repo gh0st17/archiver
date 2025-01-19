@@ -1,7 +1,6 @@
 package header
 
 import (
-	"archiver/filesystem"
 	"fmt"
 	"io"
 	"math"
@@ -10,7 +9,8 @@ import (
 
 // Максимальная ширина имени файла
 // в выводе статистики
-const maxFilePathWidth int = 20
+const maxInArcWidth int = 20
+const maxOnDiskWidth int = 28
 
 const dateFormat string = "02.01.2006 15:04:05"
 
@@ -18,14 +18,23 @@ type HeaderType byte
 
 const (
 	Directory HeaderType = iota
+	Symlink
 	File
 )
 
 type Header interface {
-	Path() string          // Путь к элементу заголовка
-	Read(io.Reader) error  // Считывет данные из `r`
-	Write(io.Writer) error // Записывает данные в `w`
-	String() string        // fmt.Stringer
+	PathOnDisk() string // Путь к элементу заголовка
+	PathInArc() string  // Путь к элементу в архиве
+	String() string     // fmt.Stringer
+}
+
+type ReadWriter interface {
+	Read(io.Reader) error  // Десериализует данные типа
+	Write(io.Writer) error // Сериализует данные типа
+}
+
+type Restorable interface {
+	RestorePath(string) error // Восстанаваливает доступность пути
 }
 
 // Реализация sort.Interface
@@ -34,7 +43,7 @@ type ByPath []Header
 func (a ByPath) Len() int      { return len(a) }
 func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByPath) Less(i, j int) bool {
-	return strings.ToLower(a[i].Path()) < strings.ToLower(a[j].Path())
+	return strings.ToLower(a[i].PathInArc()) < strings.ToLower(a[j].PathInArc())
 }
 
 type Size int64
@@ -57,9 +66,12 @@ func (bytes Size) String() string {
 }
 
 // Сокращает длинные имена файлов, добавляя '...' в начале
-func prefix(filename string) string {
-	if len(filename) > maxFilePathWidth {
-		filename = filename[len(filename)-(maxFilePathWidth-3):]
+func prefix(filename string, maxWidth int) string {
+	runes := []rune(filename)
+	count := len(runes)
+
+	if count > maxWidth {
+		filename = string(runes[count-(maxWidth-3):])
 		return string("..." + filename)
 	} else {
 		return filename
@@ -76,7 +88,7 @@ func DropDups(headers []Header) []Header {
 	)
 
 	for _, h := range headers {
-		path = filesystem.Clean(h.Path())
+		path = h.PathInArc()
 		if _, exists := seen[path]; !exists {
 			seen[path] = struct{}{}
 			uniq = append(uniq, h)
@@ -90,7 +102,7 @@ func DropDups(headers []Header) []Header {
 func PrintStatHeader() {
 	fmt.Printf( // Заголовок
 		"%-*s %11s %11s %7s %10s  %19s %8s\n",
-		maxFilePathWidth, "Имя файла", "Размер",
+		maxInArcWidth, "Имя файла", "Размер",
 		"Сжатый", "%", "Тип", "Время модификации", "CRC32",
 	)
 }
@@ -105,7 +117,7 @@ func PrintSummary(compressed, original Size) {
 
 	fmt.Printf( // Выводим итог
 		"%-*s %11s %11s %7.2f\n",
-		maxFilePathWidth, "Итого",
+		maxInArcWidth, "Итого",
 		original, compressed, ratio,
 	)
 }

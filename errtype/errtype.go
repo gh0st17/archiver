@@ -10,11 +10,12 @@ import (
 )
 
 type Error struct {
-	errMessage error
-	err        error
-	code       int
+	errMessage error // Ошибка (этой) программы
+	err        error // Встроенная ошибка (библотеки и т.д.)
+	code       int   // Код завершения после вывода ошибки
 }
 
+// Перевод и форматирование встроенных ошибок
 func (e Error) Error() string {
 	var eMessage string
 	switch {
@@ -46,8 +47,10 @@ func (e Error) Error() string {
 	}
 }
 
+// Возвращает встроенную ошибку
 func (e Error) Err() error { return e.err }
 
+// Возвращает общую ошибку времени выполнения
 func ErrRuntime(errMessage error, err error) error {
 	return &Error{
 		errMessage: errMessage,
@@ -56,6 +59,7 @@ func ErrRuntime(errMessage error, err error) error {
 	}
 }
 
+// Возвращает ошибки при сжатии
 func ErrCompress(errMessage error, err error) error {
 	return &Error{
 		errMessage: errMessage,
@@ -64,6 +68,7 @@ func ErrCompress(errMessage error, err error) error {
 	}
 }
 
+// Возвращает ошибки при распаковке
 func ErrDecompress(errMessage error, err error) error {
 	return &Error{
 		errMessage: errMessage,
@@ -72,6 +77,7 @@ func ErrDecompress(errMessage error, err error) error {
 	}
 }
 
+// Возвращает ошибки при проверке целостности
 func ErrIntegrity(errMessage error, err error) error {
 	return &Error{
 		errMessage: errMessage,
@@ -80,7 +86,12 @@ func ErrIntegrity(errMessage error, err error) error {
 	}
 }
 
-func HandleError(err Error) {
+// Обработчик ошибок
+func HandleError(err error) {
 	fmt.Println(err)
-	os.Exit(err.code)
+	if e, ok := err.(Error); ok {
+		os.Exit(e.code)
+	} else {
+		os.Exit(-1)
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"math/rand"
+	"slices"
 	"testing"
 	"time"
 )
@@ -31,13 +32,13 @@ func TestZlib(t *testing.T) {
 }
 
 func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
-	const dataSize = 20 * 1024 * 1024
+	const dataSize = 12 * 1024 * 1024
 
 	var (
 		decompBuf     = bytes.NewBuffer(nil)
 		compBuf       = bytes.NewBuffer(nil)
 		rng           = rand.New(rand.NewSource(time.Now().Unix()))
-		lowEntropyVal [32]byte
+		lowEntropyVal [24]byte
 		inMD5, outMD5 MD5hash
 		err           error
 		c             *compressor.Writer
@@ -83,7 +84,7 @@ func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
 	}
 	outMD5 = hashBytes(decompBuf.Bytes())
 
-	if !compareMD5(inMD5, outMD5) {
+	if slices.Compare(inMD5, outMD5) != 0 {
 		t.Errorf("Expected %s got %s", inMD5, outMD5)
 		t.Fail()
 	}
@@ -114,23 +115,13 @@ func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
 	}
 	outMD5 = hashBytes(decompBuf.Bytes())
 
-	if !compareMD5(inMD5, outMD5) {
+	if slices.Compare(inMD5, outMD5) != 0 {
 		t.Errorf("Expected %s got %s", inMD5, outMD5)
 		t.Fail()
 	}
 }
 
 func hashBytes(b []byte) MD5hash { return MD5hash(md5.New().Sum(b)) }
-
-func compareMD5(buf1, buf2 MD5hash) bool {
-	for i := range buf1 {
-		if buf1[i] != buf2[i] {
-			return false
-		}
-	}
-
-	return true
-}
 
 type MD5hash []byte
 

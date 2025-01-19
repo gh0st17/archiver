@@ -6,7 +6,7 @@ import (
 	"archiver/errtype"
 	"archiver/filesystem"
 	"bufio"
-	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -18,7 +18,6 @@ import (
 // Создает архив
 func (arc Arc) Compress(paths []string) error {
 	var (
-		path    string
 		headers []header.Header
 		err     error
 	)
@@ -29,7 +28,11 @@ func (arc Arc) Compress(paths []string) error {
 	}
 	headers = header.DropDups(headers)
 
-	dirs, files := arc.splitHeaders(headers)
+	dirsSyms, files := arc.splitHeaders(headers)
+
+	if len(dirsSyms)+len(files) == 0 {
+		return errtype.ErrCompress(errors.New("нет элементов для сжатия"), nil)
+	}
 
 	for i := 0; i < ncpu; i++ {
 		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
@@ -43,7 +46,7 @@ func (arc Arc) Compress(paths []string) error {
 		arc.RemoveTmp()
 	}
 
-	arcFile, err := arc.writeHeaderDirs(dirs)
+	arcFile, err := arc.writeHeaderDirsSyms(dirsSyms)
 	if err != nil {
 		closeRemove(arcFile)
 		return errtype.ErrCompress(ErrWriteDirHeaders, err)
@@ -51,13 +54,12 @@ func (arc Arc) Compress(paths []string) error {
 	arcBuf := bufio.NewWriter(arcFile)
 
 	for _, fi := range files {
-		path = fi.Path()
 		if err = fi.Write(arcBuf); err != nil {
 			closeRemove(arcFile)
 			return errtype.ErrCompress(ErrWriteFileHeader, err)
 		}
 
-		if err = arc.compressFile(path, arcBuf); err != nil {
+		if err = arc.compressFile(fi, arcBuf); err != nil {
 			closeRemove(arcFile)
 			return errtype.ErrCompress(ErrCompressFile, err)
 		}
@@ -69,10 +71,10 @@ func (arc Arc) Compress(paths []string) error {
 }
 
 // Сжимает файл блоками
-func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
-	inFile, err := os.Open(path)
+func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
+	inFile, err := os.Open(fi.PathOnDisk())
 	if err != nil {
-		return errtype.ErrCompress(errOpenFileCompress(path), err)
+		return errtype.ErrCompress(ErrOpenFileCompress(fi.PathOnDisk()), err)
 	}
 	defer inFile.Close()
 	inBuf := bufio.NewReaderSize(inFile, int(c.BufferSize))
@@ -83,6 +85,7 @@ func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
 	)
 
 	for {
+		// Заполняем буферы несжатыми частями (блоками) файла
 		if read, err = arc.loadUncompressedBuf(inBuf); err != nil {
 			return errtype.ErrCompress(ErrReadUncompressed, err)
 		}
@@ -91,6 +94,7 @@ func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
 			break
 		}
 
+		// Сжимаем буферы
 		if err = arc.compressBuffers(); err != nil {
 			return errtype.ErrCompress(ErrCompress, err)
 		}
@@ -98,7 +102,7 @@ func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
 			length := int64(compressedBuf[i].Len())
-			if err = binary.Write(arcBuf, binary.LittleEndian, length); err != nil {
+			if err = filesystem.BinaryWrite(arcBuf, length); err != nil {
 				return errtype.ErrCompress(ErrWriteBufLen, err)
 			}
 
@@ -114,18 +118,18 @@ func (arc *Arc) compressFile(path string, arcBuf io.Writer) error {
 	}
 
 	// Пишем признак конца файла
-	if err = binary.Write(arcBuf, binary.LittleEndian, int64(-1)); err != nil {
+	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
 		return errtype.ErrCompress(ErrWriteEOF, err)
 	}
 	log.Println("Записан EOF")
 
 	// Пишем контрольную сумму
-	if err = binary.Write(arcBuf, binary.LittleEndian, crc); err != nil {
+	if err = filesystem.BinaryWrite(arcBuf, crc); err != nil {
 		return errtype.ErrCompress(ErrWriteCRC, err)
 	}
 	log.Printf("Записан CRC: %X\n", crc)
 
-	fmt.Println(filesystem.Clean(path))
+	fmt.Println(fi.PathInArc())
 
 	return nil
 }

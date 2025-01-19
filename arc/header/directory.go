@@ -1,7 +1,9 @@
 package header
 
 import (
+	"archiver/filesystem"
 	"fmt"
+	"io"
 	"path/filepath"
 )
 
@@ -10,24 +12,35 @@ type DirItem struct {
 	Base
 }
 
-func NewDirItem(base Base) DirItem { return DirItem{base} }
+func NewDirItem(base *Base) *DirItem { return &DirItem{*base} }
 
+// Создает директорию
 func (di DirItem) RestorePath(outDir string) error {
-	outDir = filepath.Join(outDir, di.path)
-	if err := di.createPath(outDir); err != nil {
+	outDir = filepath.Join(outDir, di.pathOnDisk)
+	if err := filesystem.CreatePath(outDir); err != nil {
 		return err
 	}
 
-	return nil
+	return di.RestoreTime(outDir)
 }
 
 // Реализация fmt.Stringer
 func (di DirItem) String() string {
-	filename := prefix(di.path)
+	filename := prefix(di.pathOnDisk, maxInArcWidth)
 	mtime := di.mtim.Format(dateFormat)
 
 	return fmt.Sprintf(
-		"%-*s %42s  %s", maxFilePathWidth,
+		"%-*s %42s  %s", maxInArcWidth,
 		filename, "Директория", mtime,
 	)
+}
+
+func (di *DirItem) Write(w io.Writer) (err error) {
+	filesystem.BinaryWrite(w, Directory)
+
+	if err = di.Base.Write(w); err != nil {
+		return err
+	}
+
+	return nil
 }

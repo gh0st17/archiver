@@ -26,21 +26,22 @@ func (arc Arc) IntegrityTest() error {
 	return nil
 }
 
-// Распаковывает файл с проверкой CRC каждого блока сжатых данных
+// Распаковывает файл с проверкой CRC каждого
+// блока сжатых данных
 func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
-	skipLen := len(fi.Path()) + 26
-	if _, err := arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
+	var err error
+
+	skipLen := len(fi.PathOnDisk()) + 26
+	if _, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
 		return errtype.ErrIntegrity(ErrSkipHeaders, err)
 	}
 
-	if _, err := arc.checkCRC(fi, arcFile); err != nil {
+	if _, err = arc.checkCRC(fi.CRC(), arcFile); err == ErrWrongCRC {
+		fmt.Println(fi.PathOnDisk() + ": Файл поврежден")
+	} else if err != nil {
 		return errtype.ErrIntegrity(ErrCheckCRC, err)
-	}
-
-	if fi.IsDamaged() {
-		fmt.Println(fi.Path() + ": Файл поврежден")
 	} else {
-		fmt.Println(fi.Path() + ": OK")
+		fmt.Println(fi.PathOnDisk() + ": OK")
 	}
 
 	return nil
@@ -49,10 +50,9 @@ func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 // Считывает данные сжатого файла из arcFile,
 // проверяет контрольную сумму и возвращает
 // количество прочитанных байт
-func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (read header.Size, err error) {
+func (arc Arc) checkCRC(crc uint32, arcFile io.ReadSeeker) (read header.Size, err error) {
 	var (
 		n   int64
-		crc = fi.CRC()
 		eof error
 	)
 
@@ -67,10 +67,13 @@ func (arc Arc) checkCRC(fi *header.FileItem, arcFile io.ReadSeeker) (read header
 			compressedBuf[i].Reset()
 		}
 	}
-	fi.SetDamaged(crc != 0)
 
 	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
 		return 0, errtype.ErrIntegrity(ErrSkipCRC, err)
+	}
+
+	if crc != 0 {
+		return read, ErrWrongCRC
 	}
 
 	return read, nil

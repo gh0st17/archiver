@@ -1,7 +1,7 @@
 package header
 
 import (
-	"encoding/binary"
+	"archiver/filesystem"
 	"fmt"
 	"io"
 	"math"
@@ -40,11 +40,8 @@ func (fi *FileItem) SetCRC(crc uint32) { fi.crc = crc }
 // Устанавливает флаг наличия повреждении
 func (fi *FileItem) SetDamaged(damaged bool) { fi.damaged = damaged }
 
-func NewFileItem(base Base, ucSize Size) FileItem {
-	return FileItem{
-		Base:   base,
-		ucSize: ucSize,
-	}
+func NewFileItem(base *Base, ucSize Size) *FileItem {
+	return &FileItem{Base: *base, ucSize: ucSize}
 }
 
 func (fi *FileItem) Read(r io.Reader) (err error) {
@@ -53,7 +50,7 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 	}
 
 	// Читаем размер файла до сжатия
-	if err = binary.Read(r, binary.LittleEndian, &(fi.ucSize)); err != nil {
+	if err = filesystem.BinaryRead(r, &(fi.ucSize)); err != nil {
 		return err
 	}
 
@@ -66,7 +63,7 @@ func (fi *FileItem) Write(w io.Writer) (err error) {
 	}
 
 	// Пишем размер файла до сжатия
-	if err = binary.Write(w, binary.LittleEndian, fi.ucSize); err != nil {
+	if err = filesystem.BinaryWrite(w, fi.ucSize); err != nil {
 		return err
 	}
 
@@ -74,8 +71,8 @@ func (fi *FileItem) Write(w io.Writer) (err error) {
 }
 
 func (fi FileItem) RestorePath(outDir string) error {
-	outDir = filepath.Join(outDir, fi.path)
-	if err := fi.createPath(filepath.Dir(outDir)); err != nil {
+	outDir = filepath.Join(outDir, fi.pathOnDisk)
+	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
 		return err
 	}
 
@@ -84,7 +81,7 @@ func (fi FileItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (fi FileItem) String() string {
-	path := prefix(fi.path)
+	path := prefix(fi.pathOnDisk, maxInArcWidth)
 
 	ratio := float32(fi.cSize) / float32(fi.ucSize) * 100.0
 	if math.IsInf(float64(ratio), 1) {
@@ -104,7 +101,7 @@ func (fi FileItem) String() string {
 
 	return fmt.Sprintf(
 		"%-*s %11s %11s %7.2f %10s  %s %s",
-		maxFilePathWidth, path, fi.ucSize,
+		maxInArcWidth, path, fi.ucSize,
 		fi.cSize, ratio, "Файл", mtime, crc,
 	)
 }

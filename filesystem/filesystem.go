@@ -1,8 +1,10 @@
 package filesystem
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,8 +90,21 @@ func PrintPathsCheck(paths []string) {
 			if _, exists := prefix[deleted]; !exists {
 				prefix[deleted] = struct{}{}
 
-				fmt.Printf("Удаляется начальный '%s' из имен путей\n", deleted)
+				fmt.Printf(
+					"Удаляется начальный '%s' из имен путей\n",
+					deleted,
+				)
 			}
 		}
 	}
+}
+
+// Оборачивание двоичной записи
+func BinaryWrite(w io.Writer, data any) error {
+	return binary.Write(w, binary.LittleEndian, data)
+}
+
+// Оборачивание двоичного чтения
+func BinaryRead(r io.Reader, data any) error {
+	return binary.Read(r, binary.LittleEndian, data)
 }

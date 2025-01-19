@@ -4,7 +4,7 @@ package params
 
 const (
 	versionDesc = "Печать номера версии и выход"
-	versionText = `archiver 1.0.1
+	versionText = `archiver 1.0.2
 Copyright (C) 2025
 Лицензия MIT: THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY
 OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO 
@@ -38,8 +38,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 	integDesc     = "Проверка целостности данных в архиве"
 	xIntegDesc    = "Распаковка с учетом проверки целостности данных в архиве"
 	memStatDesc   = "Печать статистики использования ОЗУ после выполнения"
-	relaceAllDesc = "Автоматически заменять существующие файлы"
+	relaceAllDesc = "Автоматически заменять файлы при распаковке без подтверждения"
 	logDesc       = "Печатать логи"
+
+	zeroLevel = "Флаг '-L' со значением '0' игнорирует '-c'"
 
 	compLevelError            = "Уровень сжатия должен быть в пределах от -2 до 9"
 	compTypeError             = "Неизвестный тип компрессора"

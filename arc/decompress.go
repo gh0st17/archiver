@@ -4,8 +4,8 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/errtype"
+	"archiver/filesystem"
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -23,8 +23,12 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	}
 	defer arcFile.Close()
 
-	dirs, files := arc.splitHeaders(headers)
-	arc.restoreDirsPaths(dirs, outputDir)
+	dirsSyms, files := arc.splitHeaders(headers)
+	dirsSymsR := make([]header.Restorable, len(dirsSyms))
+	for i := range dirsSymsR {
+		dirsSymsR[i] = dirsSyms[i].(header.Restorable)
+	}
+	arc.restorePaths(dirsSymsR, outputDir)
 
 	// 	Создаем файлы и директории
 	var (
@@ -35,16 +39,16 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 	for _, fi := range files {
 		if err = fi.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(errRestorePath(fi.Path()), err)
+			return errtype.ErrDecompress(ErrRestorePath(fi.PathOnDisk()), err)
 		}
 
-		skipLen = len(fi.Path()) + 26
+		skipLen = len(fi.PathOnDisk()) + 26
 		if dataPos, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
 			return errtype.ErrDecompress(ErrSkipHeaders, err)
 		}
 		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции:", dataPos)
 
-		outPath = filepath.Join(outputDir, fi.Path())
+		outPath = filepath.Join(outputDir, fi.PathOnDisk())
 		if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
 			if arc.replaceInput(outPath, arcFile) {
 				continue
@@ -52,10 +56,10 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		}
 
 		if integ { // --xinteg
-			arc.checkCRC(fi, arcFile)
+			_, err = arc.checkCRC(fi.CRC(), arcFile)
 
-			if fi.IsDamaged() {
-				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.Path())
+			if err == ErrWrongCRC {
+				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
 				continue
 			} else {
 				arcFile.Seek(dataPos, io.SeekStart)
@@ -89,18 +93,20 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	return nil
 }
 
-func (Arc) restoreDirsPaths(dirs []*header.DirItem, outputDir string) error {
-	for _, di := range dirs {
-		if err := di.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(errRestorePath(di.Path()), err)
+// Воссоздает директории из заголовков
+func (Arc) restorePaths(restorables []header.Restorable, outputDir string) error {
+	for _, r := range restorables {
+		path := r.(header.PathProvider).PathOnDisk()
+		if err := r.RestorePath(outputDir); err != nil {
+			return ErrRestorePath(path)
 		}
-		di.RestoreTime(outputDir)
+		fmt.Println(path)
 	}
 
 	return nil
 }
 
-// Обрабатывает вопрос замены файла
+// Обрабатывает диалог замены файла
 func (arc *Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 	var input rune
 	stdin := bufio.NewReader(os.Stdin)
@@ -183,7 +189,7 @@ func (arc Arc) loadCompressedBuf(arcBuf io.Reader, crc *uint32) (read int64, err
 	var n, bufferSize int64
 
 	for i := 0; i < ncpu; i++ {
-		if err = binary.Read(arcBuf, binary.LittleEndian, &bufferSize); err != nil {
+		if err = filesystem.BinaryRead(arcBuf, &bufferSize); err != nil {
 			return 0, errtype.ErrDecompress(ErrReadCompLen, err)
 		}
 
@@ -191,7 +197,7 @@ func (arc Arc) loadCompressedBuf(arcBuf io.Reader, crc *uint32) (read int64, err
 			log.Println("Прочитан EOF")
 			return read, io.EOF
 		} else if arc.checkBufferSize(bufferSize) {
-			return 0, errtype.ErrDecompress(errBufSize(bufferSize), err)
+			return 0, errtype.ErrDecompress(ErrBufSize(bufferSize), err)
 		}
 
 		compressedBuf[i].Reset()

@@ -4,11 +4,13 @@ import (
 	"archiver/arc"
 	"archiver/compressor"
 	p "archiver/params"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -96,7 +98,6 @@ func runTestByEntry(t *testing.T, ct compressor.Type) {
 		ct, "algorithm")
 	params.Ct = ct
 	runByEntry(t)
-	clearArcOut()
 }
 
 func runTestByFile(t *testing.T, ct compressor.Type) {
@@ -112,7 +113,6 @@ func runTestByFile(t *testing.T, ct compressor.Type) {
 	t.Log("Testing archivate by file with", ct, "algorithm")
 	params.Ct = ct
 	runByFile(t, rootPaths)
-	clearArcOut()
 }
 
 func baseTesting(t *testing.T, path string) {
@@ -163,6 +163,7 @@ func runByEntry(t *testing.T) {
 
 		t.Log("Comparing MD-5 hashsum in/out files")
 		checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name()))
+		clearArcOut()
 	}
 }
 
@@ -171,14 +172,19 @@ func runByFile(t *testing.T, rootPaths []string) {
 
 	for _, rootPath := range rootPaths {
 		files := fetchDir(rootPath, t)
+		for _, path := range files {
+			if testSymlink(path) {
+				t.Log("Skip symbolic link:", path)
+				continue
+			}
 
-		for _, fpath := range files {
-			params.InputPaths[0] = fpath
+			params.InputPaths[0] = path
 
-			baseTesting(t, fpath)
+			baseTesting(t, path)
 
 			t.Log("Comparing MD-5 hashsum in/out files")
-			checkMD5(t, fpath)
+			checkMD5(t, path)
+			clearArcOut()
 		}
 	}
 }
@@ -221,7 +227,16 @@ func fetchRootDir() ([]os.DirEntry, error) {
 		return nil, err
 	}
 
-	return rootEntries, nil
+	return slices.DeleteFunc(rootEntries, func(ent os.DirEntry) bool {
+		info, _ := ent.Info()
+
+		if info.Mode()&os.ModeDir == 0 {
+			fmt.Println("Dropped", ent.Name(), "from root entries")
+			return true
+		}
+
+		return false
+	}), nil
 }
 
 func fetchDir(path string, t *testing.T) []string {
@@ -232,7 +247,7 @@ func fetchDir(path string, t *testing.T) []string {
 			t.Fatal("error during fetch files path:", err)
 		}
 
-		if d.IsDir() {
+		if d.IsDir() || testSymlink(path) {
 			return nil
 		}
 

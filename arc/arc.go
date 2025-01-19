@@ -7,7 +7,6 @@ import (
 	"archiver/filesystem"
 	"archiver/params"
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"os"
@@ -18,9 +17,13 @@ import (
 const magicNumber uint16 = 0x5717
 
 var (
-	crct            = crc32.MakeTable(crc32.Koopman)
-	ncpu            = runtime.NumCPU()
-	compressedBuf   = make([]*bytes.Buffer, ncpu)
+	// Полином CRC32
+	crct = crc32.MakeTable(crc32.Koopman)
+	// Количество доступных процессоров
+	ncpu = runtime.NumCPU()
+	// Буффер для сжатых данных
+	compressedBuf = make([]*bytes.Buffer, ncpu)
+	// Буфер для несжатых данных
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
 	decompressor    = make([]*c.Reader, ncpu)
@@ -28,9 +31,10 @@ var (
 
 // Структура параметров архива
 type Arc struct {
-	arcPath    string
-	ct         c.Type
-	cl         c.Level
+	arcPath string  // Путь к файлу архива
+	ct      c.Type  // Тип компрессора
+	cl      c.Level // Уровень сжатия
+	// Флаг замены файлов без подтверждения
 	replaceAll bool
 }
 
@@ -57,11 +61,11 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 		info, err := arcFile.Stat()
 		if err != nil {
-			return nil, err
+			return nil, errtype.ErrRuntime(ErrOpenArc, err)
 		}
 
 		var magic uint16
-		if err = binary.Read(arcFile, binary.LittleEndian, &magic); err != nil {
+		if err = filesystem.BinaryRead(arcFile, &magic); err != nil {
 			return nil, err
 		}
 		if magic != magicNumber {
@@ -69,7 +73,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		}
 
 		var compType byte
-		if err = binary.Read(arcFile, binary.LittleEndian, &compType); err != nil {
+		if err = filesystem.BinaryRead(arcFile, &compType); err != nil {
 			return nil, err
 		}
 
@@ -100,28 +104,30 @@ func (Arc) PrintMemStat() {
 }
 
 // Разделяет заголовки на директории и файлы
-func (Arc) splitHeaders(headers []header.Header) ([]*header.DirItem, []*header.FileItem) {
+func (Arc) splitHeaders(headers []header.Header) ([]header.ReadWriter, []*header.FileItem) {
 	var (
-		dirs  []*header.DirItem
-		files []*header.FileItem
+		dirsSyms []header.ReadWriter
+		files    []*header.FileItem
 	)
 
 	for _, h := range headers {
-		if len(h.Path()) > 1023 {
+		if len(h.PathOnDisk()) > 1023 {
 			fmt.Printf(
 				"Длина пути к '%s' первышает максимально допустимую (1023)\n",
-				filepath.Base(h.Path()),
+				filepath.Base(h.PathOnDisk()),
 			)
 			continue
 		}
 		if d, ok := h.(*header.DirItem); ok {
-			dirs = append(dirs, d)
+			dirsSyms = append(dirsSyms, d)
+		} else if s, ok := h.(*header.SymDirItem); ok {
+			dirsSyms = append(dirsSyms, s)
 		} else {
 			files = append(files, h.(*header.FileItem))
 		}
 	}
 
-	return dirs, files
+	return dirsSyms, files
 }
 
 // Проверяет корректность размера буфера.
