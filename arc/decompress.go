@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 )
 
@@ -24,11 +25,19 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	defer arcFile.Close()
 
 	dirsSyms, files := arc.splitHeaders(headers)
-	dirsSymsR := make([]header.Restorable, len(dirsSyms))
-	for i := range dirsSymsR {
-		dirsSymsR[i] = dirsSyms[i].(header.Restorable)
+	dirSymPaths := make([]header.PathProvider, len(dirsSyms))
+	for i := range dirSymPaths {
+		dirSymPaths[i] = dirsSyms[i].(header.PathProvider)
 	}
-	arc.restorePaths(dirsSymsR, outputDir)
+	sort.Sort(header.ByPathInArc(dirSymPaths))
+
+	resorables := make([]header.Restorable, len(dirSymPaths))
+	for i := range resorables {
+		resorables[i] = dirSymPaths[i].(header.Restorable)
+	}
+	if err = arc.restorePaths(resorables, outputDir); err != nil {
+		return err
+	}
 
 	// 	Создаем файлы и директории
 	var (
@@ -96,11 +105,10 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 // Воссоздает директории из заголовков
 func (Arc) restorePaths(restorables []header.Restorable, outputDir string) error {
 	for _, r := range restorables {
-		path := r.(header.PathProvider).PathOnDisk()
+		path := r.(header.PathProvider).PathInArc()
 		if err := r.RestorePath(outputDir); err != nil {
-			return ErrRestorePath(path)
+			return errtype.ErrDecompress(ErrRestorePath(path), err)
 		}
-		fmt.Println(path)
 	}
 
 	return nil

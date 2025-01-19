@@ -2,6 +2,7 @@ package header
 
 import (
 	"archiver/filesystem"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -27,9 +28,12 @@ func (si SymDirItem) RestorePath(outDir string) error {
 		return err
 	}
 
-	if err := os.Symlink(si.pathOnDisk, outDir); err != nil {
+	err := os.Symlink(si.pathOnDisk, outDir)
+	if err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
+
+	fmt.Println(outDir, "->", si.pathOnDisk)
 
 	return nil
 }

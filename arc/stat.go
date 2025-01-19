@@ -13,7 +13,7 @@ func (arc Arc) ViewStat() error {
 	if err != nil {
 		return errtype.ErrRuntime(ErrReadHeaders, err)
 	}
-	sort.Sort(header.ByPath(headers))
+	headers = arc.sortHeaders(headers)
 
 	fmt.Printf("Тип компрессора: %s\n", arc.ct)
 	header.PrintStatHeader()
@@ -38,11 +38,29 @@ func (arc Arc) ViewList() error {
 	if err != nil {
 		return errtype.ErrRuntime(ErrReadHeaders, err)
 	}
-	sort.Sort(header.ByPath(headers))
+	headers = arc.sortHeaders(headers)
 
 	for _, h := range headers {
-		fmt.Println(h.PathOnDisk())
+		if si, ok := h.(*header.SymDirItem); ok {
+			fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
+		} else {
+			fmt.Println(h.PathOnDisk())
+		}
 	}
 
 	return nil
+}
+
+func (Arc) sortHeaders(headers []header.Header) []header.Header {
+	paths := make([]header.PathProvider, len(headers))
+	for i := range paths {
+		paths[i] = headers[i].(header.PathProvider)
+	}
+	sort.Sort(header.ByPathInArc(paths))
+
+	for i := range headers {
+		headers[i] = paths[i].(header.Header)
+	}
+
+	return headers
 }

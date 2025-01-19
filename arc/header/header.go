@@ -37,12 +37,17 @@ type Restorable interface {
 	RestorePath(string) error // Восстанаваливает доступность пути
 }
 
-// Реализация sort.Interface
-type ByPath []Header
+type RestorablePathProvider interface {
+	Restorable
+	PathProvider
+}
 
-func (a ByPath) Len() int      { return len(a) }
-func (a ByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByPath) Less(i, j int) bool {
+// Реализация sort.Interface
+type ByPathInArc []PathProvider
+
+func (a ByPathInArc) Len() int      { return len(a) }
+func (a ByPathInArc) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByPathInArc) Less(i, j int) bool {
 	return strings.ToLower(a[i].PathInArc()) < strings.ToLower(a[j].PathInArc())
 }
 
