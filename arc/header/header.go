@@ -9,7 +9,8 @@ import (
 
 // Максимальная ширина имени файла
 // в выводе статистики
-const maxFilePathWidth int = 20
+const maxInArcWidth int = 20
+const maxOnDiskWidth int = 28
 
 const dateFormat string = "02.01.2006 15:04:05"
 
@@ -65,9 +66,12 @@ func (bytes Size) String() string {
 }
 
 // Сокращает длинные имена файлов, добавляя '...' в начале
-func prefix(filename string) string {
-	if len(filename) > maxFilePathWidth {
-		filename = filename[len(filename)-(maxFilePathWidth-3):]
+func prefix(filename string, maxWidth int) string {
+	runes := []rune(filename)
+	count := len(runes)
+
+	if count > maxWidth {
+		filename = string(runes[count-(maxWidth-3):])
 		return string("..." + filename)
 	} else {
 		return filename
@@ -98,7 +102,7 @@ func DropDups(headers []Header) []Header {
 func PrintStatHeader() {
 	fmt.Printf( // Заголовок
 		"%-*s %11s %11s %7s %10s  %19s %8s\n",
-		maxFilePathWidth, "Имя файла", "Размер",
+		maxInArcWidth, "Имя файла", "Размер",
 		"Сжатый", "%", "Тип", "Время модификации", "CRC32",
 	)
 }
@@ -113,7 +117,7 @@ func PrintSummary(compressed, original Size) {
 
 	fmt.Printf( // Выводим итог
 		"%-*s %11s %11s %7.2f\n",
-		maxFilePathWidth, "Итого",
+		maxInArcWidth, "Итого",
 		original, compressed, ratio,
 	)
 }

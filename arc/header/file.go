@@ -81,7 +81,7 @@ func (fi FileItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (fi FileItem) String() string {
-	path := prefix(fi.pathOnDisk)
+	path := prefix(fi.pathOnDisk, maxInArcWidth)
 
 	ratio := float32(fi.cSize) / float32(fi.ucSize) * 100.0
 	if math.IsInf(float64(ratio), 1) {
@@ -101,7 +101,7 @@ func (fi FileItem) String() string {
 
 	return fmt.Sprintf(
 		"%-*s %11s %11s %7.2f %10s  %s %s",
-		maxFilePathWidth, path, fi.ucSize,
+		maxInArcWidth, path, fi.ucSize,
 		fi.cSize, ratio, "Файл", mtime, crc,
 	)
 }

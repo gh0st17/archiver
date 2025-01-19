@@ -26,11 +26,11 @@ func (di DirItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (di DirItem) String() string {
-	filename := prefix(di.pathOnDisk)
+	filename := prefix(di.pathOnDisk, maxInArcWidth)
 	mtime := di.mtim.Format(dateFormat)
 
 	return fmt.Sprintf(
-		"%-*s %42s  %s", maxFilePathWidth,
+		"%-*s %42s  %s", maxInArcWidth,
 		filename, "Директория", mtime,
 	)
 }
