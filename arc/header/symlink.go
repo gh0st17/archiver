@@ -39,9 +39,19 @@ func (si SymDirItem) String() string {
 	filename := prefix(si.pathInArc, maxInArcWidth)
 	target := prefix(si.pathOnDisk, maxOnDiskWidth)
 
+	typ := func() string {
+		if info, err := os.Stat(si.pathOnDisk); err != nil {
+			return "Недейств."
+		} else if info.Mode()&os.ModeDir != 0 {
+			return "Директория"
+		} else {
+			return "Файл"
+		}
+	}()
+
 	return fmt.Sprintf(
 		"%-*s -> %s %*s", maxInArcWidth, filename,
-		target, 38-len([]rune(target)), "Ссылка",
+		target, 38-len([]rune(target)), typ,
 	)
 }
 

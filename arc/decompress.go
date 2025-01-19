@@ -96,9 +96,11 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 // Воссоздает директории из заголовков
 func (Arc) restorePaths(restorables []header.Restorable, outputDir string) error {
 	for _, r := range restorables {
+		path := r.(header.PathProvider).PathOnDisk()
 		if err := r.RestorePath(outputDir); err != nil {
-			return ErrRestorePath(r.(header.PathProvider).PathOnDisk())
+			return ErrRestorePath(path)
 		}
+		fmt.Println(path)
 	}
 
 	return nil
