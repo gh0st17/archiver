@@ -16,10 +16,11 @@ func NewDirItem(base *Base) *DirItem { return &DirItem{*base} }
 
 // Создает директорию
 func (di DirItem) RestorePath(outDir string) error {
-	outDir = filepath.Join(outDir, di.pathOnDisk)
-	if err := filesystem.CreatePath(outDir); err != nil {
+	completePath := filepath.Join(outDir, di.pathOnDisk)
+	if err := filesystem.CreatePath(completePath); err != nil {
 		return err
 	}
+	fmt.Println(completePath)
 
 	return di.RestoreTime(outDir)
 }
