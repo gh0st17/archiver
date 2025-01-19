@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 )
 
+// Описание символической ссылки
 type SymDirItem struct {
 	basePaths
 }
@@ -69,6 +70,8 @@ func (si *SymDirItem) Read(r io.Reader) error {
 
 // Сериализует данные полей в писатель w
 func (si *SymDirItem) Write(w io.Writer) (err error) {
+	filesystem.BinaryWrite(w, Symlink)
+
 	// Пишем длину строки имени файла или директории
 	if err = writePath(w, si.pathOnDisk); err != nil {
 		return err

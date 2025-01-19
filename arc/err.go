@@ -72,7 +72,7 @@ var (
 // Ошибки функции чтения
 var (
 	ErrOpenArc          = errors.New("не могу открыть файл архива")
-	ErrReadDirHeaders   = errors.New("ошибка чтения заголовка директории")
+	ErrReadHeadersRW    = errors.New("ошибка чтения заголовка директории/ссылки")
 	ErrReadFileHeader   = errors.New("ошибка чтения заголовка файла")
 	ErrReadHeadersCount = errors.New("ошибка чтения числа заголовков")
 	ErrReadCompSize     = errors.New("ошибка чтения размера сжатых данных")
@@ -86,5 +86,5 @@ var (
 	ErrMagic             = errors.New("ошибка записи сигнатуры")
 	ErrWriteCompType     = errors.New("ошибка записи типа компрессора")
 	ErrWriteHeadersCount = errors.New("ошибка записи количества заголовков")
-	ErrWriteDirHeader    = errors.New("ошибка записи заголовка директории")
+	ErrWriteHeaderIO     = errors.New("ошибка записи заголовка директории")
 )

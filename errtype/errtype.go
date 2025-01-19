@@ -87,7 +87,11 @@ func ErrIntegrity(errMessage error, err error) error {
 }
 
 // Обработчик ошибок
-func HandleError(err Error) {
+func HandleError(err error) {
 	fmt.Println(err)
-	os.Exit(err.code)
+	if e, ok := err.(Error); ok {
+		os.Exit(e.code)
+	} else {
+		os.Exit(-1)
+	}
 }

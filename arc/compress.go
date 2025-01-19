@@ -6,7 +6,6 @@ import (
 	"archiver/errtype"
 	"archiver/filesystem"
 	"bufio"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -72,7 +71,7 @@ func (arc Arc) Compress(paths []string) error {
 }
 
 // Сжимает файл блоками
-func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
+func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 	inFile, err := os.Open(fi.PathOnDisk())
 	if err != nil {
 		return errtype.ErrCompress(ErrOpenFileCompress(fi.PathOnDisk()), err)
@@ -103,7 +102,7 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
 			length := int64(compressedBuf[i].Len())
-			if err = binary.Write(arcBuf, binary.LittleEndian, length); err != nil {
+			if err = filesystem.BinaryWrite(arcBuf, length); err != nil {
 				return errtype.ErrCompress(ErrWriteBufLen, err)
 			}
 
@@ -119,13 +118,13 @@ func (arc *Arc) compressFile(fi *header.FileItem, arcBuf io.Writer) error {
 	}
 
 	// Пишем признак конца файла
-	if err = binary.Write(arcBuf, binary.LittleEndian, int64(-1)); err != nil {
+	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
 		return errtype.ErrCompress(ErrWriteEOF, err)
 	}
 	log.Println("Записан EOF")
 
 	// Пишем контрольную сумму
-	if err = binary.Write(arcBuf, binary.LittleEndian, crc); err != nil {
+	if err = filesystem.BinaryWrite(arcBuf, crc); err != nil {
 		return errtype.ErrCompress(ErrWriteCRC, err)
 	}
 	log.Printf("Записан CRC: %X\n", crc)

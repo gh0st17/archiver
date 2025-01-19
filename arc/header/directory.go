@@ -3,6 +3,7 @@ package header
 import (
 	"archiver/filesystem"
 	"fmt"
+	"io"
 	"path/filepath"
 )
 
@@ -20,7 +21,7 @@ func (di DirItem) RestorePath(outDir string) error {
 		return err
 	}
 
-	return nil
+	return di.RestoreTime(outDir)
 }
 
 // Реализация fmt.Stringer
@@ -32,4 +33,14 @@ func (di DirItem) String() string {
 		"%-*s %42s  %s", maxFilePathWidth,
 		filename, "Директория", mtime,
 	)
+}
+
+func (di *DirItem) Write(w io.Writer) (err error) {
+	filesystem.BinaryWrite(w, Directory)
+
+	if err = di.Base.Write(w); err != nil {
+		return err
+	}
+
+	return nil
 }

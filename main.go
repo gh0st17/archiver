@@ -50,7 +50,7 @@ func main() {
 	}
 
 	if err != nil {
-		errtype.HandleError(*err.(*errtype.Error))
+		errtype.HandleError(err)
 	}
 
 	if p.MemStat {

@@ -99,10 +99,12 @@ func PrintPathsCheck(paths []string) {
 	}
 }
 
+// Оборачивание двоичной записи
 func BinaryWrite(w io.Writer, data any) error {
 	return binary.Write(w, binary.LittleEndian, data)
 }
 
+// Оборачивание двоичного чтения
 func BinaryRead(r io.Reader, data any) error {
 	return binary.Read(r, binary.LittleEndian, data)
 }

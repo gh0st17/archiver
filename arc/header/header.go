@@ -2,6 +2,7 @@ package header
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"strings"
 )
@@ -16,6 +17,7 @@ type HeaderType byte
 
 const (
 	Directory HeaderType = iota
+	Symlink
 	File
 )
 
@@ -23,6 +25,15 @@ type Header interface {
 	PathOnDisk() string // Путь к элементу заголовка
 	PathInArc() string  // Путь к элементу в архиве
 	String() string     // fmt.Stringer
+}
+
+type ReadWriter interface {
+	Read(io.Reader) error  // Десериализует данные типа
+	Write(io.Writer) error // Сериализует данные типа
+}
+
+type Restorable interface {
+	RestorePath(string) error // Восстанаваливает доступность пути
 }
 
 // Реализация sort.Interface

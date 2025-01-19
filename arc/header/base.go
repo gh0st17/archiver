@@ -3,7 +3,6 @@ package header
 import (
 	"archiver/errtype"
 	"archiver/filesystem"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +17,11 @@ type timeAttr struct {
 	mtim time.Time // Последнее время измения элемента
 }
 
+type PathProvider interface {
+	PathOnDisk() string
+	PathInArc() string
+}
+
 type basePaths struct {
 	pathOnDisk string // Путь к элементу на диске
 	pathInArc  string // Путь к элементу в архиве
@@ -29,7 +33,7 @@ func (b basePaths) PathInArc() string  { return b.pathInArc }
 func readPath(r io.Reader) (_ string, err error) {
 	var length int16
 
-	if err = binary.Read(r, binary.LittleEndian, &length); err != nil {
+	if err = filesystem.BinaryRead(r, &length); err != nil {
 		return "", err
 	}
 
@@ -49,13 +53,13 @@ func readPath(r io.Reader) (_ string, err error) {
 
 func writePath(w io.Writer, path string) (err error) {
 	// Пишем длину строки имени файла или директории
-	if err = binary.Write(w, binary.LittleEndian, int16(len(path))); err != nil {
+	if err = filesystem.BinaryWrite(w, int16(len(path))); err != nil {
 		return err
 	}
 	log.Println("arc.header.writePath: Записана длина пути:", int16(len(path)))
 
 	// Пишем имя файла или директории
-	if err = binary.Write(w, binary.LittleEndian, []byte(path)); err != nil {
+	if err = filesystem.BinaryWrite(w, []byte(path)); err != nil {
 		return err
 	}
 	log.Println("arc.header.writePath: Записан путь:", path)
@@ -96,12 +100,12 @@ func (b *Base) Read(r io.Reader) error {
 	}
 
 	// Читаем время модификации
-	if err = binary.Read(r, binary.LittleEndian, &unixMtim); err != nil {
+	if err = filesystem.BinaryRead(r, &unixMtim); err != nil {
 		return err
 	}
 
 	// Читаем время доступа
-	if err = binary.Read(r, binary.LittleEndian, &unixAtim); err != nil {
+	if err = filesystem.BinaryRead(r, &unixAtim); err != nil {
 		return err
 	}
 
@@ -122,12 +126,12 @@ func (b *Base) Write(w io.Writer) (err error) {
 	atime, mtime := b.atim.Unix(), b.mtim.Unix()
 
 	// Пишем время модификации
-	if err = binary.Write(w, binary.LittleEndian, mtime); err != nil {
+	if err = filesystem.BinaryWrite(w, mtime); err != nil {
 		return err
 	}
 
 	// Пишем имя время доступа
-	if err = binary.Write(w, binary.LittleEndian, atime); err != nil {
+	if err = filesystem.BinaryWrite(w, atime); err != nil {
 		return err
 	}
 

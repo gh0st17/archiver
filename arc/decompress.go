@@ -4,8 +4,8 @@ import (
 	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/errtype"
+	"archiver/filesystem"
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -24,7 +24,11 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	defer arcFile.Close()
 
 	dirsSyms, files := arc.splitHeaders(headers)
-	arc.restoreDirsSymsPaths(dirsSyms, outputDir)
+	dirsSymsR := make([]header.Restorable, len(dirsSyms))
+	for i := range dirsSymsR {
+		dirsSymsR[i] = dirsSyms[i].(header.Restorable)
+	}
+	arc.restorePaths(dirsSymsR, outputDir)
 
 	// 	Создаем файлы и директории
 	var (
@@ -90,17 +94,10 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 }
 
 // Воссоздает директории из заголовков
-func (Arc) restoreDirsSymsPaths(dirsSyms []header.Header, outputDir string) error {
-	for _, h := range dirsSyms {
-		if di, ok := h.(*header.DirItem); ok {
-			if err := di.RestorePath(outputDir); err != nil {
-				return errtype.ErrDecompress(ErrRestorePath(di.PathOnDisk()), err)
-			}
-			di.RestoreTime(outputDir)
-		} else if si, ok := h.(*header.SymDirItem); ok {
-			if err := si.RestorePath(outputDir); err != nil {
-				return errtype.ErrDecompress(ErrRestorePath(si.PathOnDisk()), err)
-			}
+func (Arc) restorePaths(restorables []header.Restorable, outputDir string) error {
+	for _, r := range restorables {
+		if err := r.RestorePath(outputDir); err != nil {
+			return ErrRestorePath(r.(header.PathProvider).PathOnDisk())
 		}
 	}
 
@@ -190,7 +187,7 @@ func (arc Arc) loadCompressedBuf(arcBuf io.Reader, crc *uint32) (read int64, err
 	var n, bufferSize int64
 
 	for i := 0; i < ncpu; i++ {
-		if err = binary.Read(arcBuf, binary.LittleEndian, &bufferSize); err != nil {
+		if err = filesystem.BinaryRead(arcBuf, &bufferSize); err != nil {
 			return 0, errtype.ErrDecompress(ErrReadCompLen, err)
 		}
 

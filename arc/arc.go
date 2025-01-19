@@ -7,7 +7,6 @@ import (
 	"archiver/filesystem"
 	"archiver/params"
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"os"
@@ -66,7 +65,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		}
 
 		var magic uint16
-		if err = binary.Read(arcFile, binary.LittleEndian, &magic); err != nil {
+		if err = filesystem.BinaryRead(arcFile, &magic); err != nil {
 			return nil, err
 		}
 		if magic != magicNumber {
@@ -74,7 +73,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		}
 
 		var compType byte
-		if err = binary.Read(arcFile, binary.LittleEndian, &compType); err != nil {
+		if err = filesystem.BinaryRead(arcFile, &compType); err != nil {
 			return nil, err
 		}
 
@@ -105,9 +104,9 @@ func (Arc) PrintMemStat() {
 }
 
 // Разделяет заголовки на директории и файлы
-func (Arc) splitHeaders(headers []header.Header) ([]header.Header, []*header.FileItem) {
+func (Arc) splitHeaders(headers []header.Header) ([]header.ReadWriter, []*header.FileItem) {
 	var (
-		dirsSyms []header.Header
+		dirsSyms []header.ReadWriter
 		files    []*header.FileItem
 	)
 
