@@ -9,9 +9,11 @@ import (
 	"bytes"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 )
 
 const magicNumber uint16 = 0x5717
@@ -92,6 +94,12 @@ func (arc Arc) RemoveTmp() {
 	os.Remove(arc.arcPath)
 }
 
+// Закрывает файл архива и удаляет его
+func (arc Arc) closeRemove(arcFile io.Closer) {
+	arcFile.Close()
+	arc.RemoveTmp()
+}
+
 // Печать статистики использования памяти
 func (Arc) PrintMemStat() {
 	var m runtime.MemStats
@@ -104,28 +112,22 @@ func (Arc) PrintMemStat() {
 }
 
 // Разделяет заголовки на директории и файлы
-func (Arc) splitHeaders(headers []header.Header) ([]header.ReadWriter, []*header.FileItem) {
+func (Arc) splitPathsFiles(headers []header.Header) ([]header.PathProvider, []*header.FileItem) {
 	var (
-		dirsSyms []header.ReadWriter
+		dirsSyms []header.PathProvider
 		files    []*header.FileItem
 	)
 
 	for _, h := range headers {
-		if len(h.PathOnDisk()) > 1023 {
-			fmt.Printf(
-				"Длина пути к '%s' первышает максимально допустимую (1023)\n",
-				filepath.Base(h.PathOnDisk()),
-			)
-			continue
-		}
 		if d, ok := h.(*header.DirItem); ok {
 			dirsSyms = append(dirsSyms, d)
-		} else if s, ok := h.(*header.SymDirItem); ok {
+		} else if s, ok := h.(*header.SymItem); ok {
 			dirsSyms = append(dirsSyms, s)
 		} else {
 			files = append(files, h.(*header.FileItem))
 		}
 	}
+	sort.Sort(header.ByPathInArc(dirsSyms))
 
 	return dirsSyms, files
 }

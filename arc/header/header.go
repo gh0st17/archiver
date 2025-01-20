@@ -23,23 +23,16 @@ const (
 )
 
 type Header interface {
-	PathOnDisk() string // Путь к элементу заголовка
-	PathInArc() string  // Путь к элементу в архиве
-	String() string     // fmt.Stringer
-}
-
-type ReadWriter interface {
-	Read(io.Reader) error  // Десериализует данные типа
-	Write(io.Writer) error // Сериализует данные типа
-}
-
-type Restorable interface {
-	RestorePath(string) error // Восстанаваливает доступность пути
-}
-
-type RestorablePathProvider interface {
-	Restorable
 	PathProvider
+	String() string // fmt.Stringer
+}
+
+type Reader interface {
+	Read(io.Reader) error // Десериализует данные типа
+}
+
+type Writer interface {
+	Write(io.Writer) error // Сериализует данные типа
 }
 
 // Реализация sort.Interface

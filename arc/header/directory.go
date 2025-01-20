@@ -42,6 +42,7 @@ func (di *DirItem) Write(w io.Writer) (err error) {
 	if err = di.Base.Write(w); err != nil {
 		return err
 	}
+	fmt.Println(di.pathInArc)
 
 	return nil
 }

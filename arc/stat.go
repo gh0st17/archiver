@@ -41,7 +41,7 @@ func (arc Arc) ViewList() error {
 	headers = arc.sortHeaders(headers)
 
 	for _, h := range headers {
-		if si, ok := h.(*header.SymDirItem); ok {
+		if si, ok := h.(*header.SymItem); ok {
 			fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
 		} else {
 			fmt.Println(h.PathOnDisk())

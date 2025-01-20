@@ -32,6 +32,10 @@ var (
 	ErrCloseCompressor   = errors.New("ошибка закрытия компрессора")
 	ErrFetchDirs         = errors.New("не могу получить директории")
 
+	ErrPathLength = func(path string) error {
+		return fmt.Errorf("длина пути к '%s' первышает максимально допустимую (1023)", path)
+	}
+
 	ErrOpenFileCompress = func(path string) error {
 		return fmt.Errorf("не могу открыть входной файл '%s' для сжатия", path)
 	}
@@ -72,7 +76,7 @@ var (
 // Ошибки функции чтения
 var (
 	ErrOpenArc          = errors.New("не могу открыть файл архива")
-	ErrReadHeadersRW    = errors.New("ошибка чтения заголовка директории/ссылки")
+	ErrReadDirsSyms     = errors.New("ошибка чтения заголовка директории/ссылки")
 	ErrReadFileHeader   = errors.New("ошибка чтения заголовка файла")
 	ErrReadHeadersCount = errors.New("ошибка чтения числа заголовков")
 	ErrReadCompSize     = errors.New("ошибка чтения размера сжатых данных")

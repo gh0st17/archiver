@@ -18,8 +18,9 @@ type timeAttr struct {
 }
 
 type PathProvider interface {
-	PathOnDisk() string
-	PathInArc() string
+	PathOnDisk() string       // Путь к элементу заголовка
+	PathInArc() string        // Путь к элементу в архиве
+	RestorePath(string) error // Восстанаваливает доступность пути
 }
 
 type basePaths struct {

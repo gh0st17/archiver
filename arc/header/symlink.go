@@ -10,18 +10,18 @@ import (
 )
 
 // Описание символической ссылки
-type SymDirItem struct {
+type SymItem struct {
 	basePaths
 }
 
-func NewSymDirItem(symlink, target string) *SymDirItem {
-	return &SymDirItem{
+func NewSymDirItem(symlink, target string) *SymItem {
+	return &SymItem{
 		basePaths{pathOnDisk: target, pathInArc: symlink},
 	}
 }
 
 // Создает директорию
-func (si SymDirItem) RestorePath(outDir string) error {
+func (si SymItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, si.pathInArc)
 
 	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
@@ -39,7 +39,7 @@ func (si SymDirItem) RestorePath(outDir string) error {
 }
 
 // Реализация fmt.Stringer
-func (si SymDirItem) String() string {
+func (si SymItem) String() string {
 	filename := prefix(si.pathInArc, maxInArcWidth)
 	target := prefix(si.pathOnDisk, maxOnDiskWidth)
 
@@ -60,7 +60,7 @@ func (si SymDirItem) String() string {
 }
 
 // Сериализует в себя данные из r
-func (si *SymDirItem) Read(r io.Reader) error {
+func (si *SymItem) Read(r io.Reader) error {
 	var (
 		err     error
 		target  string
@@ -84,7 +84,7 @@ func (si *SymDirItem) Read(r io.Reader) error {
 }
 
 // Сериализует данные полей в писатель w
-func (si *SymDirItem) Write(w io.Writer) (err error) {
+func (si *SymItem) Write(w io.Writer) (err error) {
 	filesystem.BinaryWrite(w, Symlink)
 
 	// Пишем длину строки имени файла или директории
@@ -95,6 +95,7 @@ func (si *SymDirItem) Write(w io.Writer) (err error) {
 	if err = writePath(w, si.pathInArc); err != nil {
 		return err
 	}
+	fmt.Println(si.pathInArc, "->", si.pathOnDisk)
 
 	return nil
 }

@@ -19,6 +19,8 @@ import (
 func (arc Arc) Compress(paths []string) error {
 	var (
 		headers []header.Header
+		arcFile io.WriteCloser
+		files   []*header.FileItem
 		err     error
 	)
 
@@ -28,10 +30,26 @@ func (arc Arc) Compress(paths []string) error {
 	}
 	headers = header.DropDups(headers)
 
-	dirsSyms, files := arc.splitHeaders(headers)
-
-	if len(dirsSyms)+len(files) == 0 {
+	if len(headers) == 0 {
 		return errtype.ErrCompress(errors.New("нет элементов для сжатия"), nil)
+	}
+
+	arcFile, err = arc.writeArcHeader()
+	if err != nil {
+		return errtype.ErrCompress(ErrWriteDirHeaders, err)
+	}
+	arcBuf := bufio.NewWriterSize(arcFile, int(c.BufferSize))
+
+	{
+		headersPaths, f := arc.splitPathsFiles(headers)
+		writers := make([]header.Writer, len(headersPaths))
+		for i, p := range headersPaths {
+			writers[i] = p.(header.Writer)
+		}
+		if err = arc.writeHeaders(writers, arcBuf); err != nil {
+			return errtype.ErrCompress(err, nil)
+		}
+		files = f
 	}
 
 	for i := 0; i < ncpu; i++ {
@@ -41,26 +59,14 @@ func (arc Arc) Compress(paths []string) error {
 		}
 	}
 
-	closeRemove := func(arcFile io.Closer) {
-		arcFile.Close()
-		arc.RemoveTmp()
-	}
-
-	arcFile, err := arc.writeHeaderDirsSyms(dirsSyms)
-	if err != nil {
-		closeRemove(arcFile)
-		return errtype.ErrCompress(ErrWriteDirHeaders, err)
-	}
-	arcBuf := bufio.NewWriter(arcFile)
-
 	for _, fi := range files {
 		if err = fi.Write(arcBuf); err != nil {
-			closeRemove(arcFile)
+			arc.closeRemove(arcFile)
 			return errtype.ErrCompress(ErrWriteFileHeader, err)
 		}
 
 		if err = arc.compressFile(fi, arcBuf); err != nil {
-			closeRemove(arcFile)
+			arc.closeRemove(arcFile)
 			return errtype.ErrCompress(ErrCompressFile, err)
 		}
 	}

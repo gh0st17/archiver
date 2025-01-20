@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 )
 
@@ -24,18 +23,8 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	}
 	defer arcFile.Close()
 
-	dirsSyms, files := arc.splitHeaders(headers)
-	dirSymPaths := make([]header.PathProvider, len(dirsSyms))
-	for i := range dirSymPaths {
-		dirSymPaths[i] = dirsSyms[i].(header.PathProvider)
-	}
-	sort.Sort(header.ByPathInArc(dirSymPaths))
-
-	resorables := make([]header.Restorable, len(dirSymPaths))
-	for i := range resorables {
-		resorables[i] = dirSymPaths[i].(header.Restorable)
-	}
-	if err = arc.restorePaths(resorables, outputDir); err != nil {
+	paths, files := arc.splitPathsFiles(headers)
+	if err = arc.restorePaths(paths, outputDir); err != nil {
 		return err
 	}
 
@@ -103,11 +92,10 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 }
 
 // Воссоздает директории из заголовков
-func (Arc) restorePaths(restorables []header.Restorable, outputDir string) error {
-	for _, r := range restorables {
-		path := r.(header.PathProvider).PathInArc()
+func (Arc) restorePaths(paths []header.PathProvider, outputDir string) error {
+	for _, r := range paths {
 		if err := r.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(ErrRestorePath(path), err)
+			return errtype.ErrDecompress(ErrRestorePath(r.PathInArc()), err)
 		}
 	}
 
@@ -146,7 +134,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 		return errtype.ErrDecompress(ErrCreateOutFile, err)
 	}
 	defer outFile.Close()
-	outBuf := bufio.NewWriter(outFile)
+	outBuf := bufio.NewWriterSize(outFile, int(c.BufferSize))
 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
