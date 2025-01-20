@@ -11,14 +11,18 @@ import (
 func (arc Arc) IntegrityTest() error {
 	headers, arcFile, err := arc.readHeaders()
 	if err != nil {
-		return errtype.ErrIntegrity(ErrReadHeaders, err)
+		return errtype.ErrIntegrity(
+			errtype.Join(ErrReadHeaders, err).Error(),
+		)
 	}
 	defer arcFile.Close()
 
 	for _, h := range headers {
 		if fi, ok := h.(*header.FileItem); ok {
 			if err = arc.checkFile(fi, arcFile); err != nil {
-				return errtype.ErrIntegrity(ErrCheckFile, err)
+				return errtype.ErrIntegrity(
+					errtype.Join(ErrCheckFile, err).Error(),
+				)
 			}
 		}
 	}
@@ -33,13 +37,13 @@ func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 
 	skipLen := len(fi.PathOnDisk()) + 26
 	if _, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
-		return errtype.ErrIntegrity(ErrSkipHeaders, err)
+		return errtype.Join(ErrSkipHeaders, err)
 	}
 
 	if _, err = arc.checkCRC(fi.CRC(), arcFile); err == ErrWrongCRC {
 		fmt.Println(fi.PathOnDisk() + ": Файл поврежден")
 	} else if err != nil {
-		return errtype.ErrIntegrity(ErrCheckCRC, err)
+		return errtype.Join(ErrCheckCRC, err)
 	} else {
 		fmt.Println(fi.PathOnDisk() + ": OK")
 	}
@@ -58,7 +62,7 @@ func (arc Arc) checkCRC(crc uint32, arcFile io.ReadSeeker) (read header.Size, er
 
 	for eof != io.EOF {
 		if n, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
-			return 0, errtype.ErrIntegrity(ErrReadCompressed, eof)
+			return 0, errtype.Join(ErrReadCompressed, eof)
 		}
 
 		read += header.Size(n)
@@ -69,7 +73,7 @@ func (arc Arc) checkCRC(crc uint32, arcFile io.ReadSeeker) (read header.Size, er
 	}
 
 	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-		return 0, errtype.ErrIntegrity(ErrSkipCRC, err)
+		return 0, errtype.Join(ErrSkipCRC, err)
 	}
 
 	if crc != 0 {

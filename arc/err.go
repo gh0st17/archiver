@@ -1,7 +1,8 @@
 package arc
 
 import (
-	"errors"
+	"archiver/arc/header"
+	c "archiver/compressor"
 	"fmt"
 )
 
@@ -13,28 +14,27 @@ func errNotArc(path string) error {
 	return fmt.Errorf("'%s' не архив Arc", path)
 }
 
-var ErrUnknownComp = errors.New("неизвестный тип компрессора")
+var ErrUnknownComp = c.ErrUnknownComp
 
 // Ошибки при сжатии
 var (
-	ErrCompressorInit    = errors.New("ошибка иницализации компрессора")
-	ErrWriteDirHeaders   = errors.New("ошибка записи заголовков директории")
-	ErrWriteFileHeader   = errors.New("ошибка записи заголовка файла")
-	ErrCompressFile      = errors.New("ошибка сжатия файла")
-	ErrReadUncompressed  = errors.New("ошибка чтения несжатых блоков")
-	ErrCompress          = errors.New("ошибка сжатия буфферов")
-	ErrWriteBufLen       = errors.New("ошибка записи длины блока")
-	ErrReadCompressBuf   = errors.New("ошибка чтения из буфера сжатых данных")
-	ErrReadUncompressBuf = errors.New("ошибка чтения в несжатый буфер")
-	ErrWriteEOF          = errors.New("ошибка записи EOF (-1)")
-	ErrWriteCRC          = errors.New("ошибка записи CRC")
-	ErrWriteCompressor   = errors.New("ошибка записи в компрессор")
-	ErrCloseCompressor   = errors.New("ошибка закрытия компрессора")
-	ErrFetchDirs         = errors.New("не могу получить директории")
+	ErrNoEntries         = fmt.Errorf("нет элементов для сжатия")
+	ErrCompressorInit    = fmt.Errorf("ошибка иницализации компрессора")
+	ErrWriteDirHeaders   = fmt.Errorf("ошибка записи заголовков директории")
+	ErrWriteFileHeader   = fmt.Errorf("ошибка записи заголовка файла")
+	ErrCompressFile      = fmt.Errorf("ошибка сжатия файла")
+	ErrReadUncompressed  = fmt.Errorf("ошибка чтения несжатых блоков")
+	ErrCompress          = fmt.Errorf("ошибка сжатия буфферов")
+	ErrWriteBufLen       = fmt.Errorf("ошибка записи длины блока")
+	ErrReadCompressBuf   = fmt.Errorf("ошибка чтения из буфера сжатых данных")
+	ErrReadUncompressBuf = fmt.Errorf("ошибка чтения в несжатый буфер")
+	ErrWriteEOF          = fmt.Errorf("ошибка записи EOF (-1)")
+	ErrWriteCRC          = fmt.Errorf("ошибка записи CRC")
+	ErrWriteCompressor   = fmt.Errorf("ошибка записи в компрессор")
+	ErrCloseCompressor   = fmt.Errorf("ошибка закрытия компрессора")
+	ErrFetchDirs         = fmt.Errorf("не могу получить директории")
 
-	ErrPathLength = func(path string) error {
-		return fmt.Errorf("длина пути к '%s' первышает максимально допустимую (1023)", path)
-	}
+	ErrLongPath = header.ErrLongPath
 
 	ErrOpenFileCompress = func(path string) error {
 		return fmt.Errorf("не могу открыть входной файл '%s' для сжатия", path)
@@ -43,19 +43,19 @@ var (
 
 // Ошибки при распаковке
 var (
-	ErrReadHeaders    = errors.New("ошибка чтения заголовоков")
-	ErrSkipHeaders    = errors.New("ошибка пропуска заголовков")
-	ErrDecompressFile = errors.New("ошибка распаковки файла")
-	ErrSkipCRC        = errors.New("ошибка пропуска CRC")
-	ErrCreateOutFile  = errors.New("не могу создать файл")
-	ErrSkipEOF        = errors.New("ошибка пропуска признака EOF")
-	ErrReadCompressed = errors.New("ошибка чтения сжатых блоков")
-	ErrDecompress     = errors.New("ошибка распаковки буферов")
-	ErrWriteOutBuf    = errors.New("ошибка записи в выходной буфер")
-	ErrReadCompLen    = errors.New("ошибка чтения размера блока")
-	ErrReadCompBuf    = errors.New("ошибка чтения блока")
-	ErrDecompInit     = errors.New("ошибка иницализации декомпрессора")
-	ErrReadDecomp     = errors.New("ошибка чтения декомпрессора")
+	ErrReadHeaders    = fmt.Errorf("ошибка чтения заголовоков")
+	ErrSkipHeaders    = fmt.Errorf("ошибка пропуска заголовков")
+	ErrDecompressFile = fmt.Errorf("ошибка распаковки файла")
+	ErrSkipCRC        = fmt.Errorf("ошибка пропуска CRC")
+	ErrCreateOutFile  = fmt.Errorf("не могу создать файл")
+	ErrSkipEOF        = fmt.Errorf("ошибка пропуска признака EOF")
+	ErrReadCompressed = fmt.Errorf("ошибка чтения сжатых блоков")
+	ErrDecompress     = fmt.Errorf("ошибка распаковки буферов")
+	ErrWriteOutBuf    = fmt.Errorf("ошибка записи в выходной буфер")
+	ErrReadCompLen    = fmt.Errorf("ошибка чтения размера блока")
+	ErrReadCompBuf    = fmt.Errorf("ошибка чтения блока")
+	ErrDecompInit     = fmt.Errorf("ошибка иницализации декомпрессора")
+	ErrReadDecomp     = fmt.Errorf("ошибка чтения декомпрессора")
 
 	ErrRestorePath = func(path string) error {
 		return fmt.Errorf("не могу создать путь для '%s'", path)
@@ -68,27 +68,29 @@ var (
 
 // Ошибки проверки целостности
 var (
-	ErrCheckFile = errors.New("ошибка проверки файла")
-	ErrCheckCRC  = errors.New("ошибка проверки CRC")
-	ErrWrongCRC  = errors.New("CRC сумма не совпадает")
+	ErrCheckFile = fmt.Errorf("ошибка проверки файла")
+	ErrCheckCRC  = fmt.Errorf("ошибка проверки CRC")
+	ErrWrongCRC  = fmt.Errorf("CRC сумма не совпадает")
 )
 
 // Ошибки функции чтения
 var (
-	ErrOpenArc          = errors.New("не могу открыть файл архива")
-	ErrReadDirsSyms     = errors.New("ошибка чтения заголовка директории/ссылки")
-	ErrReadFileHeader   = errors.New("ошибка чтения заголовка файла")
-	ErrReadHeadersCount = errors.New("ошибка чтения числа заголовков")
-	ErrReadCompSize     = errors.New("ошибка чтения размера сжатых данных")
-	ErrReadCRC          = errors.New("ошибка чтения CRC")
-	ErrSkipData         = errors.New("ошибка пропуска блока сжатых данных")
+	ErrOpenArc          = fmt.Errorf("не могу открыть файл архива")
+	ErrReadDirsSyms     = fmt.Errorf("ошибка чтения заголовка директории/ссылки")
+	ErrReadFileHeader   = fmt.Errorf("ошибка чтения заголовка файла")
+	ErrReadHeadersCount = fmt.Errorf("ошибка чтения числа заголовков")
+	ErrReadCompSize     = fmt.Errorf("ошибка чтения размера сжатых данных")
+	ErrReadCRC          = fmt.Errorf("ошибка чтения CRC")
+	ErrSkipData         = fmt.Errorf("ошибка пропуска блока сжатых данных")
+	ErrReadHeaderType   = fmt.Errorf("ошибка чтения типа")
+	ErrHeaderType       = fmt.Errorf("неизвестный тип")
 )
 
 // Ошибки функции записи
 var (
-	ErrCreateArc         = errors.New("не могу создать файл архива")
-	ErrMagic             = errors.New("ошибка записи сигнатуры")
-	ErrWriteCompType     = errors.New("ошибка записи типа компрессора")
-	ErrWriteHeadersCount = errors.New("ошибка записи количества заголовков")
-	ErrWriteHeaderIO     = errors.New("ошибка записи заголовка директории")
+	ErrCreateArc         = fmt.Errorf("не могу создать файл архива")
+	ErrMagic             = fmt.Errorf("ошибка записи сигнатуры")
+	ErrWriteCompType     = fmt.Errorf("ошибка записи типа компрессора")
+	ErrWriteHeadersCount = fmt.Errorf("ошибка записи количества заголовков")
+	ErrWriteHeaderIO     = fmt.Errorf("ошибка записи заголовка директории")
 )

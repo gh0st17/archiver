@@ -8,11 +8,13 @@ import (
 	"strings"
 )
 
-// Печатает информации об архиве
+// Печатает информацию об архиве
 func (arc Arc) ViewStat() error {
 	headers, _, err := arc.readHeaders()
 	if err != nil {
-		return errtype.ErrRuntime(ErrReadHeaders, err)
+		return errtype.ErrRuntime(
+			errtype.Join(ErrReadHeaders, err).Error(),
+		)
 	}
 	arc.sortHeaders(headers)
 
@@ -37,7 +39,9 @@ func (arc Arc) ViewStat() error {
 func (arc Arc) ViewList() error {
 	headers, _, err := arc.readHeaders()
 	if err != nil {
-		return errtype.ErrRuntime(ErrReadHeaders, err)
+		return errtype.ErrRuntime(
+			errtype.Join(ErrReadHeaders, err).Error(),
+		)
 	}
 	arc.sortHeaders(headers)
 
@@ -52,6 +56,7 @@ func (arc Arc) ViewList() error {
 	return nil
 }
 
+// Сортирует срез []header.Header
 func (Arc) sortHeaders(headers []header.Header) {
 	slices.SortFunc(headers, func(a, b header.Header) int {
 		return strings.Compare(

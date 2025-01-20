@@ -13,17 +13,17 @@ func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 	// Создаем файл
 	arcFile, err = os.Create(arc.arcPath)
 	if err != nil {
-		return nil, errtype.ErrRuntime(ErrCreateArc, err)
+		return nil, errtype.Join(ErrCreateArc, err)
 	}
 
 	// Пишем магическое число
 	if err = filesystem.BinaryWrite(arcFile, magicNumber); err != nil {
-		return nil, errtype.ErrRuntime(ErrMagic, err)
+		return nil, errtype.Join(ErrMagic, err)
 	}
 
 	// Пишем тип компрессора
 	if err = filesystem.BinaryWrite(arcFile, arc.ct); err != nil {
-		return nil, errtype.ErrRuntime(ErrWriteCompType, err)
+		return nil, errtype.Join(ErrWriteCompType, err)
 	}
 
 	return arcFile, nil
@@ -33,13 +33,13 @@ func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 func (Arc) writeHeaders(writers []header.Writer, arcFile io.Writer) error {
 	// Пишем количество заголовков директории
 	if err := filesystem.BinaryWrite(arcFile, int64(len(writers))); err != nil {
-		return errtype.ErrRuntime(ErrWriteHeadersCount, err)
+		return errtype.Join(ErrWriteHeadersCount, err)
 	}
 
 	// Пишем заголовки
 	for _, ds := range writers {
 		if err := ds.Write(arcFile); err != nil {
-			return errtype.ErrRuntime(ErrWriteHeaderIO, err)
+			return errtype.Join(ErrWriteHeaderIO, err)
 		}
 	}
 

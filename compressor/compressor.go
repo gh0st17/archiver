@@ -79,7 +79,7 @@ func NewReader(typ Type, r io.Reader) (*Reader, error) {
 			return nil, err
 		}
 
-		return nil, errtype.ErrRuntime(ErrDecompCreate, err)
+		return nil, errtype.Join(ErrDecompCreate, err)
 	}
 
 	return &Reader{
@@ -103,7 +103,7 @@ func newReader(typ Type, r io.Reader) (ReadCloserReset, error) {
 	case Nop:
 		return &nopReader{io.NopCloser(r)}, nil
 	default:
-		return nil, errtype.ErrRuntime(ErrUnknownComp, nil)
+		return nil, ErrUnknownComp
 	}
 }
 
@@ -146,7 +146,7 @@ func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
 		if err == io.EOF {
 			return nil, err
 		}
-		return nil, errtype.ErrRuntime(ErrCompCreate, err)
+		return nil, errtype.Join(ErrCompCreate, err)
 	}
 
 	return &Writer{
@@ -166,7 +166,7 @@ func newWriter(typ Type, w io.Writer, l Level) (WriteCloseResetter, error) {
 	case Nop:
 		return nopWriteCloser{Writer: w}, nil
 	default:
-		return nil, errtype.ErrRuntime(ErrUnknownComp, nil)
+		return nil, ErrUnknownComp
 	}
 }
 

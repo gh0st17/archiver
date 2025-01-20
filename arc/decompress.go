@@ -19,13 +19,15 @@ import (
 func (arc Arc) Decompress(outputDir string, integ bool) error {
 	headers, arcFile, err := arc.readHeaders()
 	if err != nil {
-		return errtype.ErrDecompress(ErrReadHeaders, err)
+		return errtype.ErrDecompress(
+			errtype.Join(ErrReadHeaders, err).Error(),
+		)
 	}
 	defer arcFile.Close()
 
 	paths, files := arc.splitPathsFiles(headers)
 	if err = arc.restorePaths(paths, outputDir); err != nil {
-		return err
+		return errtype.ErrDecompress(err.Error())
 	}
 
 	// 	Создаем файлы и директории
@@ -37,12 +39,16 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 	for _, fi := range files {
 		if err = fi.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(ErrRestorePath(fi.PathOnDisk()), err)
+			return errtype.ErrDecompress(
+				errtype.Join(ErrRestorePath(fi.PathOnDisk()), err).Error(),
+			)
 		}
 
 		skipLen = len(fi.PathOnDisk()) + 26
 		if dataPos, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
-			return errtype.ErrDecompress(ErrSkipHeaders, err)
+			return errtype.ErrDecompress(
+				errtype.Join(ErrSkipHeaders, err).Error(),
+			)
 		}
 		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции:", dataPos)
 
@@ -66,11 +72,15 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		}
 
 		if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
-			return errtype.ErrDecompress(ErrDecompressFile, err)
+			return errtype.ErrDecompress(
+				errtype.Join(ErrDecompressFile, err).Error(),
+			)
 		}
 
 		if dataPos, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-			return errtype.ErrDecompress(ErrSkipCRC, err)
+			return errtype.ErrDecompress(
+				errtype.Join(ErrSkipCRC, err).Error(),
+			)
 		}
 		log.Println("Пропуск CRC, установлена позиция:", dataPos)
 
@@ -95,7 +105,7 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 func (Arc) restorePaths(paths []header.PathProvider, outputDir string) error {
 	for _, r := range paths {
 		if err := r.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(ErrRestorePath(r.PathInArc()), err)
+			return errtype.Join(ErrRestorePath(r.PathInArc()), err)
 		}
 	}
 
@@ -131,7 +141,7 @@ func (arc *Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string) error {
 	outFile, err := os.Create(outPath)
 	if err != nil {
-		return errtype.ErrDecompress(ErrCreateOutFile, err)
+		return errtype.Join(ErrCreateOutFile, err)
 	}
 	defer outFile.Close()
 	outBuf := bufio.NewWriterSize(outFile, int(c.BufferSize))
@@ -139,7 +149,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
 		if pos, err := arcFile.Seek(8, io.SeekCurrent); err != nil {
-			return errtype.ErrDecompress(ErrSkipEOF, err)
+			return errtype.Join(ErrSkipEOF, err)
 		} else {
 			log.Println("Нулевой размер, перемещаю на позицию:", pos)
 			return nil
@@ -153,17 +163,17 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 	)
 	for eof != io.EOF {
 		if read, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
-			return errtype.ErrDecompress(ErrReadCompressed, eof)
+			return errtype.Join(ErrReadCompressed, eof)
 		}
 
 		if read > 0 {
 			if err = arc.decompressBuffers(); err != nil {
-				return errtype.ErrDecompress(ErrDecompress, err)
+				return errtype.Join(ErrDecompress, err)
 			}
 
 			for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
 				if wrote, err = decompressedBuf[i].WriteTo(outBuf); err != nil {
-					return errtype.ErrCompress(ErrWriteOutBuf, err)
+					return errtype.Join(ErrWriteOutBuf, err)
 				}
 				log.Println("Записан буфер размера:", wrote)
 				decompressedBuf[i].Reset()
@@ -186,19 +196,19 @@ func (arc Arc) loadCompressedBuf(arcBuf io.Reader, crc *uint32) (read int64, err
 
 	for i := 0; i < ncpu; i++ {
 		if err = filesystem.BinaryRead(arcBuf, &bufferSize); err != nil {
-			return 0, errtype.ErrDecompress(ErrReadCompLen, err)
+			return 0, errtype.Join(ErrReadCompLen, err)
 		}
 
 		if bufferSize == -1 {
 			log.Println("Прочитан EOF")
 			return read, io.EOF
 		} else if arc.checkBufferSize(bufferSize) {
-			return 0, errtype.ErrDecompress(ErrBufSize(bufferSize), err)
+			return 0, errtype.Join(ErrBufSize(bufferSize), err)
 		}
 
 		compressedBuf[i].Reset()
 		if n, err = io.CopyN(compressedBuf[i], arcBuf, bufferSize); err != nil {
-			return 0, errtype.ErrDecompress(ErrReadCompBuf, err)
+			return 0, errtype.Join(ErrReadCompBuf, err)
 		}
 		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
 		*crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
@@ -208,7 +218,7 @@ func (arc Arc) loadCompressedBuf(arcBuf io.Reader, crc *uint32) (read int64, err
 			decompressor[i].Reset(compressedBuf[i])
 		} else {
 			if decompressor[i], err = c.NewReader(arc.ct, compressedBuf[i]); err != nil {
-				return 0, errtype.ErrDecompress(ErrDecompInit, err)
+				return 0, errtype.Join(ErrDecompInit, err)
 			}
 		}
 	}
@@ -231,7 +241,7 @@ func (arc Arc) decompressBuffers() error {
 			defer decompressor[i].Close()
 			_, err := decompressor[i].WriteTo(decompressedBuf[i])
 			if err != nil {
-				errChan <- errtype.ErrDecompress(ErrReadDecomp, err)
+				errChan <- errtype.Join(ErrReadDecomp, err)
 			}
 		}(i)
 	}

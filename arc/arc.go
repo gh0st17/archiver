@@ -49,7 +49,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	}
 
 	if filesystem.DirExists(arc.arcPath) {
-		return nil, errtype.ErrRuntime(errIsDir(filepath.Base(arc.arcPath)), nil)
+		return nil, errIsDir(filepath.Base(arc.arcPath))
 	}
 
 	if len(p.InputPaths) > 0 {
@@ -64,7 +64,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 		info, err := arcFile.Stat()
 		if err != nil {
-			return nil, errtype.ErrRuntime(ErrOpenArc, err)
+			return nil, errtype.Join(ErrOpenArc, err)
 		}
 
 		var magic uint16
@@ -72,7 +72,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 			return nil, err
 		}
 		if magic != magicNumber {
-			return nil, errtype.ErrRuntime(errNotArc(info.Name()), nil)
+			return nil, errNotArc(info.Name())
 		}
 
 		var compType byte
@@ -83,7 +83,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		if compType <= byte(c.ZLib) {
 			arc.ct = c.Type(compType)
 		} else {
-			return nil, errtype.ErrRuntime(ErrUnknownComp, nil)
+			return nil, ErrUnknownComp
 		}
 	}
 

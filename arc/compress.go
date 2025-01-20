@@ -26,17 +26,19 @@ func (arc Arc) Compress(paths []string) error {
 
 	filesystem.PrintPathsCheck(paths)
 	if headers, err = arc.fetchHeaders(paths); err != nil {
-		return err
+		return errtype.ErrCompress(err.Error())
 	}
 	headers = header.DropDups(headers)
 
 	if len(headers) == 0 {
-		return errtype.ErrCompress(errors.New("нет элементов для сжатия"), nil)
+		return errtype.ErrCompress(ErrNoEntries.Error())
 	}
 
 	arcFile, err = arc.writeArcHeader()
 	if err != nil {
-		return errtype.ErrCompress(ErrWriteDirHeaders, err)
+		return errtype.ErrCompress(
+			errtype.Join(ErrWriteDirHeaders, err).Error(),
+		)
 	}
 	arcBuf := bufio.NewWriterSize(arcFile, int(c.BufferSize))
 
@@ -47,7 +49,7 @@ func (arc Arc) Compress(paths []string) error {
 			writers[i] = p.(header.Writer)
 		}
 		if err = arc.writeHeaders(writers, arcBuf); err != nil {
-			return errtype.ErrCompress(err, nil)
+			return errtype.ErrCompress(err.Error())
 		}
 		files = f
 	}
@@ -55,19 +57,25 @@ func (arc Arc) Compress(paths []string) error {
 	for i := 0; i < ncpu; i++ {
 		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
 		if err != nil {
-			return errtype.ErrCompress(ErrCompressorInit, err)
+			return errtype.ErrCompress(
+				errtype.Join(ErrCompressorInit, err).Error(),
+			)
 		}
 	}
 
 	for _, fi := range files {
 		if err = fi.Write(arcBuf); err != nil {
 			arc.closeRemove(arcFile)
-			return errtype.ErrCompress(ErrWriteFileHeader, err)
+			return errtype.ErrCompress(
+				errtype.Join(ErrWriteFileHeader, err).Error(),
+			)
 		}
 
 		if err = arc.compressFile(fi, arcBuf); err != nil {
 			arc.closeRemove(arcFile)
-			return errtype.ErrCompress(ErrCompressFile, err)
+			return errtype.ErrCompress(
+				errtype.Join(ErrCompressFile, err).Error(),
+			)
 		}
 	}
 	arcBuf.Flush()
@@ -80,7 +88,7 @@ func (arc Arc) Compress(paths []string) error {
 func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 	inFile, err := os.Open(fi.PathOnDisk())
 	if err != nil {
-		return errtype.ErrCompress(ErrOpenFileCompress(fi.PathOnDisk()), err)
+		return errtype.Join(ErrOpenFileCompress(fi.PathOnDisk()), err)
 	}
 	defer inFile.Close()
 	inBuf := bufio.NewReaderSize(inFile, int(c.BufferSize))
@@ -93,7 +101,7 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 	for {
 		// Заполняем буферы несжатыми частями (блоками) файла
 		if read, err = arc.loadUncompressedBuf(inBuf); err != nil {
-			return errtype.ErrCompress(ErrReadUncompressed, err)
+			return errtype.Join(ErrReadUncompressed, err)
 		}
 
 		if read == 0 {
@@ -102,21 +110,21 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 
 		// Сжимаем буферы
 		if err = arc.compressBuffers(); err != nil {
-			return errtype.ErrCompress(ErrCompress, err)
+			return errtype.Join(ErrCompress, err)
 		}
 
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
 			length := int64(compressedBuf[i].Len())
 			if err = filesystem.BinaryWrite(arcBuf, length); err != nil {
-				return errtype.ErrCompress(ErrWriteBufLen, err)
+				return errtype.Join(ErrWriteBufLen, err)
 			}
 
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
 			// Пишем сжатый блок
 			if wrote, err = compressedBuf[i].WriteTo(arcBuf); err != nil {
-				return errtype.ErrCompress(ErrReadCompressBuf, err)
+				return errtype.Join(ErrReadCompressBuf, err)
 			}
 			log.Println("В буфер записан блок размера:", wrote)
 			compressor[i].Reset(compressedBuf[i])
@@ -125,13 +133,13 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 
 	// Пишем признак конца файла
 	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
-		return errtype.ErrCompress(ErrWriteEOF, err)
+		return errtype.Join(ErrWriteEOF, err)
 	}
 	log.Println("Записан EOF")
 
 	// Пишем контрольную сумму
 	if err = filesystem.BinaryWrite(arcBuf, crc); err != nil {
-		return errtype.ErrCompress(ErrWriteCRC, err)
+		return errtype.Join(ErrWriteCRC, err)
 	}
 	log.Printf("Записан CRC: %X\n", crc)
 
@@ -147,7 +155,7 @@ func (Arc) loadUncompressedBuf(inBuf io.Reader) (read int64, err error) {
 	for i := 0; i < ncpu && err != io.EOF; i++ {
 		n, err = io.CopyN(decompressedBuf[i], inBuf, c.BufferSize)
 		if err != nil && err != io.EOF {
-			return 0, errtype.ErrCompress(ErrReadUncompressBuf, err)
+			return 0, errtype.Join(ErrReadUncompressBuf, err)
 		}
 
 		read += n
@@ -170,11 +178,12 @@ func (arc Arc) compressBuffers() error {
 
 			_, err := decompressedBuf[i].WriteTo(compressor[i])
 			if err != nil {
-				errChan <- errtype.ErrCompress(ErrWriteCompressor, err)
+				errors.Join()
+				errChan <- errtype.Join(ErrWriteCompressor, err)
 				return
 			}
 			if err = compressor[i].Close(); err != nil {
-				errChan <- errtype.ErrCompress(ErrCloseCompressor, err)
+				errChan <- errtype.Join(ErrCloseCompressor, err)
 			}
 		}(i)
 	}
