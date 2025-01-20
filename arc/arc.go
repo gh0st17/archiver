@@ -13,7 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
+	"strings"
 )
 
 const magicNumber uint16 = 0x5717
@@ -127,7 +128,13 @@ func (Arc) splitPathsFiles(headers []header.Header) ([]header.PathProvider, []*h
 			files = append(files, h.(*header.FileItem))
 		}
 	}
-	sort.Sort(header.ByPathInArc(dirsSyms))
+
+	slices.SortFunc(dirsSyms, func(a, b header.PathProvider) int {
+		return strings.Compare(
+			strings.ToLower(a.PathInArc()),
+			strings.ToLower(b.PathInArc()),
+		)
+	})
 
 	return dirsSyms, files
 }

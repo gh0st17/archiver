@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"strings"
 )
 
 // Максимальная ширина имени файла
@@ -33,15 +32,6 @@ type Reader interface {
 
 type Writer interface {
 	Write(io.Writer) error // Сериализует данные типа
-}
-
-// Реализация sort.Interface
-type ByPathInArc []PathProvider
-
-func (a ByPathInArc) Len() int      { return len(a) }
-func (a ByPathInArc) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByPathInArc) Less(i, j int) bool {
-	return strings.ToLower(a[i].PathInArc()) < strings.ToLower(a[j].PathInArc())
 }
 
 type Size int64
