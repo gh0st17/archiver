@@ -9,9 +9,12 @@ import (
 	"bytes"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strings"
 )
 
 const magicNumber uint16 = 0x5717
@@ -46,7 +49,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	}
 
 	if filesystem.DirExists(arc.arcPath) {
-		return nil, errtype.ErrRuntime(errIsDir(filepath.Base(arc.arcPath)), nil)
+		return nil, errIsDir(filepath.Base(arc.arcPath))
 	}
 
 	if len(p.InputPaths) > 0 {
@@ -61,7 +64,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 		info, err := arcFile.Stat()
 		if err != nil {
-			return nil, errtype.ErrRuntime(ErrOpenArc, err)
+			return nil, errtype.Join(ErrOpenArc, err)
 		}
 
 		var magic uint16
@@ -69,7 +72,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 			return nil, err
 		}
 		if magic != magicNumber {
-			return nil, errtype.ErrRuntime(errNotArc(info.Name()), nil)
+			return nil, errNotArc(info.Name())
 		}
 
 		var compType byte
@@ -80,7 +83,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		if compType <= byte(c.ZLib) {
 			arc.ct = c.Type(compType)
 		} else {
-			return nil, errtype.ErrRuntime(ErrUnknownComp, nil)
+			return nil, ErrUnknownComp
 		}
 	}
 
@@ -90,6 +93,12 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 // Удаляет архив
 func (arc Arc) RemoveTmp() {
 	os.Remove(arc.arcPath)
+}
+
+// Закрывает файл архива и удаляет его
+func (arc Arc) closeRemove(arcFile io.Closer) {
+	arcFile.Close()
+	arc.RemoveTmp()
 }
 
 // Печать статистики использования памяти
@@ -104,28 +113,28 @@ func (Arc) PrintMemStat() {
 }
 
 // Разделяет заголовки на директории и файлы
-func (Arc) splitHeaders(headers []header.Header) ([]header.ReadWriter, []*header.FileItem) {
+func (Arc) splitPathsFiles(headers []header.Header) ([]header.PathProvider, []*header.FileItem) {
 	var (
-		dirsSyms []header.ReadWriter
+		dirsSyms []header.PathProvider
 		files    []*header.FileItem
 	)
 
 	for _, h := range headers {
-		if len(h.PathOnDisk()) > 1023 {
-			fmt.Printf(
-				"Длина пути к '%s' первышает максимально допустимую (1023)\n",
-				filepath.Base(h.PathOnDisk()),
-			)
-			continue
-		}
 		if d, ok := h.(*header.DirItem); ok {
 			dirsSyms = append(dirsSyms, d)
-		} else if s, ok := h.(*header.SymDirItem); ok {
+		} else if s, ok := h.(*header.SymItem); ok {
 			dirsSyms = append(dirsSyms, s)
 		} else {
 			files = append(files, h.(*header.FileItem))
 		}
 	}
+
+	slices.SortFunc(dirsSyms, func(a, b header.PathProvider) int {
+		return strings.Compare(
+			strings.ToLower(a.PathInArc()),
+			strings.ToLower(b.PathInArc()),
+		)
+	})
 
 	return dirsSyms, files
 }

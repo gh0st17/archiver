@@ -1,10 +1,7 @@
 package header
 
 import (
-	"archiver/errtype"
 	"archiver/filesystem"
-	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -18,8 +15,9 @@ type timeAttr struct {
 }
 
 type PathProvider interface {
-	PathOnDisk() string
-	PathInArc() string
+	PathOnDisk() string       // Путь к элементу заголовка
+	PathInArc() string        // Путь к элементу в архиве
+	RestorePath(string) error // Восстанаваливает доступность пути
 }
 
 type basePaths struct {
@@ -38,9 +36,7 @@ func readPath(r io.Reader) (_ string, err error) {
 	}
 
 	if length < 1 || length > 1023 {
-		return "", errtype.ErrRuntime(
-			fmt.Errorf("некорректная длина (%d) пути элемента", length), nil,
-		)
+		return "", ErrPathLength(int64(length))
 	}
 
 	pathBytes := make([]byte, length)
@@ -73,11 +69,11 @@ type Base struct {
 }
 
 func NewBase(pathOnDisk string, atim, mtim time.Time) (*Base, error) {
-	pathInArc := filesystem.Clean(pathOnDisk)
-
-	if len(pathInArc) > 1023 {
-		return nil, errors.New("длина пути в архиве превышает допустимую")
+	if len(pathOnDisk) > 1023 {
+		return nil, ErrLongPath(pathOnDisk)
 	}
+
+	pathInArc := filesystem.Clean(pathOnDisk)
 
 	return &Base{
 		basePaths{pathOnDisk, pathInArc},

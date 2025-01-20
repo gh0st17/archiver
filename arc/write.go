@@ -4,41 +4,44 @@ import (
 	"archiver/arc/header"
 	"archiver/errtype"
 	"archiver/filesystem"
-	"fmt"
+	"io"
 	"os"
 )
 
-// Записывает информацию об архиве и заголовки
-// директории в файл архива
-func (arc Arc) writeHeaderDirsSyms(dirsSyms []header.ReadWriter) (arcFile *os.File, err error) {
+// Создает файл архива и пишет информацию об архиве
+func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 	// Создаем файл
 	arcFile, err = os.Create(arc.arcPath)
 	if err != nil {
-		return nil, errtype.ErrRuntime(ErrCreateArc, err)
+		return nil, errtype.Join(ErrCreateArc, err)
 	}
 
 	// Пишем магическое число
 	if err = filesystem.BinaryWrite(arcFile, magicNumber); err != nil {
-		return nil, errtype.ErrRuntime(ErrMagic, err)
+		return nil, errtype.Join(ErrMagic, err)
 	}
 
 	// Пишем тип компрессора
 	if err = filesystem.BinaryWrite(arcFile, arc.ct); err != nil {
-		return nil, errtype.ErrRuntime(ErrWriteCompType, err)
-	}
-
-	// Пишем количество заголовков директории
-	if err = filesystem.BinaryWrite(arcFile, int64(len(dirsSyms))); err != nil {
-		return nil, errtype.ErrRuntime(ErrWriteHeadersCount, err)
-	}
-
-	// Пишем заголовки
-	for _, h := range dirsSyms {
-		if err = h.Write(arcFile); err != nil {
-			return nil, errtype.ErrRuntime(ErrWriteHeaderIO, err)
-		}
-		fmt.Println(h.(header.PathProvider).PathInArc())
+		return nil, errtype.Join(ErrWriteCompType, err)
 	}
 
 	return arcFile, nil
+}
+
+// Записывает заголовки директории в файл архива
+func (Arc) writeHeaders(writers []header.Writer, arcFile io.Writer) error {
+	// Пишем количество заголовков директории
+	if err := filesystem.BinaryWrite(arcFile, int64(len(writers))); err != nil {
+		return errtype.Join(ErrWriteHeadersCount, err)
+	}
+
+	// Пишем заголовки
+	for _, ds := range writers {
+		if err := ds.Write(arcFile); err != nil {
+			return errtype.Join(ErrWriteHeaderIO, err)
+		}
+	}
+
+	return nil
 }

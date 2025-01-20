@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"strings"
 )
 
 // Максимальная ширина имени файла
@@ -23,32 +22,16 @@ const (
 )
 
 type Header interface {
-	PathOnDisk() string // Путь к элементу заголовка
-	PathInArc() string  // Путь к элементу в архиве
-	String() string     // fmt.Stringer
-}
-
-type ReadWriter interface {
-	Read(io.Reader) error  // Десериализует данные типа
-	Write(io.Writer) error // Сериализует данные типа
-}
-
-type Restorable interface {
-	RestorePath(string) error // Восстанаваливает доступность пути
-}
-
-type RestorablePathProvider interface {
-	Restorable
 	PathProvider
+	String() string // fmt.Stringer
 }
 
-// Реализация sort.Interface
-type ByPathInArc []PathProvider
+type Reader interface {
+	Read(io.Reader) error // Десериализует данные типа
+}
 
-func (a ByPathInArc) Len() int      { return len(a) }
-func (a ByPathInArc) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByPathInArc) Less(i, j int) bool {
-	return strings.ToLower(a[i].PathInArc()) < strings.ToLower(a[j].PathInArc())
+type Writer interface {
+	Write(io.Writer) error // Сериализует данные типа
 }
 
 type Size int64
