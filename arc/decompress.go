@@ -20,14 +20,14 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	headers, arcFile, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrDecompress(
-			errtype.Join(ErrReadHeaders, err).Error(),
+			errtype.Join(ErrReadHeaders, err),
 		)
 	}
 	defer arcFile.Close()
 
 	paths, files := arc.splitPathsFiles(headers)
 	if err = arc.restorePaths(paths, outputDir); err != nil {
-		return errtype.ErrDecompress(err.Error())
+		return errtype.ErrDecompress(err)
 	}
 
 	// 	Создаем файлы и директории
@@ -40,14 +40,14 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	for _, fi := range files {
 		if err = fi.RestorePath(outputDir); err != nil {
 			return errtype.ErrDecompress(
-				errtype.Join(ErrRestorePath(fi.PathOnDisk()), err).Error(),
+				errtype.Join(ErrRestorePath(fi.PathOnDisk()), err),
 			)
 		}
 
 		skipLen = len(fi.PathOnDisk()) + 26
 		if dataPos, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
 			return errtype.ErrDecompress(
-				errtype.Join(ErrSkipHeaders, err).Error(),
+				errtype.Join(ErrSkipHeaders, err),
 			)
 		}
 		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции:", dataPos)
@@ -73,13 +73,13 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 
 		if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
 			return errtype.ErrDecompress(
-				errtype.Join(ErrDecompressFile, err).Error(),
+				errtype.Join(ErrDecompressFile, err),
 			)
 		}
 
 		if dataPos, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
 			return errtype.ErrDecompress(
-				errtype.Join(ErrSkipCRC, err).Error(),
+				errtype.Join(ErrSkipCRC, err),
 			)
 		}
 		log.Println("Пропуск CRC, установлена позиция:", dataPos)
@@ -144,7 +144,6 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 		return errtype.Join(ErrCreateOutFile, err)
 	}
 	defer outFile.Close()
-	outBuf := bufio.NewWriterSize(outFile, int(c.BufferSize))
 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
@@ -161,6 +160,8 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 		crc         = fi.CRC()
 		eof         error
 	)
+
+	outBuf := bufio.NewWriterSize(outFile, int(c.BufferSize))
 	for eof != io.EOF {
 		if read, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
 			return errtype.Join(ErrReadCompressed, eof)
@@ -179,9 +180,9 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 				decompressedBuf[i].Reset()
 			}
 		}
-		outBuf.Flush()
 	}
 	fi.SetDamaged(crc != 0)
+	outBuf.Flush()
 
 	return nil
 }
@@ -239,8 +240,8 @@ func (arc Arc) decompressBuffers() error {
 			defer wg.Done()
 
 			defer decompressor[i].Close()
-			_, err := decompressor[i].WriteTo(decompressedBuf[i])
-			if err != nil {
+			_, err := decompressedBuf[i].ReadFrom(decompressor[i])
+			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 				errChan <- errtype.Join(ErrReadDecomp, err)
 			}
 		}(i)

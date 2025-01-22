@@ -12,7 +12,7 @@ func (arc Arc) IntegrityTest() error {
 	headers, arcFile, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrIntegrity(
-			errtype.Join(ErrReadHeaders, err).Error(),
+			errtype.Join(ErrReadHeaders, err),
 		)
 	}
 	defer arcFile.Close()
@@ -21,7 +21,7 @@ func (arc Arc) IntegrityTest() error {
 		if fi, ok := h.(*header.FileItem); ok {
 			if err = arc.checkFile(fi, arcFile); err != nil {
 				return errtype.ErrIntegrity(
-					errtype.Join(ErrCheckFile, err).Error(),
+					errtype.Join(ErrCheckFile, err),
 				)
 			}
 		}

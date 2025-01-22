@@ -13,7 +13,7 @@ func (arc Arc) ViewStat() error {
 	headers, _, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrRuntime(
-			errtype.Join(ErrReadHeaders, err).Error(),
+			errtype.Join(ErrReadHeaders, err),
 		)
 	}
 	arc.sortHeaders(headers)
@@ -40,7 +40,7 @@ func (arc Arc) ViewList() error {
 	headers, _, err := arc.readHeaders()
 	if err != nil {
 		return errtype.ErrRuntime(
-			errtype.Join(ErrReadHeaders, err).Error(),
+			errtype.Join(ErrReadHeaders, err),
 		)
 	}
 	arc.sortHeaders(headers)

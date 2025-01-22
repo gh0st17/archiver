@@ -26,18 +26,18 @@ func (arc Arc) Compress(paths []string) error {
 
 	filesystem.PrintPathsCheck(paths)
 	if headers, err = arc.fetchHeaders(paths); err != nil {
-		return errtype.ErrCompress(err.Error())
+		return errtype.ErrCompress(err)
 	}
 	headers = header.DropDups(headers)
 
 	if len(headers) == 0 {
-		return errtype.ErrCompress(ErrNoEntries.Error())
+		return errtype.ErrCompress(ErrNoEntries)
 	}
 
 	arcFile, err = arc.writeArcHeader()
 	if err != nil {
 		return errtype.ErrCompress(
-			errtype.Join(ErrWriteDirHeaders, err).Error(),
+			errtype.Join(ErrWriteDirHeaders, err),
 		)
 	}
 	arcBuf := bufio.NewWriterSize(arcFile, int(c.BufferSize))
@@ -49,7 +49,7 @@ func (arc Arc) Compress(paths []string) error {
 			writers[i] = p.(header.Writer)
 		}
 		if err = arc.writeHeaders(writers, arcBuf); err != nil {
-			return errtype.ErrCompress(err.Error())
+			return errtype.ErrCompress(err)
 		}
 		files = f
 	}
@@ -58,7 +58,7 @@ func (arc Arc) Compress(paths []string) error {
 		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
 		if err != nil {
 			return errtype.ErrCompress(
-				errtype.Join(ErrCompressorInit, err).Error(),
+				errtype.Join(ErrCompressorInit, err),
 			)
 		}
 	}
@@ -67,14 +67,14 @@ func (arc Arc) Compress(paths []string) error {
 		if err = fi.Write(arcBuf); err != nil {
 			arc.closeRemove(arcFile)
 			return errtype.ErrCompress(
-				errtype.Join(ErrWriteFileHeader, err).Error(),
+				errtype.Join(ErrWriteFileHeader, err),
 			)
 		}
 
 		if err = arc.compressFile(fi, arcBuf); err != nil {
 			arc.closeRemove(arcFile)
 			return errtype.ErrCompress(
-				errtype.Join(ErrCompressFile, err).Error(),
+				errtype.Join(ErrCompressFile, err),
 			)
 		}
 	}
