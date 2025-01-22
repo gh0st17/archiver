@@ -161,7 +161,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 		eof         error
 	)
 
-	outBuf := bufio.NewWriterSize(outFile, int(c.BufferSize))
+	outBuf := bufio.NewWriter(outFile)
 	for eof != io.EOF {
 		if read, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
 			return errtype.Join(ErrReadCompressed, eof)

@@ -40,7 +40,7 @@ func (arc Arc) Compress(paths []string) error {
 			errtype.Join(ErrWriteDirHeaders, err),
 		)
 	}
-	arcBuf := bufio.NewWriterSize(arcFile, int(c.BufferSize))
+	arcBuf := bufio.NewWriter(arcFile)
 
 	{
 		headersPaths, f := arc.splitPathsFiles(headers)
@@ -91,7 +91,7 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 		return errtype.Join(ErrOpenFileCompress(fi.PathOnDisk()), err)
 	}
 	defer inFile.Close()
-	inBuf := bufio.NewReaderSize(inFile, int(c.BufferSize))
+	inBuf := bufio.NewReader(inFile)
 
 	var (
 		wrote, read int64
