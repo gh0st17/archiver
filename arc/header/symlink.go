@@ -33,8 +33,6 @@ func (si SymItem) RestorePath(outDir string) error {
 		return err
 	}
 
-	fmt.Println(outDir, "->", si.pathOnDisk)
-
 	return nil
 }
 
@@ -95,7 +93,6 @@ func (si *SymItem) Write(w io.Writer) (err error) {
 	if err = writePath(w, si.pathInArc); err != nil {
 		return err
 	}
-	fmt.Println(si.pathInArc, "->", si.pathOnDisk)
 
 	return nil
 }
