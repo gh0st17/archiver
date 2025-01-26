@@ -96,6 +96,7 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 	var (
 		wrote, read int64
 		crc         uint32
+		wg          = sync.WaitGroup{}
 	)
 
 	for {
@@ -104,7 +105,11 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 			return errtype.Join(ErrReadUncompressed, err)
 		}
 
+		wg.Wait()
+
 		if read == 0 {
+			wg.Add(1)
+			go arc.flushWriteBuffer(&wg, arcBuf)
 			break
 		}
 
@@ -116,20 +121,27 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
 			length := int64(compressedBuf[i].Len())
-			if err = filesystem.BinaryWrite(arcBuf, length); err != nil {
+			if err = filesystem.BinaryWrite(writeBuf, length); err != nil {
 				return errtype.Join(ErrWriteBufLen, err)
 			}
 
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
 			// Пишем сжатый блок
-			if wrote, err = compressedBuf[i].WriteTo(arcBuf); err != nil {
+			if wrote, err = compressedBuf[i].WriteTo(writeBuf); err != nil {
 				return errtype.Join(ErrReadCompressBuf, err)
 			}
-			log.Println("В буфер записан блок размера:", wrote)
+			log.Println("В буфер записи записан блок размера:", wrote)
 			compressor[i].Reset(compressedBuf[i])
 		}
+
+		if writeBuf.Len() > int(4*bufferSize) {
+			wg.Add(1)
+			go arc.flushWriteBuffer(&wg, arcBuf)
+		}
 	}
+
+	wg.Wait()
 
 	// Пишем признак конца файла
 	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
@@ -153,7 +165,7 @@ func (Arc) loadUncompressedBuf(inBuf io.Reader) (read int64, err error) {
 	var n int64
 
 	for i := 0; i < ncpu && err != io.EOF; i++ {
-		n, err = io.CopyN(decompressedBuf[i], inBuf, c.BufferSize)
+		n, err = io.CopyN(decompressedBuf[i], inBuf, bufferSize)
 		if err != nil && err != io.EOF {
 			return 0, errtype.Join(ErrReadUncompressBuf, err)
 		}

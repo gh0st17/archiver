@@ -10,14 +10,19 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 )
 
-const magicNumber uint16 = 0x5717
+const (
+	magicNumber uint16 = 0x5717
+	bufferSize  int64  = 1048576 // 1М
+)
 
 var (
 	// Полином CRC32
@@ -30,6 +35,7 @@ var (
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
 	decompressor    = make([]*c.Reader, ncpu)
+	writeBuf        = bytes.NewBuffer(nil)
 )
 
 // Структура параметров архива
@@ -142,12 +148,23 @@ func (Arc) splitPathsFiles(headers []header.Header) ([]header.PathProvider, []*h
 // Проверяет корректность размера буфера.
 // Возвращает true если размер некорректный.
 func (Arc) checkBufferSize(bufferSize int64) bool {
-	return bufferSize < 0 || bufferSize>>1 > c.BufferSize
+	return bufferSize < 0 || bufferSize>>1 > bufferSize
+}
+
+func (Arc) flushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
+	defer wg.Done()
+
+	if writeBuf.Len() <= 0 {
+		return
+	}
+
+	wrote, _ := writeBuf.WriteTo(w)
+	log.Println("Буфер записи сброшен на диск:", wrote)
 }
 
 func init() {
 	for i := 0; i < ncpu; i++ {
-		compressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
-		decompressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
+		compressedBuf[i] = bytes.NewBuffer(nil)
+		decompressedBuf[i] = bytes.NewBuffer(nil)
 	}
 }

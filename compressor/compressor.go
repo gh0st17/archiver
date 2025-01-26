@@ -9,8 +9,6 @@ import (
 	"io"
 )
 
-const BufferSize int64 = 1048576 // 1М
-
 type Type byte // Тип компрессора
 
 const (

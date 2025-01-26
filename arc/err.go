@@ -51,7 +51,7 @@ var (
 	ErrSkipEOF        = fmt.Errorf("ошибка пропуска признака EOF")
 	ErrReadCompressed = fmt.Errorf("ошибка чтения сжатых блоков")
 	ErrDecompress     = fmt.Errorf("ошибка распаковки буферов")
-	ErrWriteOutBuf    = fmt.Errorf("ошибка записи в выходной буфер")
+	ErrWriteOutBuf    = fmt.Errorf("ошибка записи в буфер выхода")
 	ErrReadCompLen    = fmt.Errorf("ошибка чтения размера блока")
 	ErrReadCompBuf    = fmt.Errorf("ошибка чтения блока")
 	ErrDecompInit     = fmt.Errorf("ошибка иницализации декомпрессора")

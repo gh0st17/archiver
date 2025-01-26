@@ -159,6 +159,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 		wrote, read int64
 		crc         = fi.CRC()
 		eof         error
+		wg          = sync.WaitGroup{}
 	)
 
 	outBuf := bufio.NewWriter(outFile)
@@ -171,16 +172,26 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 			if err = arc.decompressBuffers(); err != nil {
 				return errtype.Join(ErrDecompress, err)
 			}
+		}
 
+		wg.Wait()
+
+		if read > 0 {
 			for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
-				if wrote, err = decompressedBuf[i].WriteTo(outBuf); err != nil {
+				if wrote, err = decompressedBuf[i].WriteTo(writeBuf); err != nil {
 					return errtype.Join(ErrWriteOutBuf, err)
 				}
-				log.Println("Записан буфер размера:", wrote)
-				decompressedBuf[i].Reset()
+				log.Println("В буфер записи записан блок размера:", wrote)
 			}
 		}
+
+		if writeBuf.Len() > 4*int(bufferSize) || eof == io.EOF {
+			wg.Add(1)
+			go arc.flushWriteBuffer(&wg, outBuf)
+		}
 	}
+
+	wg.Wait()
 	fi.SetDamaged(crc != 0)
 	outBuf.Flush()
 
