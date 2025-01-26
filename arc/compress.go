@@ -6,6 +6,7 @@ import (
 	"archiver/errtype"
 	"archiver/filesystem"
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -62,6 +63,9 @@ func (arc Arc) Compress(paths []string) error {
 			)
 		}
 	}
+
+	writeBufSize = (int(bufferSize) * ncpu) << 1
+	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
 
 	for _, fi := range files {
 		if err = fi.Write(arcBuf); err != nil {
@@ -134,7 +138,7 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 			log.Println("В буфер записи записан блок размера:", wrote)
 			compressor[i].Reset(compressedBuf[i])
 
-			if writeBuf.Len() >= 8*int(bufferSize) {
+			if writeBuf.Len() >= writeBufSize {
 				wg.Add(1)
 				go arc.flushWriteBuffer(&wg, arcBuf)
 

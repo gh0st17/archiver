@@ -6,6 +6,7 @@ import (
 	"archiver/errtype"
 	"archiver/filesystem"
 	"bufio"
+	"bytes"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -36,6 +37,9 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		dataPos int64
 		skipLen int
 	)
+
+	writeBufSize = int(bufferSize) * ncpu
+	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
 
 	for _, fi := range files {
 		if err = fi.RestorePath(outputDir); err != nil {
@@ -183,7 +187,7 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 
 			}
 
-			if writeBuf.Len() >= int(bufferSize) || eof == io.EOF {
+			if writeBuf.Len() >= writeBufSize || eof == io.EOF {
 				wg.Add(1)
 				go arc.flushWriteBuffer(&wg, outBuf)
 			}

@@ -35,7 +35,8 @@ var (
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
 	decompressor    = make([]*c.Reader, ncpu)
-	writeBuf        = bytes.NewBuffer(nil)
+	writeBuf        *bytes.Buffer
+	writeBufSize    int
 )
 
 // Структура параметров архива
