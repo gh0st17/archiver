@@ -133,11 +133,15 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 			}
 			log.Println("В буфер записи записан блок размера:", wrote)
 			compressor[i].Reset(compressedBuf[i])
-		}
 
-		if writeBuf.Len() > int(4*bufferSize) {
-			wg.Add(1)
-			go arc.flushWriteBuffer(&wg, arcBuf)
+			if writeBuf.Len() >= 8*int(bufferSize) {
+				wg.Add(1)
+				go arc.flushWriteBuffer(&wg, arcBuf)
+
+				if i+1 != ncpu {
+					wg.Wait()
+				}
+			}
 		}
 	}
 

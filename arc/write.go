@@ -18,7 +18,7 @@ func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 
 	// Пишем магическое число
 	if err = filesystem.BinaryWrite(arcFile, magicNumber); err != nil {
-		return nil, errtype.Join(ErrMagic, err)
+		return nil, errtype.Join(ErrWriteMagic, err)
 	}
 
 	// Пишем тип компрессора

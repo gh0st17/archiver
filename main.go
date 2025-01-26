@@ -14,8 +14,7 @@ func main() {
 	p := params.ParseParams()
 	a, err := arc.NewArc(p)
 	if err != nil {
-		fmt.Println("arc:", err)
-		os.Exit(1)
+		errtype.ErrorHandler(err)
 	}
 
 	sigChan := make(chan os.Signal, 1)

@@ -76,6 +76,7 @@ var (
 // Ошибки функции чтения
 var (
 	ErrOpenArc          = fmt.Errorf("не могу открыть файл архива")
+	ErrReadMagic        = fmt.Errorf("ошибка чтения сигнатуры")
 	ErrReadDirsSyms     = fmt.Errorf("ошибка чтения заголовка директории/ссылки")
 	ErrReadFileHeader   = fmt.Errorf("ошибка чтения заголовка файла")
 	ErrReadHeadersCount = fmt.Errorf("ошибка чтения числа заголовков")
@@ -89,8 +90,9 @@ var (
 // Ошибки функции записи
 var (
 	ErrCreateArc         = fmt.Errorf("не могу создать файл архива")
-	ErrMagic             = fmt.Errorf("ошибка записи сигнатуры")
+	ErrWriteMagic        = fmt.Errorf("ошибка записи сигнатуры")
 	ErrWriteCompType     = fmt.Errorf("ошибка записи типа компрессора")
 	ErrWriteHeadersCount = fmt.Errorf("ошибка записи количества заголовков")
 	ErrWriteHeaderIO     = fmt.Errorf("ошибка записи заголовка директории")
+	ErrFlushWrBuf        = fmt.Errorf("ошибка сброса буфера записи на диск")
 )

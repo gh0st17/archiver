@@ -172,22 +172,21 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 			if err = arc.decompressBuffers(); err != nil {
 				return errtype.Join(ErrDecompress, err)
 			}
-		}
 
-		wg.Wait()
+			wg.Wait()
 
-		if read > 0 {
 			for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
 				if wrote, err = decompressedBuf[i].WriteTo(writeBuf); err != nil {
 					return errtype.Join(ErrWriteOutBuf, err)
 				}
 				log.Println("В буфер записи записан блок размера:", wrote)
-			}
-		}
 
-		if writeBuf.Len() > 4*int(bufferSize) || eof == io.EOF {
-			wg.Add(1)
-			go arc.flushWriteBuffer(&wg, outBuf)
+			}
+
+			if writeBuf.Len() >= int(bufferSize) || eof == io.EOF {
+				wg.Add(1)
+				go arc.flushWriteBuffer(&wg, outBuf)
+			}
 		}
 	}
 
@@ -218,7 +217,6 @@ func (arc Arc) loadCompressedBuf(arcBuf io.Reader, crc *uint32) (read int64, err
 			return 0, errtype.Join(ErrBufSize(bufferSize), err)
 		}
 
-		compressedBuf[i].Reset()
 		if n, err = io.CopyN(compressedBuf[i], arcBuf, bufferSize); err != nil {
 			return 0, errtype.Join(ErrReadCompBuf, err)
 		}

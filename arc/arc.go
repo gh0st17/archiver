@@ -64,7 +64,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	} else {
 		arcFile, err := os.Open(arc.arcPath)
 		if err != nil {
-			return nil, err
+			return nil, errtype.Join(ErrOpenArc, err)
 		}
 		defer arcFile.Close()
 
@@ -75,7 +75,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 		var magic uint16
 		if err = filesystem.BinaryRead(arcFile, &magic); err != nil {
-			return nil, err
+			return nil, errtype.Join(ErrReadMagic, err)
 		}
 		if magic != magicNumber {
 			return nil, errNotArc(info.Name())
@@ -154,11 +154,14 @@ func (Arc) checkBufferSize(bufferSize int64) bool {
 func (Arc) flushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
 	defer wg.Done()
 
-	if writeBuf.Len() <= 0 {
+	if writeBuf.Len() == 0 {
 		return
 	}
 
-	wrote, _ := writeBuf.WriteTo(w)
+	wrote, err := writeBuf.WriteTo(w)
+	if err != nil {
+		errtype.ErrorHandler(errtype.Join(ErrFlushWrBuf, err))
+	}
 	log.Println("Буфер записи сброшен на диск:", wrote)
 }
 
