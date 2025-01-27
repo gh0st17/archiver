@@ -9,6 +9,7 @@ type DirItem struct {
 	basePaths
 }
 
+// Создает заголовок директории [header.DirItem]
 func NewDirItem(pathInArc string) *DirItem {
 	return &DirItem{basePaths{pathInArc, pathInArc}}
 }

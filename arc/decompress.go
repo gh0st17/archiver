@@ -67,6 +67,7 @@ func (arc Arc) Decompress() error {
 	return nil
 }
 
+// Рспаковывает файл
 func (arc *Arc) restoreFile(arcFile io.ReadSeeker) error {
 	fi := &header.FileItem{}
 	err := fi.Read(arcFile)
@@ -107,6 +108,7 @@ func (arc *Arc) restoreFile(arcFile io.ReadSeeker) error {
 	return fi.RestoreTime(arc.outputDir)
 }
 
+// Восстанавливает символьную ссылку
 func (arc Arc) restoreSym(arcFile io.ReadSeeker) error {
 	sym := &header.SymItem{}
 

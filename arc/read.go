@@ -199,6 +199,7 @@ func (arc *Arc) readSymHeader(arcFile io.Reader) (sym *header.SymItem, err error
 	return sym, nil
 }
 
+// Вставляет в срез с заголовками пути к директориям
 func (Arc) insertDirs(headers *[]header.Header) {
 	var (
 		seen  = map[string]struct{}{}

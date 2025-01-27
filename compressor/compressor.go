@@ -33,12 +33,13 @@ const (
 	BestCompression    Level = flate.BestCompression
 )
 
+// Дополнение интерфейса [io.ReadCloser] методом сброса
 type ReadCloseResetter interface {
 	io.ReadCloser
 	Reset(io.Reader) error
 }
 
-// Адаптер для lzw.Reader
+// Адаптер для [lzw.Reader]
 type lzwReader struct {
 	*lzw.Reader
 }
@@ -48,7 +49,7 @@ func (lr *lzwReader) Reset(r io.Reader) error {
 	return nil
 }
 
-// Адаптер для zlib.Reader
+// Адаптер для [zlib.reader]
 type zlibReader struct {
 	reader io.ReadCloser
 }
@@ -118,12 +119,13 @@ func (rd *Reader) Close() error { return rd.reader.Close() }
 
 func (rd *Reader) Reset(r io.Reader) error { return rd.reader.Reset(r) }
 
+// Дополнение интерфейса [io.WriteCloser] методом сброса
 type WriteCloseResetter interface {
 	io.WriteCloser
 	Reset(io.Writer)
 }
 
-// Адаптер для lzw.Writer
+// Адаптер для [lzw.Writer]
 type lzwWriter struct {
 	*lzw.Writer
 }
@@ -165,7 +167,7 @@ func newWriter(typ Type, w io.Writer, l Level) (WriteCloseResetter, error) {
 	}
 }
 
-// Сжимает из p len(p) байт во внутренний writer
+// Сжимает len(p) байт из p во внутренний writer
 func (wr *Writer) Write(p []byte) (n int, err error) {
 	return wr.writer.Write(p)
 }
