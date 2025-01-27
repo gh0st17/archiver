@@ -44,12 +44,8 @@ func (arc Arc) Compress(paths []string) error {
 	arcBuf := bufio.NewWriter(arcFile)
 
 	{
-		headersPaths, f := arc.splitPathsFiles(headers)
-		writers := make([]header.Writer, len(headersPaths))
-		for i, p := range headersPaths {
-			writers[i] = p.(header.Writer)
-		}
-		if err = arc.writeHeaders(writers, arcBuf); err != nil {
+		s, f := arc.splitSymsFiles(headers)
+		if err = arc.writeSymsHeaders(s, arcBuf); err != nil {
 			return errtype.ErrCompress(err)
 		}
 		files = f

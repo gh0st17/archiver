@@ -4,8 +4,7 @@ import (
 	"archiver/arc/header"
 	"archiver/errtype"
 	"fmt"
-	"slices"
-	"strings"
+	"sort"
 )
 
 // Печатает информацию об архиве
@@ -16,7 +15,7 @@ func (arc Arc) ViewStat() error {
 			errtype.Join(ErrReadHeaders, err),
 		)
 	}
-	arc.sortHeaders(headers)
+	sort.Sort(header.ByPathInArc(headers))
 
 	fmt.Printf("Тип компрессора: %s\n", arc.ct)
 	header.PrintStatHeader()
@@ -43,7 +42,7 @@ func (arc Arc) ViewList() error {
 			errtype.Join(ErrReadHeaders, err),
 		)
 	}
-	arc.sortHeaders(headers)
+	sort.Sort(header.ByPathInArc(headers))
 
 	for _, h := range headers {
 		if si, ok := h.(*header.SymItem); ok {
@@ -54,14 +53,4 @@ func (arc Arc) ViewList() error {
 	}
 
 	return nil
-}
-
-// Сортирует срез []header.Header
-func (Arc) sortHeaders(headers []header.Header) {
-	slices.SortFunc(headers, func(a, b header.Header) int {
-		return strings.Compare(
-			strings.ToLower(a.PathInArc()),
-			strings.ToLower(b.PathInArc()),
-		)
-	})
 }

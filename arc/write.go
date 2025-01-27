@@ -30,15 +30,15 @@ func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 }
 
 // Записывает заголовки директории в файл архива
-func (Arc) writeHeaders(writers []header.Writer, arcFile io.Writer) error {
+func (Arc) writeSymsHeaders(syms []*header.SymItem, arcFile io.Writer) error {
 	// Пишем количество заголовков директории
-	if err := filesystem.BinaryWrite(arcFile, int64(len(writers))); err != nil {
+	if err := filesystem.BinaryWrite(arcFile, int64(len(syms))); err != nil {
 		return errtype.Join(ErrWriteHeadersCount, err)
 	}
 
 	// Пишем заголовки
-	for _, ds := range writers {
-		if err := ds.Write(arcFile); err != nil {
+	for _, s := range syms {
+		if err := s.Write(arcFile); err != nil {
 			return errtype.Join(ErrWriteHeaderIO, err)
 		}
 	}

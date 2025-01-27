@@ -100,8 +100,8 @@ func (fi FileItem) String() string {
 	}()
 
 	return fmt.Sprintf(
-		"%-*s %11s %11s %7.2f %10s  %s %s",
+		"%-*s %11s %11s %7.2f  %s %s",
 		maxInArcWidth, path, fi.ucSize,
-		fi.cSize, ratio, "Файл", mtime, crc,
+		fi.cSize, ratio, mtime, crc,
 	)
 }

@@ -26,9 +26,13 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	}
 	defer arcFile.Close()
 
-	paths, files := arc.splitPathsFiles(headers)
-	if err = arc.restorePaths(paths, outputDir); err != nil {
-		return errtype.ErrDecompress(err)
+	syms, files := arc.splitSymsFiles(headers)
+	for _, s := range syms {
+		if err := s.RestorePath(outputDir); err != nil {
+			return errtype.ErrDecompress(
+				errtype.Join(ErrRestorePath(s.PathInArc()), err),
+			)
+		}
 	}
 
 	// 	Создаем файлы и директории
@@ -100,17 +104,6 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 	// Сброс декомпрессоров перед новым использованием этой функции
 	for i := 0; i < ncpu; i++ {
 		decompressor[i] = nil
-	}
-
-	return nil
-}
-
-// Воссоздает директории из заголовков
-func (Arc) restorePaths(paths []header.PathProvider, outputDir string) error {
-	for _, r := range paths {
-		if err := r.RestorePath(outputDir); err != nil {
-			return errtype.Join(ErrRestorePath(r.PathInArc()), err)
-		}
 	}
 
 	return nil

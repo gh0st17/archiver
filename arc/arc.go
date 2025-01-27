@@ -14,8 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
-	"strings"
+	"sort"
 	"sync"
 )
 
@@ -120,30 +119,23 @@ func (Arc) PrintMemStat() {
 }
 
 // Разделяет заголовки на директории и файлы
-func (Arc) splitPathsFiles(headers []header.Header) ([]header.PathProvider, []*header.FileItem) {
+func (Arc) splitSymsFiles(headers []header.Header) ([]*header.SymItem, []*header.FileItem) {
 	var (
-		dirsSyms []header.PathProvider
-		files    []*header.FileItem
+		syms  []*header.SymItem
+		files []*header.FileItem
 	)
 
+	sort.Sort(header.ByPathInArc(headers))
+
 	for _, h := range headers {
-		if d, ok := h.(*header.DirItem); ok {
-			dirsSyms = append(dirsSyms, d)
-		} else if s, ok := h.(*header.SymItem); ok {
-			dirsSyms = append(dirsSyms, s)
+		if s, ok := h.(*header.SymItem); ok {
+			syms = append(syms, s)
 		} else {
 			files = append(files, h.(*header.FileItem))
 		}
 	}
 
-	slices.SortFunc(dirsSyms, func(a, b header.PathProvider) int {
-		return strings.Compare(
-			strings.ToLower(a.PathInArc()),
-			strings.ToLower(b.PathInArc()),
-		)
-	})
-
-	return dirsSyms, files
+	return syms, files
 }
 
 // Проверяет корректность размера буфера.
@@ -152,6 +144,7 @@ func (Arc) checkBufferSize(bufferSize int64) bool {
 	return bufferSize < 0 || bufferSize>>1 > bufferSize
 }
 
+// Сбрасывает буфер данных для записи на диск
 func (Arc) flushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
 	defer wg.Done()
 
