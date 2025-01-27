@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	magicNumber uint16 = 0x5717
-	bufferSize  int64  = 1048576 // 1М
+	magicNumber  uint16 = 0x5717
+	bufferSize   int64  = 1048576 // 1М
+	arcHeaderLen        = 3
 )
 
 var (
@@ -47,7 +48,7 @@ type Arc struct {
 	replaceAll bool
 }
 
-// Возвращает новый Arc из входных параметров программы
+// Возвращает новый [Arc] из входных параметров программы
 func NewArc(p params.Params) (arc *Arc, err error) {
 	arc = &Arc{
 		arcPath:    p.ArcPath,

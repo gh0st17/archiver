@@ -14,9 +14,16 @@ import (
 	"os"
 	fp "path/filepath"
 	"sync"
+	"unicode"
 )
 
-// Распаковывает архив
+// Выполняет распаковку архива.
+//
+// Открывает файл архива, пропускает магическое число и тип
+// компрессора, затем обрабатывает содержимое архива, проходя
+// по заголовкам разного типа. Обнаруженные заголовки
+// обрабатываются соответствующими методами, а после завершения
+// работы освобождаются декомпрессоры.
 func (arc Arc) Decompress() error {
 	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -24,15 +31,17 @@ func (arc Arc) Decompress() error {
 			errtype.Join(ErrOpenArc, err),
 		)
 	}
-	arcFile.Seek(3, io.SeekStart) // Пропускаем магическое число и тип компрессора
 
+	// Пропускаем магическое число и тип компрессора
+	arcFile.Seek(arcHeaderLen, io.SeekStart)
+
+	// Установка размера буфера записи и его инициализация
 	writeBufSize = int(bufferSize) * ncpu
 	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
 
 	var typ header.HeaderType
-
 	for err != io.EOF {
-		err = filesystem.BinaryRead(arcFile, &typ)
+		err = filesystem.BinaryRead(arcFile, &typ) // Читаем тип заголовка
 		if err != io.EOF && err != nil {
 			return errtype.ErrDecompress(
 				errtype.Join(ErrReadHeaderType, err),
@@ -59,7 +68,8 @@ func (arc Arc) Decompress() error {
 		}
 	}
 
-	// Сброс декомпрессоров перед новым использованием этой функции
+	// Сброс декомпрессоров перед новым
+	// использованием этой функции
 	for i := 0; i < ncpu; i++ {
 		decompressor[i] = nil
 	}
@@ -67,7 +77,13 @@ func (arc Arc) Decompress() error {
 	return nil
 }
 
-// Рспаковывает файл
+// Восстанавливает файл из архива.
+//
+// Читает заголовок файла, проверяет
+// его целостность (CRC), определяет путь для восстановления,
+// а затем либо декомпрессирует файл, либо пропускает его в случае
+// повреждений. Также она может обработать сценарии замены уже
+// существующих файлов.
 func (arc *Arc) restoreFile(arcFile io.ReadSeeker) error {
 	fi := &header.FileItem{}
 	err := fi.Read(arcFile)
@@ -135,12 +151,13 @@ func (arc *Arc) replaceInput(outPath string, arcFile io.ReadSeeker) bool {
 	for {
 		fmt.Printf("Файл '%s' существует, заменить? [(Д)а/(Н)ет/(В)се]: ", outPath)
 		input, _, _ = stdin.ReadRune()
+		unicode.ToLower(input)
 
 		switch input {
-		case 'A', 'a', 'В', 'в':
+		case 'a', 'в':
 			arc.replaceAll = true
-		case 'Y', 'y', 'Д', 'д':
-		case 'N', 'n', 'Н', 'н':
+		case 'y', 'д':
+		case 'n', 'н':
 			arc.skipFileData(arcFile, true)
 			return true
 		default:

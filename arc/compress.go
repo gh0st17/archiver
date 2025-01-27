@@ -17,7 +17,7 @@ import (
 	"sync"
 )
 
-// Создает архив
+// Создает файл архива с содержимым путей path
 func (arc Arc) Compress(paths []string) error {
 	var (
 		headers []header.Header
@@ -25,25 +25,19 @@ func (arc Arc) Compress(paths []string) error {
 		err     error
 	)
 
-	filesystem.PrintPathsCheck(paths)
-	if headers, err = arc.fetchHeaders(paths); err != nil {
+	if headers, err = arc.prepareHeaders(paths); err != nil {
 		return errtype.ErrCompress(err)
 	}
-	headers = header.DropDups(headers)
-	sort.Sort(header.ByPathInArc(headers))
+	sort.Sort(header.ByPathInArc(headers)) // Сортруем без учета регистра
 
-	if len(headers) == 0 {
-		return errtype.ErrCompress(ErrNoEntries)
-	}
-
-	arcFile, err = arc.writeArcHeader()
+	arcFile, err = arc.writeArcHeader() // Пишем заголовок архива
 	if err != nil {
 		return errtype.ErrCompress(
 			errtype.Join(ErrWriteArcHeaders, err),
 		)
 	}
 
-	for i := 0; i < ncpu; i++ {
+	for i := 0; i < ncpu; i++ { // Инициализация компрессоров
 		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
 		if err != nil {
 			return errtype.ErrCompress(
@@ -52,15 +46,43 @@ func (arc Arc) Compress(paths []string) error {
 		}
 	}
 
+	// Установка размера буфера записи и его инициализация
 	writeBufSize = (int(bufferSize) * ncpu) << 1
 	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
 
+	if err = arc.processingHeaders(arcFile, headers); err != nil {
+		return errtype.ErrCompress(err)
+	}
+	arcFile.Close()
+
+	return nil
+}
+
+// Подготавливает заголовки для сжатия
+func (arc Arc) prepareHeaders(paths []string) (headers []header.Header, err error) {
+	// Печать предпреждения о наличии абсолютных путей
+	filesystem.PrintPathsCheck(paths)
+
+	// Собираем элементы по путям path в заголовки
+	if headers, err = arc.fetchHeaders(paths); err != nil {
+		return nil, err
+	}
+	headers = header.DropDups(headers) // Удаляем дубликаты
+
+	if len(headers) == 0 { // Если true, то сжимать нечего
+		return nil, ErrNoEntries
+	}
+	return headers, nil
+}
+
+// Обработка заголовков
+func (arc Arc) processingHeaders(arcFile io.WriteCloser, headers []header.Header) error {
 	arcBuf := bufio.NewWriter(arcFile)
-	for _, h := range headers {
+	for _, h := range headers { // Перебираем заголовки
 		if fi, ok := h.(*header.FileItem); ok {
-			if err = arc.processingFile(fi, arcBuf); err != nil {
+			if err := arc.processingFile(fi, arcBuf); err != nil {
 				arc.closeRemove(arcFile)
-				return errtype.ErrCompress(err)
+				return err
 			}
 		} else if di, ok := h.(*header.DirItem); ok {
 			arc.processingDir(di)
@@ -69,8 +91,6 @@ func (arc Arc) Compress(paths []string) error {
 		}
 	}
 	arcBuf.Flush()
-	arcFile.Close()
-
 	return nil
 }
 
