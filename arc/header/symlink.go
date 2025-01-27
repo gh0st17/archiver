@@ -14,7 +14,7 @@ type SymItem struct {
 	basePaths
 }
 
-func NewSymDirItem(symlink, target string) *SymItem {
+func NewSymItem(symlink, target string) *SymItem {
 	return &SymItem{
 		basePaths{pathOnDisk: target, pathInArc: symlink},
 	}
@@ -33,8 +33,6 @@ func (si SymItem) RestorePath(outDir string) error {
 		return err
 	}
 
-	fmt.Println(outDir, "->", si.pathOnDisk)
-
 	return nil
 }
 
@@ -43,19 +41,9 @@ func (si SymItem) String() string {
 	filename := prefix(si.pathInArc, maxInArcWidth)
 	target := prefix(si.pathOnDisk, maxOnDiskWidth)
 
-	typ := func() string {
-		if info, err := os.Stat(si.pathOnDisk); err != nil {
-			return "Недейств."
-		} else if info.Mode()&os.ModeDir != 0 {
-			return "Директория"
-		} else {
-			return "Файл"
-		}
-	}()
-
 	return fmt.Sprintf(
-		"%-*s -> %s %*s", maxInArcWidth, filename,
-		target, 38-len([]rune(target)), typ,
+		"%-*s -> %s", maxInArcWidth,
+		filename, target,
 	)
 }
 
@@ -77,7 +65,7 @@ func (si *SymItem) Read(r io.Reader) error {
 		return err
 	}
 
-	newSym := NewSymDirItem(symlink, target)
+	newSym := NewSymItem(symlink, target)
 	*si = *newSym
 
 	return err
@@ -95,7 +83,6 @@ func (si *SymItem) Write(w io.Writer) (err error) {
 	if err = writePath(w, si.pathInArc); err != nil {
 		return err
 	}
-	fmt.Println(si.pathInArc, "->", si.pathOnDisk)
 
 	return nil
 }

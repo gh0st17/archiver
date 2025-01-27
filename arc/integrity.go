@@ -3,27 +3,51 @@ package arc
 import (
 	"archiver/arc/header"
 	"archiver/errtype"
+	"archiver/filesystem"
 	"fmt"
 	"io"
+	"os"
 )
 
 // Проверяет целостность данных в архиве
 func (arc Arc) IntegrityTest() error {
-	headers, arcFile, err := arc.readHeaders()
+	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrIntegrity(
-			errtype.Join(ErrReadHeaders, err).Error(),
+			errtype.Join(ErrOpenArc, err),
 		)
 	}
 	defer arcFile.Close()
+	arcFile.Seek(3, io.SeekStart) // Пропускаем магическое число и тип компрессора
 
-	for _, h := range headers {
-		if fi, ok := h.(*header.FileItem); ok {
-			if err = arc.checkFile(fi, arcFile); err != nil {
+	var typ header.HeaderType
+
+	for err != io.EOF {
+		err = filesystem.BinaryRead(arcFile, &typ)
+		if err != io.EOF && err != nil {
+			return errtype.ErrIntegrity(
+				errtype.Join(ErrReadHeaderType, err),
+			)
+		} else if err == io.EOF {
+			continue
+		}
+
+		switch typ {
+		case header.File:
+			if err = arc.checkFile(arcFile); err != nil {
 				return errtype.ErrIntegrity(
-					errtype.Join(ErrCheckFile, err).Error(),
+					errtype.Join(ErrCheckFile, err),
 				)
 			}
+		case header.Symlink:
+			sym := &header.SymItem{}
+			if err = sym.Read(arcFile); err != nil && err != io.EOF {
+				return errtype.ErrIntegrity(
+					errtype.Join(ErrReadSymHeader, err),
+				)
+			}
+		default:
+			return errtype.ErrIntegrity(ErrHeaderType)
 		}
 	}
 
@@ -32,15 +56,15 @@ func (arc Arc) IntegrityTest() error {
 
 // Распаковывает файл с проверкой CRC каждого
 // блока сжатых данных
-func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
+func (arc Arc) checkFile(arcFile io.ReadSeeker) error {
 	var err error
 
-	skipLen := len(fi.PathOnDisk()) + 26
-	if _, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
-		return errtype.Join(ErrSkipHeaders, err)
+	fi := &header.FileItem{}
+	if err := fi.Read(arcFile); err != nil && err != io.EOF {
+		return errtype.Join(ErrReadFileHeader, err)
 	}
 
-	if _, err = arc.checkCRC(fi.CRC(), arcFile); err == ErrWrongCRC {
+	if _, err = arc.checkCRC(arcFile); err == ErrWrongCRC {
 		fmt.Println(fi.PathOnDisk() + ": Файл поврежден")
 	} else if err != nil {
 		return errtype.Join(ErrCheckCRC, err)
@@ -54,14 +78,16 @@ func (arc Arc) checkFile(fi *header.FileItem, arcFile io.ReadSeeker) error {
 // Считывает данные сжатого файла из arcFile,
 // проверяет контрольную сумму и возвращает
 // количество прочитанных байт
-func (arc Arc) checkCRC(crc uint32, arcFile io.ReadSeeker) (read header.Size, err error) {
+func (arc Arc) checkCRC(arcFile io.ReadSeeker) (read header.Size, err error) {
 	var (
-		n   int64
-		eof error
+		n       int64
+		eof     error
+		calcCRC uint32
+		fileCRC uint32
 	)
 
 	for eof != io.EOF {
-		if n, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
+		if n, eof = arc.loadCompressedBuf(arcFile, &calcCRC); eof != nil && eof != io.EOF {
 			return 0, errtype.Join(ErrReadCompressed, eof)
 		}
 
@@ -72,11 +98,11 @@ func (arc Arc) checkCRC(crc uint32, arcFile io.ReadSeeker) (read header.Size, er
 		}
 	}
 
-	if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-		return 0, errtype.Join(ErrSkipCRC, err)
+	if err = filesystem.BinaryRead(arcFile, &fileCRC); err != nil {
+		return 0, errtype.Join(ErrReadCRC, err)
 	}
 
-	if crc != 0 {
+	if calcCRC != fileCRC {
 		return read, ErrWrongCRC
 	}
 

@@ -4,19 +4,24 @@ import (
 	"archiver/arc/header"
 	"archiver/errtype"
 	"fmt"
-	"slices"
-	"strings"
+	"os"
 )
 
 // Печатает информацию об архиве
 func (arc Arc) ViewStat() error {
-	headers, _, err := arc.readHeaders()
+	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrRuntime(
-			errtype.Join(ErrReadHeaders, err).Error(),
+			errtype.Join(ErrOpenArc, err),
 		)
 	}
-	arc.sortHeaders(headers)
+
+	headers, err := arc.readHeaders(arcFile)
+	if err != nil {
+		return errtype.ErrRuntime(
+			errtype.Join(ErrReadHeaders, err),
+		)
+	}
 
 	fmt.Printf("Тип компрессора: %s\n", arc.ct)
 	header.PrintStatHeader()
@@ -37,13 +42,19 @@ func (arc Arc) ViewStat() error {
 
 // Печатает список файлов в архиве
 func (arc Arc) ViewList() error {
-	headers, _, err := arc.readHeaders()
+	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrRuntime(
-			errtype.Join(ErrReadHeaders, err).Error(),
+			errtype.Join(ErrOpenArc, err),
 		)
 	}
-	arc.sortHeaders(headers)
+
+	headers, err := arc.readHeaders(arcFile)
+	if err != nil {
+		return errtype.ErrRuntime(
+			errtype.Join(ErrReadHeaders, err),
+		)
+	}
 
 	for _, h := range headers {
 		if si, ok := h.(*header.SymItem); ok {
@@ -54,14 +65,4 @@ func (arc Arc) ViewList() error {
 	}
 
 	return nil
-}
-
-// Сортирует срез []header.Header
-func (Arc) sortHeaders(headers []header.Header) {
-	slices.SortFunc(headers, func(a, b header.Header) int {
-		return strings.Compare(
-			strings.ToLower(a.PathInArc()),
-			strings.ToLower(b.PathInArc()),
-		)
-	})
 }

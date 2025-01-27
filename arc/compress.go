@@ -6,12 +6,14 @@ import (
 	"archiver/errtype"
 	"archiver/filesystem"
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"log"
 	"os"
+	"sort"
 	"sync"
 )
 
@@ -20,67 +22,78 @@ func (arc Arc) Compress(paths []string) error {
 	var (
 		headers []header.Header
 		arcFile io.WriteCloser
-		files   []*header.FileItem
 		err     error
 	)
 
 	filesystem.PrintPathsCheck(paths)
 	if headers, err = arc.fetchHeaders(paths); err != nil {
-		return errtype.ErrCompress(err.Error())
+		return errtype.ErrCompress(err)
 	}
 	headers = header.DropDups(headers)
+	sort.Sort(header.ByPathInArc(headers))
 
 	if len(headers) == 0 {
-		return errtype.ErrCompress(ErrNoEntries.Error())
+		return errtype.ErrCompress(ErrNoEntries)
 	}
 
 	arcFile, err = arc.writeArcHeader()
 	if err != nil {
 		return errtype.ErrCompress(
-			errtype.Join(ErrWriteDirHeaders, err).Error(),
+			errtype.Join(ErrWriteArcHeaders, err),
 		)
-	}
-	arcBuf := bufio.NewWriterSize(arcFile, int(c.BufferSize))
-
-	{
-		headersPaths, f := arc.splitPathsFiles(headers)
-		writers := make([]header.Writer, len(headersPaths))
-		for i, p := range headersPaths {
-			writers[i] = p.(header.Writer)
-		}
-		if err = arc.writeHeaders(writers, arcBuf); err != nil {
-			return errtype.ErrCompress(err.Error())
-		}
-		files = f
 	}
 
 	for i := 0; i < ncpu; i++ {
 		compressor[i], err = c.NewWriter(arc.ct, compressedBuf[i], arc.cl)
 		if err != nil {
 			return errtype.ErrCompress(
-				errtype.Join(ErrCompressorInit, err).Error(),
+				errtype.Join(ErrCompressorInit, err),
 			)
 		}
 	}
 
-	for _, fi := range files {
-		if err = fi.Write(arcBuf); err != nil {
-			arc.closeRemove(arcFile)
-			return errtype.ErrCompress(
-				errtype.Join(ErrWriteFileHeader, err).Error(),
-			)
-		}
+	writeBufSize = (int(bufferSize) * ncpu) << 1
+	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
 
-		if err = arc.compressFile(fi, arcBuf); err != nil {
-			arc.closeRemove(arcFile)
-			return errtype.ErrCompress(
-				errtype.Join(ErrCompressFile, err).Error(),
-			)
+	arcBuf := bufio.NewWriter(arcFile)
+	for _, h := range headers {
+		if fi, ok := h.(*header.FileItem); ok {
+			if err = arc.processingFile(fi, arcBuf); err != nil {
+				arc.closeRemove(arcFile)
+				return errtype.ErrCompress(err)
+			}
+		} else if di, ok := h.(*header.DirItem); ok {
+			arc.processingDir(di)
+		} else if si, ok := h.(*header.SymItem); ok {
+			arc.processingSym(si, arcBuf)
 		}
 	}
 	arcBuf.Flush()
 	arcFile.Close()
 
+	return nil
+}
+
+func (arc Arc) processingFile(fi *header.FileItem, arcBuf io.Writer) error {
+	err := fi.Write(arcBuf)
+	if err != nil {
+		return errtype.Join(ErrWriteFileHeader, err)
+	}
+
+	if err = arc.compressFile(fi, arcBuf); err != nil {
+		return errtype.Join(ErrCompressFile, err)
+	}
+	return nil
+}
+
+func (arc Arc) processingDir(di *header.DirItem) error {
+	fmt.Println(di.PathInArc())
+	return nil
+}
+
+func (arc Arc) processingSym(si *header.SymItem, arcBuf io.Writer) error {
+	si.Write(arcBuf)
+	fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
 	return nil
 }
 
@@ -91,11 +104,12 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 		return errtype.Join(ErrOpenFileCompress(fi.PathOnDisk()), err)
 	}
 	defer inFile.Close()
-	inBuf := bufio.NewReaderSize(inFile, int(c.BufferSize))
+	inBuf := bufio.NewReader(inFile)
 
 	var (
 		wrote, read int64
 		crc         uint32
+		wg          = sync.WaitGroup{}
 	)
 
 	for {
@@ -104,7 +118,11 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 			return errtype.Join(ErrReadUncompressed, err)
 		}
 
+		wg.Wait()
+
 		if read == 0 {
+			wg.Add(1)
+			go arc.flushWriteBuffer(&wg, arcBuf)
 			break
 		}
 
@@ -116,20 +134,31 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
 			length := int64(compressedBuf[i].Len())
-			if err = filesystem.BinaryWrite(arcBuf, length); err != nil {
+			if err = filesystem.BinaryWrite(writeBuf, length); err != nil {
 				return errtype.Join(ErrWriteBufLen, err)
 			}
 
 			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
 
 			// Пишем сжатый блок
-			if wrote, err = compressedBuf[i].WriteTo(arcBuf); err != nil {
-				return errtype.Join(ErrReadCompressBuf, err)
+			if wrote, err = compressedBuf[i].WriteTo(writeBuf); err != nil {
+				return errtype.Join(ErrWriteCompressBuf, err)
 			}
-			log.Println("В буфер записан блок размера:", wrote)
+			log.Println("В буфер записи записан блок размера:", wrote)
 			compressor[i].Reset(compressedBuf[i])
+
+			if writeBuf.Len() >= writeBufSize {
+				wg.Add(1)
+				go arc.flushWriteBuffer(&wg, arcBuf)
+
+				if i+1 != ncpu {
+					wg.Wait()
+				}
+			}
 		}
 	}
+
+	wg.Wait()
 
 	// Пишем признак конца файла
 	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
@@ -153,7 +182,7 @@ func (Arc) loadUncompressedBuf(inBuf io.Reader) (read int64, err error) {
 	var n int64
 
 	for i := 0; i < ncpu && err != io.EOF; i++ {
-		n, err = io.CopyN(decompressedBuf[i], inBuf, c.BufferSize)
+		n, err = io.CopyN(decompressedBuf[i], inBuf, bufferSize)
 		if err != nil && err != io.EOF {
 			return 0, errtype.Join(ErrReadUncompressBuf, err)
 		}

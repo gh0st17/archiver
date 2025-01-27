@@ -9,15 +9,14 @@ import (
 	"time"
 )
 
+type PathProvider interface {
+	PathOnDisk() string // Путь к элементу заголовка
+	PathInArc() string  // Путь к элементу в архиве
+}
+
 type timeAttr struct {
 	atim time.Time // Последнее время доступа к элементу
 	mtim time.Time // Последнее время измения элемента
-}
-
-type PathProvider interface {
-	PathOnDisk() string       // Путь к элементу заголовка
-	PathInArc() string        // Путь к элементу в архиве
-	RestorePath(string) error // Восстанаваливает доступность пути
 }
 
 type basePaths struct {

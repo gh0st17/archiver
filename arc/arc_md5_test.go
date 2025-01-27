@@ -10,15 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 )
 
 func checkMD5(t *testing.T, path string) bool {
 	var (
-		err           error
-		files         []string
-		outFilepath   string
-		inMD5, outMD5 MD5hash
+		files []string
+		sem   = make(chan struct{}, ncpu)
+		wg    = sync.WaitGroup{}
 	)
 
 	if filesystem.DirExists(path) {
@@ -27,37 +27,46 @@ func checkMD5(t *testing.T, path string) bool {
 		files = append(files, path)
 	}
 
-	for _, inFilepath := range files {
-		outFilepath = filepath.Join(outPath, filesystem.Clean(inFilepath))
+	for i := range files {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int) {
+			defer func() {
+				wg.Done()
+				<-sem
+			}()
 
-		inMD5, err = hashFileMD5(inFilepath)
-		if err != nil {
-			t.Fatal("inMD5:", err)
-		}
-
-		outMD5, err = hashFileMD5(outFilepath)
-		if err != nil {
-			t.Fatal("outMD5:", err)
-		}
-
-		if slices.Compare(inMD5, outMD5) == 0 {
-			t.Logf("%s matched '%s'", outMD5, inFilepath)
-		} else {
-			t.Errorf(
-				"Mismatched '%s':\nexpected %s got %s",
-				inFilepath, inMD5, outMD5,
-			)
-			t.Fail()
-			return false
-		}
+			checkFileMD5(t, files[i])
+		}(i)
 	}
 
-	return true
+	wg.Wait()
+	return !t.Failed()
 }
 
-const chunkSize = md5.BlockSize * 10240
+func checkFileMD5(t *testing.T, inFilepath string) {
+	outFilepath := filepath.Join(outPath, filesystem.Clean(inFilepath))
 
-var buffer = make([]byte, chunkSize)
+	inMD5, err := hashFileMD5(inFilepath)
+	if err != nil {
+		t.Fatal("inMD5:", err)
+	}
+
+	outMD5, err := hashFileMD5(outFilepath)
+	if err != nil {
+		t.Fatal("outMD5:", err)
+	}
+
+	if slices.Compare(inMD5, outMD5) == 0 {
+		t.Logf("%s matched '%s'", outMD5, inFilepath)
+	} else {
+		t.Errorf(
+			"Mismatched '%s':\nexpected %s got %s",
+			inFilepath, inMD5, outMD5,
+		)
+		t.FailNow()
+	}
+}
 
 func hashFileMD5(filePath string) (MD5hash, error) {
 	file, err := os.Open(filePath)
@@ -69,17 +78,12 @@ func hashFileMD5(filePath string) (MD5hash, error) {
 	hash := md5.New()
 
 	for {
-		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
+		n, err := io.CopyN(hash, file, chunkSize)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			return nil, fmt.Errorf("ошибка при чтении файла: %v", err)
 		}
 		if n == 0 {
 			break
-		}
-
-		_, writeErr := hash.Write(buffer[:n])
-		if writeErr != nil {
-			return nil, fmt.Errorf("ошибка при вычислении хеша: %v", writeErr)
 		}
 	}
 

@@ -19,7 +19,8 @@ func (e Error) Error() string {
 	return e.text
 }
 
-func stdErrToRussian(err error) error {
+// Локализует известные ошибки
+func localizeErr(err error) error {
 	if err == nil {
 		return nil
 	} else if _, ok := err.(*Error); ok {
@@ -47,33 +48,33 @@ func stdErrToRussian(err error) error {
 }
 
 // Возвращает общую ошибку времени выполнения
-func ErrRuntime(text string) error {
+func ErrRuntime(err error) error {
 	return &Error{
-		text: text,
+		text: err.Error(),
 		code: 1,
 	}
 }
 
 // Возвращает ошибки при сжатии
-func ErrCompress(text string) error {
+func ErrCompress(err error) error {
 	return &Error{
-		text: text,
+		text: err.Error(),
 		code: 2,
 	}
 }
 
 // Возвращает ошибки при распаковке
-func ErrDecompress(text string) error {
+func ErrDecompress(err error) error {
 	return &Error{
-		text: text,
+		text: err.Error(),
 		code: 3,
 	}
 }
 
 // Возвращает ошибки при проверке целостности
-func ErrIntegrity(text string) error {
+func ErrIntegrity(err error) error {
 	return &Error{
-		text: text,
+		text: err.Error(),
 		code: 4,
 	}
 }
@@ -98,7 +99,7 @@ func Join(errs ...error) error {
 		if err == nil {
 			continue
 		} else if _, ok := err.(*Error); !ok {
-			err = stdErrToRussian(err)
+			err = localizeErr(err)
 		}
 
 		if e == nil {
@@ -111,7 +112,7 @@ func Join(errs ...error) error {
 }
 
 // Обработчик ошибок
-func HandleError(err error) {
+func ErrorHandler(err error) {
 	fmt.Println(err)
 	if e, ok := err.(*Error); ok {
 		os.Exit(e.code)

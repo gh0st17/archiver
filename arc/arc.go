@@ -1,7 +1,6 @@
 package arc
 
 import (
-	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/errtype"
 	"archiver/filesystem"
@@ -10,14 +9,17 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
-	"strings"
+	"sync"
 )
 
-const magicNumber uint16 = 0x5717
+const (
+	magicNumber uint16 = 0x5717
+	bufferSize  int64  = 1048576 // 1М
+)
 
 var (
 	// Полином CRC32
@@ -30,13 +32,17 @@ var (
 	decompressedBuf = make([]*bytes.Buffer, ncpu)
 	compressor      = make([]*c.Writer, ncpu)
 	decompressor    = make([]*c.Reader, ncpu)
+	writeBuf        *bytes.Buffer
+	writeBufSize    int
 )
 
 // Структура параметров архива
 type Arc struct {
-	arcPath string  // Путь к файлу архива
-	ct      c.Type  // Тип компрессора
-	cl      c.Level // Уровень сжатия
+	arcPath   string // Путь к файлу архива
+	outputDir string
+	integ     bool
+	ct        c.Type  // Тип компрессора
+	cl        c.Level // Уровень сжатия
 	// Флаг замены файлов без подтверждения
 	replaceAll bool
 }
@@ -58,21 +64,16 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	} else {
 		arcFile, err := os.Open(arc.arcPath)
 		if err != nil {
-			return nil, err
+			return nil, errtype.Join(ErrOpenArc, err)
 		}
 		defer arcFile.Close()
 
-		info, err := arcFile.Stat()
-		if err != nil {
-			return nil, errtype.Join(ErrOpenArc, err)
-		}
-
 		var magic uint16
 		if err = filesystem.BinaryRead(arcFile, &magic); err != nil {
-			return nil, err
+			return nil, errtype.Join(ErrReadMagic, err)
 		}
 		if magic != magicNumber {
-			return nil, errNotArc(info.Name())
+			return nil, errNotArc(arcFile.Name())
 		}
 
 		var compType byte
@@ -85,6 +86,9 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		} else {
 			return nil, ErrUnknownComp
 		}
+
+		arc.integ = p.XIntegTest
+		arc.outputDir = p.OutputDir
 	}
 
 	return arc, nil
@@ -112,42 +116,30 @@ func (Arc) PrintMemStat() {
 	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
 }
 
-// Разделяет заголовки на директории и файлы
-func (Arc) splitPathsFiles(headers []header.Header) ([]header.PathProvider, []*header.FileItem) {
-	var (
-		dirsSyms []header.PathProvider
-		files    []*header.FileItem
-	)
-
-	for _, h := range headers {
-		if d, ok := h.(*header.DirItem); ok {
-			dirsSyms = append(dirsSyms, d)
-		} else if s, ok := h.(*header.SymItem); ok {
-			dirsSyms = append(dirsSyms, s)
-		} else {
-			files = append(files, h.(*header.FileItem))
-		}
-	}
-
-	slices.SortFunc(dirsSyms, func(a, b header.PathProvider) int {
-		return strings.Compare(
-			strings.ToLower(a.PathInArc()),
-			strings.ToLower(b.PathInArc()),
-		)
-	})
-
-	return dirsSyms, files
-}
-
 // Проверяет корректность размера буфера.
 // Возвращает true если размер некорректный.
 func (Arc) checkBufferSize(bufferSize int64) bool {
-	return bufferSize < 0 || bufferSize>>1 > c.BufferSize
+	return bufferSize < 0 || bufferSize>>1 > bufferSize
+}
+
+// Сбрасывает буфер данных для записи на диск
+func (Arc) flushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
+	defer wg.Done()
+
+	if writeBuf.Len() == 0 {
+		return
+	}
+
+	wrote, err := writeBuf.WriteTo(w)
+	if err != nil {
+		errtype.ErrorHandler(errtype.Join(ErrFlushWrBuf, err))
+	}
+	log.Println("Буфер записи сброшен на диск:", wrote)
 }
 
 func init() {
 	for i := 0; i < ncpu; i++ {
-		compressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
-		decompressedBuf[i] = bytes.NewBuffer(make([]byte, 0, c.BufferSize))
+		compressedBuf[i] = bytes.NewBuffer(nil)
+		decompressedBuf[i] = bytes.NewBuffer(nil)
 	}
 }

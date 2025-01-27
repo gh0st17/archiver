@@ -1,10 +1,8 @@
 package arc
 
 import (
-	"archiver/arc/header"
 	"archiver/errtype"
 	"archiver/filesystem"
-	"io"
 	"os"
 )
 
@@ -18,7 +16,7 @@ func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 
 	// Пишем магическое число
 	if err = filesystem.BinaryWrite(arcFile, magicNumber); err != nil {
-		return nil, errtype.Join(ErrMagic, err)
+		return nil, errtype.Join(ErrWriteMagic, err)
 	}
 
 	// Пишем тип компрессора
@@ -27,21 +25,4 @@ func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 	}
 
 	return arcFile, nil
-}
-
-// Записывает заголовки директории в файл архива
-func (Arc) writeHeaders(writers []header.Writer, arcFile io.Writer) error {
-	// Пишем количество заголовков директории
-	if err := filesystem.BinaryWrite(arcFile, int64(len(writers))); err != nil {
-		return errtype.Join(ErrWriteHeadersCount, err)
-	}
-
-	// Пишем заголовки
-	for _, ds := range writers {
-		if err := ds.Write(arcFile); err != nil {
-			return errtype.Join(ErrWriteHeaderIO, err)
-		}
-	}
-
-	return nil
 }

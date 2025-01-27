@@ -14,8 +14,7 @@ func main() {
 	p := params.ParseParams()
 	a, err := arc.NewArc(p)
 	if err != nil {
-		fmt.Println("arc:", err)
-		os.Exit(1)
+		errtype.ErrorHandler(err)
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -46,11 +45,11 @@ func main() {
 		err = a.IntegrityTest()
 	default:
 		params.PrintDecompressIgnore()
-		err = a.Decompress(p.OutputDir, p.XIntegTest)
+		err = a.Decompress()
 	}
 
 	if err != nil {
-		errtype.HandleError(err)
+		errtype.ErrorHandler(err)
 	}
 
 	if p.MemStat {

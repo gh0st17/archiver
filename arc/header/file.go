@@ -58,6 +58,8 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 }
 
 func (fi *FileItem) Write(w io.Writer) (err error) {
+	filesystem.BinaryWrite(w, File)
+
 	if err = fi.Base.Write(w); err != nil {
 		return err
 	}
@@ -100,8 +102,8 @@ func (fi FileItem) String() string {
 	}()
 
 	return fmt.Sprintf(
-		"%-*s %11s %11s %7.2f %10s  %s %s",
+		"%-*s %11s %11s %7.2f  %s %s",
 		maxInArcWidth, path, fi.ucSize,
-		fi.cSize, ratio, "Файл", mtime, crc,
+		fi.cSize, ratio, mtime, crc,
 	)
 }

@@ -9,8 +9,6 @@ import (
 	"io"
 )
 
-const BufferSize int64 = 1048576 // 1М
-
 type Type byte // Тип компрессора
 
 const (
@@ -35,7 +33,7 @@ const (
 	BestCompression    Level = flate.BestCompression
 )
 
-type ReadCloserReset interface {
+type ReadCloseResetter interface {
 	io.ReadCloser
 	Reset(io.Reader) error
 }
@@ -68,7 +66,7 @@ func (zr *zlibReader) Reset(r io.Reader) error {
 }
 
 type Reader struct {
-	reader ReadCloserReset
+	reader ReadCloseResetter
 }
 
 // Возвращает нового читателя типа typ
@@ -82,13 +80,11 @@ func NewReader(typ Type, r io.Reader) (*Reader, error) {
 		return nil, errtype.Join(ErrDecompCreate, err)
 	}
 
-	return &Reader{
-		reader: reader,
-	}, nil
+	return &Reader{reader: reader}, nil
 }
 
 // Выбирает читателя согласно typ
-func newReader(typ Type, r io.Reader) (ReadCloserReset, error) {
+func newReader(typ Type, r io.Reader) (ReadCloseResetter, error) {
 	switch typ {
 	case GZip:
 		return gzip.NewReader(r)
@@ -107,14 +103,15 @@ func newReader(typ Type, r io.Reader) (ReadCloserReset, error) {
 	}
 }
 
+// Читает из внутреннего [Reader.reader] в p
+func (rd *Reader) Read(p []byte) (int, error) {
+	n, err := io.ReadFull(rd.reader, p)
+	return int(n), err
+}
+
 // Копирует буфер [Reader.reader] в w
 func (rd *Reader) WriteTo(w io.Writer) (int64, error) {
-	n, err := io.Copy(w, rd.reader)
-	if err != nil && err != io.EOF {
-		return n, err
-	}
-
-	return n, nil
+	return io.Copy(w, rd.reader)
 }
 
 func (rd *Reader) Close() error { return rd.reader.Close() }
@@ -149,9 +146,7 @@ func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
 		return nil, errtype.Join(ErrCompCreate, err)
 	}
 
-	return &Writer{
-		writer: writer,
-	}, nil
+	return &Writer{writer: writer}, nil
 }
 
 // Выбирает писателя согласно typ
@@ -172,12 +167,7 @@ func newWriter(typ Type, w io.Writer, l Level) (WriteCloseResetter, error) {
 
 // Сжимает из p len(p) байт во внутренний writer
 func (wr *Writer) Write(p []byte) (n int, err error) {
-	n, err = wr.writer.Write(p)
-	if err != nil {
-		return 0, err
-	}
-
-	return n, nil
+	return wr.writer.Write(p)
 }
 
 func (wr *Writer) Close() error { return wr.writer.Close() }

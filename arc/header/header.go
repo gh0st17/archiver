@@ -2,22 +2,21 @@ package header
 
 import (
 	"fmt"
-	"io"
 	"math"
+	"strings"
 )
 
 // Максимальная ширина имени файла
 // в выводе статистики
-const maxInArcWidth int = 20
-const maxOnDiskWidth int = 28
+const maxInArcWidth int = 31
+const maxOnDiskWidth int = 58
 
 const dateFormat string = "02.01.2006 15:04:05"
 
 type HeaderType byte
 
 const (
-	Directory HeaderType = iota
-	Symlink
+	Symlink HeaderType = iota
 	File
 )
 
@@ -26,12 +25,13 @@ type Header interface {
 	String() string // fmt.Stringer
 }
 
-type Reader interface {
-	Read(io.Reader) error // Десериализует данные типа
-}
+// Реализация sort.Interface
+type ByPathInArc []Header
 
-type Writer interface {
-	Write(io.Writer) error // Сериализует данные типа
+func (a ByPathInArc) Len() int      { return len(a) }
+func (a ByPathInArc) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByPathInArc) Less(i, j int) bool {
+	return strings.ToLower(a[i].PathInArc()) < strings.ToLower(a[j].PathInArc())
 }
 
 type Size int64
@@ -89,9 +89,9 @@ func DropDups(headers []Header) []Header {
 // Печатает заголовок статистики
 func PrintStatHeader() {
 	fmt.Printf( // Заголовок
-		"%-*s %11s %11s %7s %10s  %19s %8s\n",
+		"%-*s %11s %11s %7s  %19s %8s\n",
 		maxInArcWidth, "Имя файла", "Размер",
-		"Сжатый", "%", "Тип", "Время модификации", "CRC32",
+		"Сжатый", "%", "Время модификации", "CRC32",
 	)
 }
 

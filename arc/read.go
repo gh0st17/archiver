@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	fp "path/filepath"
+	"sort"
 )
 
 // Проверяет чем является path, директорией или файлом,
@@ -36,10 +37,10 @@ func fetchPath(path string) (h header.Header, err error) {
 		} else if target, err = fp.Abs(target); err != nil {
 			return nil, err
 		} else {
-			h = header.NewSymDirItem(path, target)
+			h = header.NewSymItem(path, target)
 		}
 	} else if info.Mode()&os.ModeDir != 0 {
-		h = header.NewDirItem(b)
+		h = header.NewDirItem(b.PathInArc())
 	} else {
 		h = header.NewFileItem(b, header.Size(info.Size()))
 	}
@@ -64,7 +65,9 @@ func fetchDir(path string) (headers []header.Header, err error) {
 			}
 		}
 
-		headers = append(headers, header)
+		if header != nil {
+			headers = append(headers, header)
+		}
 		return nil
 	})
 
@@ -94,118 +97,126 @@ func (Arc) fetchHeaders(paths []string) (headers []header.Header, err error) {
 			continue
 		}
 
-		if header, err = fetchPath(path); err == nil { // Добавалние файла в заголовок
-			headers = append(headers, header)
-		} else {
+		if header, err = fetchPath(path); err != nil { // Добавалние файла в заголовок
 			return nil, errtype.Join(ErrFetchDirs, err)
+		} else if header != nil {
+			headers = append(headers, header)
 		}
 	}
 	return headers, nil
 }
 
 // Читает заголовки из архива, определяет смещение данных
-func (arc *Arc) readHeaders() (headers []header.Header, arcFile io.ReadSeekCloser, err error) {
+func (arc *Arc) readHeaders(arcFile io.ReadSeekCloser) (headers []header.Header, err error) {
 	var (
-		dirsSyms []header.PathProvider
-		files    []header.FileItem
+		sym  *header.SymItem
+		file *header.FileItem
+		h    header.Header
+		typ  header.HeaderType
 	)
 
-	arcFile, err = os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, nil, errtype.Join(ErrOpenArc, err)
-	}
+	arcFile.Seek(3, io.SeekStart) // Пропускаем магическое число и тип компрессора
 
-	arcFile.Seek(3, io.SeekCurrent) // Пропускаем магическое число и тип компрессора
-
-	if dirsSyms, err = arc.readDirsSyms(arcFile); err != nil {
-		return nil, nil, errtype.Join(ErrReadDirsSyms, err)
-	}
-
-	dataPos, _ := arcFile.Seek(0, io.SeekCurrent)
-	if files, err = arc.readFileHeaders(arcFile); err != nil {
-		return nil, nil, errtype.Join(ErrReadFileHeader, err)
-	}
-	arcFile.Seek(dataPos, io.SeekStart)
-
-	for i := range dirsSyms {
-		headers = append(headers, dirsSyms[i].(header.Header))
-	}
-	for _, file := range files {
-		headers = append(headers, &file)
-	}
-
-	return headers, arcFile, nil
-}
-
-// Читает заголовки директории из архива
-func (arc *Arc) readDirsSyms(arcFile io.Reader) (paths []header.PathProvider, err error) {
-	var reader header.Reader
-	var headersCount int64 // Количество заголовков директории
-	if err = filesystem.BinaryRead(arcFile, &headersCount); err != nil {
-		return nil, errtype.Join(ErrReadHeadersCount, err)
-	}
-	paths = make([]header.PathProvider, headersCount)
-
-	// Читаем заголовки директории
-	for i := int64(0); i < headersCount; i++ {
-		var typ byte
-		if err = filesystem.BinaryRead(arcFile, &typ); err != nil {
+	for err != io.EOF {
+		err = filesystem.BinaryRead(arcFile, &typ)
+		if err != io.EOF && err != nil {
 			return nil, errtype.Join(ErrReadHeaderType, err)
+		} else if err == io.EOF {
+			continue
 		}
 
 		switch typ {
-		case 0:
-			reader = &header.DirItem{}
-		case 1:
-			reader = &header.SymItem{}
+		case header.File:
+			if file, err = arc.readFileHeader(arcFile); err != nil && err != io.EOF {
+				return nil, errtype.Join(ErrReadHeaders, err)
+			}
+			if file != nil {
+				h = file
+			}
+		case header.Symlink:
+			if sym, err = arc.readSymHeader(arcFile); err != nil && err != io.EOF {
+				return nil, errtype.Join(ErrReadHeaders, err)
+			}
+			if sym != nil {
+				h = sym
+			}
 		default:
-			return nil, errtype.Join(ErrHeaderType, err)
+			return nil, ErrHeaderType
 		}
 
-		if err = reader.Read(arcFile); err != nil {
-			return nil, err
+		if h != nil {
+			headers = append(headers, h)
 		}
-		paths[i] = reader.(header.PathProvider)
+		h = nil
 	}
 
-	return paths, nil
+	arcFile.Seek(3, io.SeekStart)
+	arc.insertDirs(&headers)
+	sort.Sort(header.ByPathInArc(headers))
+
+	return headers, nil
 }
 
 // Читает и возвращает заголовки файлов
-func (arc Arc) readFileHeaders(arcFile io.ReadSeeker) ([]header.FileItem, error) {
+func (arc Arc) readFileHeader(arcFile io.ReadSeeker) (*header.FileItem, error) {
 	var (
-		files    []header.FileItem
+		file     = &header.FileItem{}
 		dataSize header.Size
 		err      error
 		crc      uint32
 	)
 
-	for { // One cycle is one file
-		var fi header.FileItem
-
-		if err = fi.Read(arcFile); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, errtype.Join(ErrReadFileHeader, err)
-		}
-
-		pos, _ := arcFile.Seek(0, io.SeekCurrent)
-		log.Println("Читаю размер сжатых данных с позиции:", pos)
-		if dataSize, err = arc.skipFileData(arcFile, false); err != nil {
-			return nil, errtype.Join(ErrReadCompLen, err)
-		}
-		fi.SetCSize(dataSize)
-
-		if err = filesystem.BinaryRead(arcFile, &crc); err != nil {
-			return nil, errtype.Join(ErrReadCRC, err)
-		}
-		fi.SetCRC(crc)
-
-		files = append(files, fi)
+	if err = file.Read(arcFile); err != nil && err != io.EOF {
+		return nil, errtype.Join(ErrReadFileHeader, err)
 	}
 
-	return files, nil
+	pos, _ := arcFile.Seek(0, io.SeekCurrent)
+	log.Println("Читаю размер сжатых данных с позиции:", pos)
+	if dataSize, err = arc.skipFileData(arcFile, false); err == io.EOF {
+		return nil, err
+	} else if err != nil {
+		return nil, errtype.Join(ErrSkipData, err)
+	}
+	file.SetCSize(dataSize)
+
+	if err = filesystem.BinaryRead(arcFile, &crc); err != nil {
+		return nil, errtype.Join(ErrReadCRC, err)
+	}
+	file.SetCRC(crc)
+
+	return file, nil
+}
+
+// Читает заголовок символьной ссылки из архива
+func (arc *Arc) readSymHeader(arcFile io.Reader) (sym *header.SymItem, err error) {
+	sym = &header.SymItem{}
+	if err = sym.Read(arcFile); err == io.EOF {
+		return nil, err
+	} else if err != nil {
+		return nil, errtype.Join(ErrReadSymHeader, err)
+	}
+
+	return sym, nil
+}
+
+func (Arc) insertDirs(headers *[]header.Header) {
+	seen := map[string]struct{}{}
+	var path string
+
+	for _, h := range *headers {
+		if _, ok := h.(*header.SymItem); ok {
+			continue
+		}
+
+		path = fp.Dir(h.PathInArc())
+		if _, ok := seen[path]; !ok {
+			seen[path] = struct{}{}
+		}
+	}
+
+	for p := range seen {
+		*headers = append(*headers, header.NewDirItem(p))
+	}
 }
 
 // Пропускает файл в дескрипторе файла архива
@@ -213,7 +224,9 @@ func (arc Arc) skipFileData(arcFile io.ReadSeeker, skipCRC bool) (read header.Si
 	var bufferSize int64
 
 	for {
-		if err = filesystem.BinaryRead(arcFile, &bufferSize); err != nil {
+		if err = filesystem.BinaryRead(arcFile, &bufferSize); err == io.EOF {
+			return 0, err
+		} else if err != nil {
 			return 0, errtype.Join(ErrReadCompLen, err)
 		}
 
