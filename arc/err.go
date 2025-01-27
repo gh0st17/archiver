@@ -48,7 +48,7 @@ var (
 	ErrDecompressSym  = fmt.Errorf("ошибка распаковки символьной ссылки")
 	ErrSkipCRC        = fmt.Errorf("ошибка пропуска CRC")
 	ErrCreateOutFile  = fmt.Errorf("не могу создать файл")
-	ErrSkipEOF        = fmt.Errorf("ошибка пропуска признака EOF")
+	ErrSkipEofCrc     = fmt.Errorf("ошибка пропуска признака EOF")
 	ErrDecompress     = fmt.Errorf("ошибка распаковки буферов")
 	ErrWriteOutBuf    = fmt.Errorf("ошибка записи в буфер выхода")
 	ErrReadCompLen    = fmt.Errorf("ошибка чтения размера блока")

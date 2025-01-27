@@ -67,40 +67,35 @@ func (arc Arc) Decompress() error {
 	return nil
 }
 
-func (arc Arc) restoreFile(arcFile io.ReadSeeker) error {
+func (arc *Arc) restoreFile(arcFile io.ReadSeeker) error {
 	fi := &header.FileItem{}
-	if err := fi.Read(arcFile); err != nil && err != io.EOF {
+	err := fi.Read(arcFile)
+	if err != nil && err != io.EOF {
 		return errtype.Join(ErrReadFileHeader, err)
 	}
 
-	if err := fi.RestorePath(arc.outputDir); err != nil {
+	if err = fi.RestorePath(arc.outputDir); err != nil {
 		return errtype.Join(ErrRestorePath(fi.PathOnDisk()), err)
 	}
 
 	outPath := fp.Join(arc.outputDir, fi.PathOnDisk())
-	if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
+	if _, err = os.Stat(outPath); err == nil && !arc.replaceAll {
 		if arc.replaceInput(outPath, arcFile) {
 			return nil
 		}
 	}
 
 	if arc.integ { // --xinteg
-		_, err := arc.checkCRC(arcFile)
+		_, err = arc.checkCRC(arcFile)
 		if err == ErrWrongCRC {
 			fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
 			return nil
 		}
 	}
 
-	if err := arc.decompressFile(fi, arcFile, outPath); err != nil {
+	if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
 		return errtype.Join(ErrDecompressFile, err)
 	}
-
-	dataPos, err := arcFile.Seek(4, io.SeekCurrent)
-	if err != nil {
-		return errtype.Join(ErrSkipCRC, err)
-	}
-	log.Println("Пропуск CRC, установлена позиция:", dataPos)
 
 	if fi.IsDamaged() {
 		fmt.Printf("%s: CRC сумма не совпадает\n", outPath)
@@ -124,6 +119,8 @@ func (arc Arc) restoreSym(arcFile io.ReadSeeker) error {
 			ErrRestorePath(fp.Join(arc.outputDir, sym.PathOnDisk())),
 		)
 	}
+
+	fmt.Println(sym.PathInArc(), "->", sym.PathOnDisk())
 
 	return nil
 }
@@ -163,8 +160,8 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
-		if pos, err := arcFile.Seek(8, io.SeekCurrent); err != nil {
-			return errtype.Join(ErrSkipEOF, err)
+		if pos, err := arcFile.Seek(12, io.SeekCurrent); err != nil {
+			return errtype.Join(ErrSkipEofCrc, err)
 		} else {
 			log.Println("Нулевой размер, перемещаю на позицию:", pos)
 			return nil
@@ -173,14 +170,15 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 
 	var (
 		wrote, read int64
-		crc         = fi.CRC()
+		calcCRC     uint32
+		fileCRC     uint32
 		eof         error
 		wg          = sync.WaitGroup{}
 	)
 
 	outBuf := bufio.NewWriter(outFile)
 	for eof != io.EOF {
-		if read, eof = arc.loadCompressedBuf(arcFile, &crc); eof != nil && eof != io.EOF {
+		if read, eof = arc.loadCompressedBuf(arcFile, &calcCRC); eof != nil && eof != io.EOF {
 			return errtype.Join(ErrReadCompressed, eof)
 		}
 
@@ -204,9 +202,14 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 			go arc.flushWriteBuffer(&wg, outBuf)
 		}
 	}
-
 	wg.Wait()
-	fi.SetDamaged(crc != 0)
+
+	err = filesystem.BinaryRead(arcFile, &fileCRC)
+	if err != nil {
+		return errtype.Join(ErrReadCRC, err)
+	}
+	fi.SetDamaged(calcCRC != fileCRC)
+
 	outBuf.Flush()
 
 	return nil
