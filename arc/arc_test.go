@@ -4,20 +4,23 @@ import (
 	"archiver/arc"
 	"archiver/compressor"
 	p "archiver/params"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 )
 
 const (
-	prefix   = "../"
-	testPath = "testdata"
-	arcName  = "archive.arc"
+	prefix    = "../"
+	testPath  = "testdata"
+	arcName   = "archive.arc"
+	chunkSize = md5.BlockSize * 10240
 )
 
 var (
@@ -31,6 +34,7 @@ var (
 	rootEnts []os.DirEntry
 	stdout   = os.Stdout
 	stderr   = os.Stderr
+	ncpu     = runtime.NumCPU()
 )
 
 func TestNopAll(t *testing.T) {
@@ -163,8 +167,8 @@ func runByEntry(t *testing.T) {
 
 		t.Log("Comparing MD-5 hashsum in/out files")
 		checkMD5(t, filepath.Join(prefix, testPath, rootEnt.Name()))
-		clearArcOut()
 	}
+	clearArcOut()
 }
 
 func runByFile(t *testing.T, rootPaths []string) {
@@ -184,9 +188,10 @@ func runByFile(t *testing.T, rootPaths []string) {
 
 			t.Log("Comparing MD-5 hashsum in/out files")
 			checkMD5(t, path)
-			clearArcOut()
 		}
 	}
+
+	clearArcOut()
 }
 
 func initRootEnts(t *testing.T) {

@@ -184,13 +184,12 @@ func (arc Arc) decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPat
 					return errtype.Join(ErrWriteOutBuf, err)
 				}
 				log.Println("В буфер записи записан блок размера:", wrote)
-
 			}
+		}
 
-			if writeBuf.Len() >= writeBufSize || eof == io.EOF {
-				wg.Add(1)
-				go arc.flushWriteBuffer(&wg, outBuf)
-			}
+		if writeBuf.Len() >= writeBufSize || eof == io.EOF {
+			wg.Add(1)
+			go arc.flushWriteBuffer(&wg, outBuf)
 		}
 	}
 
