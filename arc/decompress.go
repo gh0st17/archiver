@@ -86,15 +86,16 @@ func (arc *Arc) restoreFile(arcFile io.ReadSeeker) error {
 	}
 
 	if arc.integ { // --xinteg
-		_, err = arc.checkCRC(arcFile)
-		if err == ErrWrongCRC {
+		pos, _ := arcFile.Seek(0, io.SeekCurrent)
+		if _, err = arc.checkCRC(arcFile); err == ErrWrongCRC {
 			fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
 			return nil
 		}
+		arcFile.Seek(pos, io.SeekStart)
 	}
 
 	if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
-		return errtype.Join(ErrDecompressFile, err)
+		return err
 	}
 
 	if fi.IsDamaged() {
