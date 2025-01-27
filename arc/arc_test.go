@@ -133,6 +133,14 @@ func baseTesting(t *testing.T, path string) {
 	}
 	enableStdout()
 
+	paramsCopy := params
+	paramsCopy.InputPaths = nil
+
+	archive, err = arc.NewArc(paramsCopy)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	t.Logf("Testing %s decompress '%s'", params.Ct, path)
 	disableStdout()
 	if err = archive.Decompress(); err != nil {
