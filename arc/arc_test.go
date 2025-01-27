@@ -135,7 +135,7 @@ func baseTesting(t *testing.T, path string) {
 
 	t.Logf("Testing %s decompress '%s'", params.Ct, path)
 	disableStdout()
-	if err = archive.Decompress(params.OutputDir, false); err != nil {
+	if err = archive.Decompress(); err != nil {
 		enableStdout()
 		t.Fatal(err)
 	}

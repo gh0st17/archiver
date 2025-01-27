@@ -1,7 +1,6 @@
 package arc
 
 import (
-	"archiver/arc/header"
 	c "archiver/compressor"
 	"archiver/errtype"
 	"archiver/filesystem"
@@ -14,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"sync"
 )
 
@@ -40,9 +38,11 @@ var (
 
 // Структура параметров архива
 type Arc struct {
-	arcPath string  // Путь к файлу архива
-	ct      c.Type  // Тип компрессора
-	cl      c.Level // Уровень сжатия
+	arcPath   string // Путь к файлу архива
+	outputDir string
+	integ     bool
+	ct        c.Type  // Тип компрессора
+	cl        c.Level // Уровень сжатия
 	// Флаг замены файлов без подтверждения
 	replaceAll bool
 }
@@ -91,6 +91,9 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		} else {
 			return nil, ErrUnknownComp
 		}
+
+		arc.integ = p.XIntegTest
+		arc.outputDir = p.OutputDir
 	}
 
 	return arc, nil
@@ -116,26 +119,6 @@ func (Arc) PrintMemStat() {
 	fmt.Printf("Всего аллокаций:       %8d KB\n", m.TotalAlloc/1024)
 	fmt.Printf("Системная память:      %8d KB\n", m.Sys/1024)
 	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
-}
-
-// Разделяет заголовки на директории и файлы
-func (Arc) splitSymsFiles(headers []header.Header) ([]*header.SymItem, []*header.FileItem) {
-	var (
-		syms  []*header.SymItem
-		files []*header.FileItem
-	)
-
-	sort.Sort(header.ByPathInArc(headers))
-
-	for _, h := range headers {
-		if s, ok := h.(*header.SymItem); ok {
-			syms = append(syms, s)
-		} else {
-			files = append(files, h.(*header.FileItem))
-		}
-	}
-
-	return syms, files
 }
 
 // Проверяет корректность размера буфера.

@@ -73,6 +73,8 @@ func (si *SymItem) Read(r io.Reader) error {
 
 // Сериализует данные полей в писатель w
 func (si *SymItem) Write(w io.Writer) (err error) {
+	filesystem.BinaryWrite(w, Symlink)
+
 	// Пишем длину строки имени файла или директории
 	if err = writePath(w, si.pathOnDisk); err != nil {
 		return err

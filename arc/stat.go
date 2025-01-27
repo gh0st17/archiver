@@ -4,12 +4,20 @@ import (
 	"archiver/arc/header"
 	"archiver/errtype"
 	"fmt"
+	"os"
 	"sort"
 )
 
 // Печатает информацию об архиве
 func (arc Arc) ViewStat() error {
-	headers, _, err := arc.readHeaders()
+	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	if err != nil {
+		return errtype.ErrRuntime(
+			errtype.Join(ErrOpenArc, err),
+		)
+	}
+
+	headers, err := arc.readHeaders(arcFile)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),
@@ -36,7 +44,14 @@ func (arc Arc) ViewStat() error {
 
 // Печатает список файлов в архиве
 func (arc Arc) ViewList() error {
-	headers, _, err := arc.readHeaders()
+	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	if err != nil {
+		return errtype.ErrIntegrity(
+			errtype.Join(ErrOpenArc, err),
+		)
+	}
+
+	headers, err := arc.readHeaders(arcFile)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),

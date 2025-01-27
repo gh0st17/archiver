@@ -17,88 +17,42 @@ import (
 )
 
 // Распаковывает архив
-func (arc Arc) Decompress(outputDir string, integ bool) error {
-	headers, arcFile, err := arc.readHeaders()
+func (arc Arc) Decompress() error {
+	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrDecompress(
-			errtype.Join(ErrReadHeaders, err),
+			errtype.Join(ErrOpenArc, err),
 		)
 	}
-	defer arcFile.Close()
-
-	syms, files := arc.splitSymsFiles(headers)
-	for _, s := range syms {
-		if err := s.RestorePath(outputDir); err != nil {
-			return errtype.ErrDecompress(
-				errtype.Join(ErrRestorePath(s.PathInArc()), err),
-			)
-		}
-	}
-
-	// 	Создаем файлы и директории
-	var (
-		outPath string
-		dataPos int64
-		skipLen int
-	)
+	arcFile.Seek(3, io.SeekStart) // Пропускаем магическое число и тип компрессора
 
 	writeBufSize = int(bufferSize) * ncpu
 	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
 
-	for _, fi := range files {
-		if err = fi.RestorePath(outputDir); err != nil {
+	var typ header.HeaderType
+
+	for err != io.EOF {
+		err = filesystem.BinaryRead(arcFile, &typ)
+		if err != io.EOF && err != nil {
 			return errtype.ErrDecompress(
-				errtype.Join(ErrRestorePath(fi.PathOnDisk()), err),
+				errtype.Join(ErrReadHeaderType, err),
 			)
+		} else if err == io.EOF {
+			continue
 		}
 
-		skipLen = len(fi.PathOnDisk()) + 26
-		if dataPos, err = arcFile.Seek(int64(skipLen), io.SeekCurrent); err != nil {
-			return errtype.ErrDecompress(
-				errtype.Join(ErrSkipHeaders, err),
-			)
-		}
-		log.Println("Пропущенно", skipLen, "байт заголовка, читаю с позиции:", dataPos)
-
-		outPath = filepath.Join(outputDir, fi.PathOnDisk())
-		if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
-			if arc.replaceInput(outPath, arcFile) {
-				continue
+		switch typ {
+		case header.File:
+			if err = arc.restoreFile(arcFile); err != nil && err != io.EOF {
+				return errtype.Join(ErrReadHeaders, err)
 			}
-		}
-
-		if integ { // --xinteg
-			_, err = arc.checkCRC(fi.CRC(), arcFile)
-
-			if err == ErrWrongCRC {
-				fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
-				continue
-			} else {
-				arcFile.Seek(dataPos, io.SeekStart)
-				log.Println("Файл цел, установлена позиция:", int(dataPos)+skipLen)
+		case header.Symlink:
+			if err = arc.restoreSym(arcFile); err != nil && err != io.EOF {
+				return errtype.Join(ErrReadHeaders, err)
 			}
+		default:
+			return ErrHeaderType
 		}
-
-		if err = arc.decompressFile(fi, arcFile, outPath); err != nil {
-			return errtype.ErrDecompress(
-				errtype.Join(ErrDecompressFile, err),
-			)
-		}
-
-		if dataPos, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-			return errtype.ErrDecompress(
-				errtype.Join(ErrSkipCRC, err),
-			)
-		}
-		log.Println("Пропуск CRC, установлена позиция:", dataPos)
-
-		if fi.IsDamaged() {
-			fmt.Printf("%s: CRC сумма не совпадает\n", outPath)
-		} else {
-			fmt.Println(outPath)
-		}
-
-		fi.RestoreTime(outputDir)
 	}
 
 	// Сброс декомпрессоров перед новым использованием этой функции
@@ -106,6 +60,59 @@ func (arc Arc) Decompress(outputDir string, integ bool) error {
 		decompressor[i] = nil
 	}
 
+	return nil
+}
+
+func (arc Arc) restoreFile(arcFile io.ReadSeeker) error {
+	fi := &header.FileItem{}
+	fi.Read(arcFile)
+
+	if err := fi.RestorePath(arc.outputDir); err != nil {
+		return errtype.Join(ErrRestorePath(fi.PathOnDisk()), err)
+	}
+
+	outPath := filepath.Join(arc.outputDir, fi.PathOnDisk())
+	if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
+		if arc.replaceInput(outPath, arcFile) {
+			return nil
+		}
+	}
+
+	if arc.integ { // --xinteg
+		_, err := arc.checkCRC(arcFile)
+		if err == ErrWrongCRC {
+			fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
+			return nil
+		}
+	}
+
+	if err := arc.decompressFile(fi, arcFile, outPath); err != nil {
+		return errtype.ErrDecompress(
+			errtype.Join(ErrDecompressFile, err),
+		)
+	}
+
+	dataPos, err := arcFile.Seek(4, io.SeekCurrent)
+	if err != nil {
+		return errtype.ErrDecompress(
+			errtype.Join(ErrSkipCRC, err),
+		)
+	}
+	log.Println("Пропуск CRC, установлена позиция:", dataPos)
+
+	if fi.IsDamaged() {
+		fmt.Printf("%s: CRC сумма не совпадает\n", outPath)
+	} else {
+		fmt.Println(outPath)
+	}
+
+	return fi.RestoreTime(arc.outputDir)
+}
+
+func (arc Arc) restoreSym(arcFile io.ReadSeeker) error {
+	sym := &header.SymItem{}
+	sym.Read(arcFile)
+	sym.RestorePath(arc.outputDir)
 	return nil
 }
 

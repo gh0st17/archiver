@@ -75,16 +75,16 @@ var (
 
 // Ошибки функции чтения
 var (
-	ErrOpenArc          = fmt.Errorf("не могу открыть файл архива")
-	ErrReadMagic        = fmt.Errorf("ошибка чтения сигнатуры")
-	ErrReadDirsSyms     = fmt.Errorf("ошибка чтения заголовка директории/ссылки")
-	ErrReadFileHeader   = fmt.Errorf("ошибка чтения заголовка файла")
-	ErrReadHeadersCount = fmt.Errorf("ошибка чтения числа заголовков")
-	ErrReadCompSize     = fmt.Errorf("ошибка чтения размера сжатых данных")
-	ErrReadCRC          = fmt.Errorf("ошибка чтения CRC")
-	ErrSkipData         = fmt.Errorf("ошибка пропуска блока сжатых данных")
-	ErrReadHeaderType   = fmt.Errorf("ошибка чтения типа")
-	ErrHeaderType       = fmt.Errorf("неизвестный тип")
+	ErrOpenArc        = fmt.Errorf("не могу открыть файл архива")
+	ErrReadMagic      = fmt.Errorf("ошибка чтения сигнатуры")
+	ErrReadDirsSyms   = fmt.Errorf("ошибка чтения заголовка директории/ссылки")
+	ErrReadFileHeader = fmt.Errorf("ошибка чтения заголовка файла")
+	ErrReadSymHeader  = fmt.Errorf("ошибка чтения заголовка символьной ссылки")
+	ErrReadCompSize   = fmt.Errorf("ошибка чтения размера сжатых данных")
+	ErrReadCRC        = fmt.Errorf("ошибка чтения CRC")
+	ErrSkipData       = fmt.Errorf("ошибка пропуска блока сжатых данных")
+	ErrReadHeaderType = fmt.Errorf("ошибка чтения типа")
+	ErrHeaderType     = fmt.Errorf("неизвестный тип")
 )
 
 // Ошибки функции записи

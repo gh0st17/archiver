@@ -58,6 +58,8 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 }
 
 func (fi *FileItem) Write(w io.Writer) (err error) {
+	filesystem.BinaryWrite(w, File)
+
 	if err = fi.Base.Write(w); err != nil {
 		return err
 	}

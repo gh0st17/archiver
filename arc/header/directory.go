@@ -6,17 +6,18 @@ import (
 
 // Описание директории
 type DirItem struct {
-	Base
+	basePaths
 }
 
-func NewDirItem(base *Base) *DirItem { return &DirItem{*base} }
+func NewDirItem(pathInArc string) *DirItem {
+	return &DirItem{basePaths{pathInArc, pathInArc}}
+}
 
 // Реализация fmt.Stringer
 func (di DirItem) String() string {
-	filename := prefix(di.pathOnDisk, maxInArcWidth)
-	mtime := di.mtim.Format(dateFormat)
+	filename := prefix(di.pathInArc, maxInArcWidth)
 
 	return fmt.Sprintf(
-		"%-*s  %s", maxInArcWidth, filename, mtime,
+		"%-*s", maxInArcWidth, filename,
 	)
 }

@@ -9,15 +9,14 @@ import (
 // Максимальная ширина имени файла
 // в выводе статистики
 const maxInArcWidth int = 31
-const maxOnDiskWidth int = 39
+const maxOnDiskWidth int = 58
 
 const dateFormat string = "02.01.2006 15:04:05"
 
 type HeaderType byte
 
 const (
-	Directory HeaderType = iota
-	Symlink
+	Symlink HeaderType = iota
 	File
 )
 

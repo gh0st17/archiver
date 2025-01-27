@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"sync"
 )
 
@@ -21,7 +22,6 @@ func (arc Arc) Compress(paths []string) error {
 	var (
 		headers []header.Header
 		arcFile io.WriteCloser
-		files   []*header.FileItem
 		err     error
 	)
 
@@ -30,6 +30,7 @@ func (arc Arc) Compress(paths []string) error {
 		return errtype.ErrCompress(err)
 	}
 	headers = header.DropDups(headers)
+	sort.Sort(header.ByPathInArc(headers))
 
 	if len(headers) == 0 {
 		return errtype.ErrCompress(ErrNoEntries)
@@ -40,15 +41,6 @@ func (arc Arc) Compress(paths []string) error {
 		return errtype.ErrCompress(
 			errtype.Join(ErrWriteDirHeaders, err),
 		)
-	}
-	arcBuf := bufio.NewWriter(arcFile)
-
-	{
-		s, f := arc.splitSymsFiles(headers)
-		if err = arc.writeSymsHeaders(s, arcBuf); err != nil {
-			return errtype.ErrCompress(err)
-		}
-		files = f
 	}
 
 	for i := 0; i < ncpu; i++ {
@@ -63,24 +55,46 @@ func (arc Arc) Compress(paths []string) error {
 	writeBufSize = (int(bufferSize) * ncpu) << 1
 	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
 
-	for _, fi := range files {
-		if err = fi.Write(arcBuf); err != nil {
-			arc.closeRemove(arcFile)
-			return errtype.ErrCompress(
-				errtype.Join(ErrWriteFileHeader, err),
-			)
-		}
-
-		if err = arc.compressFile(fi, arcBuf); err != nil {
-			arc.closeRemove(arcFile)
-			return errtype.ErrCompress(
-				errtype.Join(ErrCompressFile, err),
-			)
+	arcBuf := bufio.NewWriter(arcFile)
+	for _, h := range headers {
+		if fi, ok := h.(*header.FileItem); ok {
+			if err = arc.processingFile(fi, arcBuf); err != nil {
+				arc.closeRemove(arcFile)
+				return errtype.ErrCompress(err)
+			}
+		} else if di, ok := h.(*header.DirItem); ok {
+			arc.processingDir(di)
+		} else if si, ok := h.(*header.SymItem); ok {
+			arc.processingSym(si, arcBuf)
 		}
 	}
 	arcBuf.Flush()
 	arcFile.Close()
 
+	return nil
+}
+
+func (arc Arc) processingFile(fi *header.FileItem, arcBuf io.Writer) error {
+	err := fi.Write(arcBuf)
+	if err != nil {
+		return errtype.Join(ErrWriteFileHeader, err)
+	}
+
+	if err = arc.compressFile(fi, arcBuf); err != nil {
+		return errtype.Join(ErrCompressFile, err)
+
+	}
+	return nil
+}
+
+func (arc Arc) processingDir(di *header.DirItem) error {
+	fmt.Println(di.PathInArc())
+	return nil
+}
+
+func (arc Arc) processingSym(si *header.SymItem, arcBuf io.Writer) error {
+	si.Write(arcBuf)
+	fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
 	return nil
 }
 

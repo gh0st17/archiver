@@ -45,7 +45,7 @@ func main() {
 		err = a.IntegrityTest()
 	default:
 		params.PrintDecompressIgnore()
-		err = a.Decompress(p.OutputDir, p.XIntegTest)
+		err = a.Decompress()
 	}
 
 	if err != nil {
