@@ -39,7 +39,7 @@ func (arc Arc) Compress(paths []string) error {
 	arcFile, err = arc.writeArcHeader()
 	if err != nil {
 		return errtype.ErrCompress(
-			errtype.Join(ErrWriteDirHeaders, err),
+			errtype.Join(ErrWriteArcHeaders, err),
 		)
 	}
 
@@ -82,7 +82,6 @@ func (arc Arc) processingFile(fi *header.FileItem, arcBuf io.Writer) error {
 
 	if err = arc.compressFile(fi, arcBuf); err != nil {
 		return errtype.Join(ErrCompressFile, err)
-
 	}
 	return nil
 }
@@ -143,7 +142,7 @@ func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 
 			// Пишем сжатый блок
 			if wrote, err = compressedBuf[i].WriteTo(writeBuf); err != nil {
-				return errtype.Join(ErrReadCompressBuf, err)
+				return errtype.Join(ErrWriteCompressBuf, err)
 			}
 			log.Println("В буфер записи записан блок размера:", wrote)
 			compressor[i].Reset(compressedBuf[i])

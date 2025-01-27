@@ -20,13 +20,13 @@ var ErrUnknownComp = c.ErrUnknownComp
 var (
 	ErrNoEntries         = fmt.Errorf("нет элементов для сжатия")
 	ErrCompressorInit    = fmt.Errorf("ошибка иницализации компрессора")
-	ErrWriteDirHeaders   = fmt.Errorf("ошибка записи заголовков директории")
+	ErrWriteArcHeaders   = fmt.Errorf("ошибка записи заголовка архива")
 	ErrWriteFileHeader   = fmt.Errorf("ошибка записи заголовка файла")
 	ErrCompressFile      = fmt.Errorf("ошибка сжатия файла")
 	ErrReadUncompressed  = fmt.Errorf("ошибка чтения несжатых блоков")
 	ErrCompress          = fmt.Errorf("ошибка сжатия буфферов")
 	ErrWriteBufLen       = fmt.Errorf("ошибка записи длины блока")
-	ErrReadCompressBuf   = fmt.Errorf("ошибка чтения из буфера сжатых данных")
+	ErrWriteCompressBuf  = fmt.Errorf("ошибка чтения из буфера сжатых данных")
 	ErrReadUncompressBuf = fmt.Errorf("ошибка чтения в несжатый буфер")
 	ErrWriteEOF          = fmt.Errorf("ошибка записи EOF (-1)")
 	ErrWriteCRC          = fmt.Errorf("ошибка записи CRC")
@@ -44,12 +44,11 @@ var (
 // Ошибки при распаковке
 var (
 	ErrReadHeaders    = fmt.Errorf("ошибка чтения заголовоков")
-	ErrSkipHeaders    = fmt.Errorf("ошибка пропуска заголовков")
 	ErrDecompressFile = fmt.Errorf("ошибка распаковки файла")
+	ErrDecompressSym  = fmt.Errorf("ошибка распаковки символьной ссылки")
 	ErrSkipCRC        = fmt.Errorf("ошибка пропуска CRC")
 	ErrCreateOutFile  = fmt.Errorf("не могу создать файл")
 	ErrSkipEOF        = fmt.Errorf("ошибка пропуска признака EOF")
-	ErrReadCompressed = fmt.Errorf("ошибка чтения сжатых блоков")
 	ErrDecompress     = fmt.Errorf("ошибка распаковки буферов")
 	ErrWriteOutBuf    = fmt.Errorf("ошибка записи в буфер выхода")
 	ErrReadCompLen    = fmt.Errorf("ошибка чтения размера блока")
@@ -77,7 +76,7 @@ var (
 var (
 	ErrOpenArc        = fmt.Errorf("не могу открыть файл архива")
 	ErrReadMagic      = fmt.Errorf("ошибка чтения сигнатуры")
-	ErrReadDirsSyms   = fmt.Errorf("ошибка чтения заголовка директории/ссылки")
+	ErrReadCompressed = fmt.Errorf("ошибка чтения сжатых блоков")
 	ErrReadFileHeader = fmt.Errorf("ошибка чтения заголовка файла")
 	ErrReadSymHeader  = fmt.Errorf("ошибка чтения заголовка символьной ссылки")
 	ErrReadCompSize   = fmt.Errorf("ошибка чтения размера сжатых данных")
@@ -89,10 +88,8 @@ var (
 
 // Ошибки функции записи
 var (
-	ErrCreateArc         = fmt.Errorf("не могу создать файл архива")
-	ErrWriteMagic        = fmt.Errorf("ошибка записи сигнатуры")
-	ErrWriteCompType     = fmt.Errorf("ошибка записи типа компрессора")
-	ErrWriteHeadersCount = fmt.Errorf("ошибка записи количества заголовков")
-	ErrWriteHeaderIO     = fmt.Errorf("ошибка записи заголовка директории")
-	ErrFlushWrBuf        = fmt.Errorf("ошибка сброса буфера записи на диск")
+	ErrCreateArc     = fmt.Errorf("не могу создать файл архива")
+	ErrWriteMagic    = fmt.Errorf("ошибка записи сигнатуры")
+	ErrWriteCompType = fmt.Errorf("ошибка записи типа компрессора")
+	ErrFlushWrBuf    = fmt.Errorf("ошибка сброса буфера записи на диск")
 )

@@ -12,7 +12,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
+	fp "path/filepath"
 	"sync"
 )
 
@@ -44,14 +44,18 @@ func (arc Arc) Decompress() error {
 		switch typ {
 		case header.File:
 			if err = arc.restoreFile(arcFile); err != nil && err != io.EOF {
-				return errtype.Join(ErrReadHeaders, err)
+				return errtype.ErrDecompress(
+					errtype.Join(ErrDecompressFile, err),
+				)
 			}
 		case header.Symlink:
 			if err = arc.restoreSym(arcFile); err != nil && err != io.EOF {
-				return errtype.Join(ErrReadHeaders, err)
+				return errtype.ErrDecompress(
+					errtype.Join(ErrDecompressSym, err),
+				)
 			}
 		default:
-			return ErrHeaderType
+			return errtype.ErrDecompress(ErrHeaderType)
 		}
 	}
 
@@ -65,13 +69,15 @@ func (arc Arc) Decompress() error {
 
 func (arc Arc) restoreFile(arcFile io.ReadSeeker) error {
 	fi := &header.FileItem{}
-	fi.Read(arcFile)
+	if err := fi.Read(arcFile); err != nil && err != io.EOF {
+		return errtype.Join(ErrReadFileHeader, err)
+	}
 
 	if err := fi.RestorePath(arc.outputDir); err != nil {
 		return errtype.Join(ErrRestorePath(fi.PathOnDisk()), err)
 	}
 
-	outPath := filepath.Join(arc.outputDir, fi.PathOnDisk())
+	outPath := fp.Join(arc.outputDir, fi.PathOnDisk())
 	if _, err := os.Stat(outPath); err == nil && !arc.replaceAll {
 		if arc.replaceInput(outPath, arcFile) {
 			return nil
@@ -87,16 +93,12 @@ func (arc Arc) restoreFile(arcFile io.ReadSeeker) error {
 	}
 
 	if err := arc.decompressFile(fi, arcFile, outPath); err != nil {
-		return errtype.ErrDecompress(
-			errtype.Join(ErrDecompressFile, err),
-		)
+		return errtype.Join(ErrDecompressFile, err)
 	}
 
 	dataPos, err := arcFile.Seek(4, io.SeekCurrent)
 	if err != nil {
-		return errtype.ErrDecompress(
-			errtype.Join(ErrSkipCRC, err),
-		)
+		return errtype.Join(ErrSkipCRC, err)
 	}
 	log.Println("Пропуск CRC, установлена позиция:", dataPos)
 
@@ -111,8 +113,18 @@ func (arc Arc) restoreFile(arcFile io.ReadSeeker) error {
 
 func (arc Arc) restoreSym(arcFile io.ReadSeeker) error {
 	sym := &header.SymItem{}
-	sym.Read(arcFile)
-	sym.RestorePath(arc.outputDir)
+
+	err := sym.Read(arcFile)
+	if err != nil {
+		return errtype.Join(ErrReadSymHeader, err)
+	}
+
+	if err = sym.RestorePath(arc.outputDir); err != nil {
+		return errtype.Join(
+			ErrRestorePath(fp.Join(arc.outputDir, sym.PathOnDisk())),
+		)
+	}
+
 	return nil
 }
 

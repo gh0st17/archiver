@@ -25,7 +25,7 @@ func (arc Arc) IntegrityTest() error {
 	for err != io.EOF {
 		err = filesystem.BinaryRead(arcFile, &typ)
 		if err != io.EOF && err != nil {
-			return errtype.ErrDecompress(
+			return errtype.ErrIntegrity(
 				errtype.Join(ErrReadHeaderType, err),
 			)
 		} else if err == io.EOF {
@@ -40,8 +40,12 @@ func (arc Arc) IntegrityTest() error {
 				)
 			}
 		case header.Symlink:
-			s := &header.SymItem{}
-			s.Read(arcFile)
+			sym := &header.SymItem{}
+			if err = sym.Read(arcFile); err != nil && err != io.EOF {
+				return errtype.ErrIntegrity(
+					errtype.Join(ErrReadSymHeader, err),
+				)
+			}
 		default:
 			return errtype.ErrIntegrity(ErrHeaderType)
 		}
@@ -56,7 +60,9 @@ func (arc Arc) checkFile(arcFile io.ReadSeeker) error {
 	var err error
 
 	fi := &header.FileItem{}
-	fi.Read(arcFile)
+	if err := fi.Read(arcFile); err != nil && err != io.EOF {
+		return errtype.Join(ErrReadFileHeader, err)
+	}
 
 	if _, err = arc.checkCRC(arcFile); err == ErrWrongCRC {
 		fmt.Println(fi.PathOnDisk() + ": Файл поврежден")

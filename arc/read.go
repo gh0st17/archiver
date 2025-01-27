@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	fp "path/filepath"
+	"sort"
 )
 
 // Проверяет чем является path, директорией или файлом,
@@ -117,7 +118,12 @@ func (arc *Arc) readHeaders(arcFile io.ReadSeekCloser) (headers []header.Header,
 	arcFile.Seek(3, io.SeekStart) // Пропускаем магическое число и тип компрессора
 
 	for err != io.EOF {
-		filesystem.BinaryRead(arcFile, &typ)
+		err = filesystem.BinaryRead(arcFile, &typ)
+		if err != io.EOF && err != nil {
+			return nil, errtype.Join(ErrReadHeaderType, err)
+		} else if err == io.EOF {
+			continue
+		}
 
 		switch typ {
 		case header.File:
@@ -146,6 +152,7 @@ func (arc *Arc) readHeaders(arcFile io.ReadSeekCloser) (headers []header.Header,
 
 	arcFile.Seek(3, io.SeekStart)
 	arc.insertDirs(&headers)
+	sort.Sort(header.ByPathInArc(headers))
 
 	return headers, nil
 }
@@ -168,7 +175,7 @@ func (arc Arc) readFileHeader(arcFile io.ReadSeeker) (*header.FileItem, error) {
 	if dataSize, err = arc.skipFileData(arcFile, false); err == io.EOF {
 		return nil, err
 	} else if err != nil {
-		return nil, errtype.Join(ErrReadCompLen, err)
+		return nil, errtype.Join(ErrSkipData, err)
 	}
 	file.SetCSize(dataSize)
 

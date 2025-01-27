@@ -68,17 +68,12 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		}
 		defer arcFile.Close()
 
-		info, err := arcFile.Stat()
-		if err != nil {
-			return nil, errtype.Join(ErrOpenArc, err)
-		}
-
 		var magic uint16
 		if err = filesystem.BinaryRead(arcFile, &magic); err != nil {
 			return nil, errtype.Join(ErrReadMagic, err)
 		}
 		if magic != magicNumber {
-			return nil, errNotArc(info.Name())
+			return nil, errNotArc(arcFile.Name())
 		}
 
 		var compType byte

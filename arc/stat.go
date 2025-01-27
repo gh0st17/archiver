@@ -5,7 +5,6 @@ import (
 	"archiver/errtype"
 	"fmt"
 	"os"
-	"sort"
 )
 
 // Печатает информацию об архиве
@@ -23,7 +22,6 @@ func (arc Arc) ViewStat() error {
 			errtype.Join(ErrReadHeaders, err),
 		)
 	}
-	sort.Sort(header.ByPathInArc(headers))
 
 	fmt.Printf("Тип компрессора: %s\n", arc.ct)
 	header.PrintStatHeader()
@@ -46,7 +44,7 @@ func (arc Arc) ViewStat() error {
 func (arc Arc) ViewList() error {
 	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
 	if err != nil {
-		return errtype.ErrIntegrity(
+		return errtype.ErrRuntime(
 			errtype.Join(ErrOpenArc, err),
 		)
 	}
@@ -57,7 +55,6 @@ func (arc Arc) ViewList() error {
 			errtype.Join(ErrReadHeaders, err),
 		)
 	}
-	sort.Sort(header.ByPathInArc(headers))
 
 	for _, h := range headers {
 		if si, ok := h.(*header.SymItem); ok {
