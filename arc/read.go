@@ -200,8 +200,11 @@ func (arc *Arc) readSymHeader(arcFile io.Reader) (sym *header.SymItem, err error
 }
 
 func (Arc) insertDirs(headers *[]header.Header) {
-	seen := map[string]struct{}{}
-	var path string
+	var (
+		seen  = map[string]struct{}{}
+		parts []string
+		path  string
+	)
 
 	for _, h := range *headers {
 		if _, ok := h.(*header.SymItem); ok {
@@ -209,8 +212,17 @@ func (Arc) insertDirs(headers *[]header.Header) {
 		}
 
 		path = fp.Dir(h.PathInArc())
-		if _, ok := seen[path]; !ok {
-			seen[path] = struct{}{}
+		if _, ok := seen[path]; ok {
+			continue
+		}
+
+		parts = filesystem.SplitPath(path)
+		path = ""
+		for _, p := range parts {
+			path = fp.Join(path, p)
+			if _, ok := seen[path]; !ok {
+				seen[path] = struct{}{}
+			}
 		}
 	}
 
