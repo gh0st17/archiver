@@ -14,6 +14,7 @@ type SymItem struct {
 	basePaths
 }
 
+// Создает заголовок символической ссылки [header.SymItem]
 func NewSymItem(symlink, target string) *SymItem {
 	return &SymItem{
 		basePaths{pathOnDisk: target, pathInArc: symlink},
@@ -47,7 +48,7 @@ func (si SymItem) String() string {
 	)
 }
 
-// Сериализует в себя данные из r
+// Десериализует в себя данные из r
 func (si *SymItem) Read(r io.Reader) error {
 	var (
 		err     error

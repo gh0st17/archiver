@@ -12,8 +12,9 @@ import (
 	"sort"
 )
 
-// Проверяет чем является path, директорией или файлом,
-// возвращает интерфейс заголовка, указывающий на
+// Проверяет чем является path, директорией,
+// символьной ссылкой или файлом, возвращает
+// интерфейс заголовка, указывающий на
 // соответствующий тип
 func fetchPath(path string) (h header.Header, err error) {
 	if len(path) > 1023 {
@@ -115,7 +116,8 @@ func (arc *Arc) readHeaders(arcFile io.ReadSeekCloser) (headers []header.Header,
 		typ  header.HeaderType
 	)
 
-	arcFile.Seek(3, io.SeekStart) // Пропускаем магическое число и тип компрессора
+	// Пропускаем магическое число и тип компрессора
+	arcFile.Seek(arcHeaderLen, io.SeekStart)
 
 	for err != io.EOF {
 		err = filesystem.BinaryRead(arcFile, &typ)
@@ -150,8 +152,11 @@ func (arc *Arc) readHeaders(arcFile io.ReadSeekCloser) (headers []header.Header,
 		h = nil
 	}
 
-	arcFile.Seek(3, io.SeekStart)
-	arc.insertDirs(&headers)
+	// Возврат каретки в начало первого заголовка
+	arcFile.Seek(arcHeaderLen, io.SeekStart)
+
+	dirs := arc.insertDirs(headers)
+	headers = append(headers, dirs...)
 	sort.Sort(header.ByPathInArc(headers))
 
 	return headers, nil
@@ -166,11 +171,13 @@ func (arc Arc) readFileHeader(arcFile io.ReadSeeker) (*header.FileItem, error) {
 		crc      uint32
 	)
 
+	pos, _ := arcFile.Seek(0, io.SeekCurrent)
+	log.Println("Читаю заголовок файла с позиции:", pos)
 	if err = file.Read(arcFile); err != nil && err != io.EOF {
 		return nil, errtype.Join(ErrReadFileHeader, err)
 	}
 
-	pos, _ := arcFile.Seek(0, io.SeekCurrent)
+	pos, _ = arcFile.Seek(0, io.SeekCurrent)
 	log.Println("Читаю размер сжатых данных с позиции:", pos)
 	if dataSize, err = arc.skipFileData(arcFile, false); err == io.EOF {
 		return nil, err
@@ -188,8 +195,10 @@ func (arc Arc) readFileHeader(arcFile io.ReadSeeker) (*header.FileItem, error) {
 }
 
 // Читает заголовок символьной ссылки из архива
-func (arc *Arc) readSymHeader(arcFile io.Reader) (sym *header.SymItem, err error) {
+func (arc *Arc) readSymHeader(arcFile io.ReadSeeker) (sym *header.SymItem, err error) {
 	sym = &header.SymItem{}
+	pos, _ := arcFile.Seek(0, io.SeekCurrent)
+	log.Println("Читаю заголовок символьной ссылки с позиции:", pos)
 	if err = sym.Read(arcFile); err == io.EOF {
 		return nil, err
 	} else if err != nil {
@@ -199,24 +208,37 @@ func (arc *Arc) readSymHeader(arcFile io.Reader) (sym *header.SymItem, err error
 	return sym, nil
 }
 
-func (Arc) insertDirs(headers *[]header.Header) {
-	seen := map[string]struct{}{}
-	var path string
+// Вставляет в срез с заголовками пути к директориям
+func (Arc) insertDirs(headers []header.Header) []header.Header {
+	var (
+		dirs  []header.Header
+		seen  = map[string]struct{}{}
+		parts []string
+		path  string
+	)
 
-	for _, h := range *headers {
+	for _, h := range headers {
 		if _, ok := h.(*header.SymItem); ok {
-			continue
+			continue // Пропускаем символьные ссылки
 		}
 
 		path = fp.Dir(h.PathInArc())
-		if _, ok := seen[path]; !ok {
-			seen[path] = struct{}{}
+		if _, ok := seen[path]; ok {
+			continue // Такой путь уже есть
+		}
+
+		parts = filesystem.SplitPath(path)
+		path = ""
+		for _, p := range parts {
+			path = fp.Join(path, p)
+			if _, ok := seen[path]; !ok {
+				seen[path] = struct{}{} // Такого пути нет
+				dirs = append(dirs, header.NewDirItem(path))
+			}
 		}
 	}
 
-	for p := range seen {
-		*headers = append(*headers, header.NewDirItem(p))
-	}
+	return dirs
 }
 
 // Пропускает файл в дескрипторе файла архива

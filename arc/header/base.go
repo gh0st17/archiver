@@ -27,6 +27,7 @@ type basePaths struct {
 func (b basePaths) PathOnDisk() string { return b.pathOnDisk }
 func (b basePaths) PathInArc() string  { return b.pathInArc }
 
+// Дериализует путь из r
 func readPath(r io.Reader) (_ string, err error) {
 	var length int16
 
@@ -46,6 +47,7 @@ func readPath(r io.Reader) (_ string, err error) {
 	return string(pathBytes), nil
 }
 
+// Сериализует путь path в w
 func writePath(w io.Writer, path string) (err error) {
 	// Пишем длину строки имени файла или директории
 	if err = filesystem.BinaryWrite(w, int16(len(path))); err != nil {
@@ -67,6 +69,7 @@ type Base struct {
 	timeAttr
 }
 
+// Создает новый [header.Base]
 func NewBase(pathOnDisk string, atim, mtim time.Time) (*Base, error) {
 	if len(pathOnDisk) > 1023 {
 		return nil, ErrLongPath(pathOnDisk)
@@ -80,7 +83,7 @@ func NewBase(pathOnDisk string, atim, mtim time.Time) (*Base, error) {
 	}, nil
 }
 
-// Сериализует в себя данные из r
+// Десериализует в себя данные из r
 func (b *Base) Read(r io.Reader) error {
 	var (
 		err      error

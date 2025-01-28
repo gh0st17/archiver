@@ -11,7 +11,7 @@ import (
 )
 
 // Разбивает путь на компоненты
-func splitPath(path string) []string {
+func SplitPath(path string) []string {
 	if path == "/" {
 		return []string{path}
 	}
@@ -20,13 +20,13 @@ func splitPath(path string) []string {
 	if dir == "" {
 		return []string{last}
 	}
-	return append(splitPath(filepath.Clean(dir)), last)
+	return append(SplitPath(filepath.Clean(dir)), last)
 }
 
 // Создает директории на всем пути `path`
 func CreatePath(path string) error {
 	var (
-		splitedPath = splitPath(path)
+		splitedPath = SplitPath(path)
 		fullPath    string
 	)
 

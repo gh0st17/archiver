@@ -40,10 +40,12 @@ func (fi *FileItem) SetCRC(crc uint32) { fi.crc = crc }
 // Устанавливает флаг наличия повреждении
 func (fi *FileItem) SetDamaged(damaged bool) { fi.damaged = damaged }
 
+// Создает заголовок файла [header.FileItem]
 func NewFileItem(base *Base, ucSize Size) *FileItem {
 	return &FileItem{Base: *base, ucSize: ucSize}
 }
 
+// Десериализует заголовок файла из r
 func (fi *FileItem) Read(r io.Reader) (err error) {
 	if err = fi.Base.Read(r); err != nil {
 		return err
@@ -57,6 +59,7 @@ func (fi *FileItem) Read(r io.Reader) (err error) {
 	return nil
 }
 
+// Cериализует заголовок файла из r
 func (fi *FileItem) Write(w io.Writer) (err error) {
 	filesystem.BinaryWrite(w, File)
 
@@ -72,6 +75,7 @@ func (fi *FileItem) Write(w io.Writer) (err error) {
 	return nil
 }
 
+// Восстанавливает путь к файлу
 func (fi FileItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, fi.pathOnDisk)
 	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
