@@ -120,6 +120,29 @@ func (arc Arc) processingSym(si *header.SymItem, arcBuf io.Writer) error {
 	return nil
 }
 
+func (arc Arc) processingFile(fi *header.FileItem, arcBuf io.Writer) error {
+	err := fi.Write(arcBuf)
+	if err != nil {
+		return errtype.Join(ErrWriteFileHeader, err)
+	}
+
+	if err = arc.compressFile(fi, arcBuf); err != nil {
+		return errtype.Join(ErrCompressFile, err)
+	}
+	return nil
+}
+
+func (arc Arc) processingDir(di *header.DirItem) error {
+	fmt.Println(di.PathInArc())
+	return nil
+}
+
+func (arc Arc) processingSym(si *header.SymItem, arcBuf io.Writer) error {
+	si.Write(arcBuf)
+	fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
+	return nil
+}
+
 // Сжимает файл блоками
 func (arc *Arc) compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 	inFile, err := os.Open(fi.PathOnDisk())

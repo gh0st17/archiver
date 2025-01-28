@@ -18,7 +18,9 @@ func (arc Arc) IntegrityTest() error {
 		)
 	}
 	defer arcFile.Close()
-	arcFile.Seek(arcHeaderLen, io.SeekStart) // Пропускаем магическое число и тип компрессора
+  
+  // Пропускаем магическое число и тип компрессора
+	arcFile.Seek(arcHeaderLen, io.SeekStart) 
 
 	var typ header.HeaderType
 
