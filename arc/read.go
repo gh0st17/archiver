@@ -4,12 +4,14 @@ import (
 	"archiver/arc/header"
 	"archiver/errtype"
 	"archiver/filesystem"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	fp "path/filepath"
 	"sort"
+	"syscall"
 )
 
 // Проверяет чем является path, директорией,
@@ -33,9 +35,15 @@ func fetchPath(path string) (h header.Header, err error) {
 	}
 
 	if info.Mode()&os.ModeSymlink != 0 {
-		if target, err := fp.EvalSymlinks(path); err != nil {
+		target, err := fp.EvalSymlinks(path)
+		if errors.Is(err, syscall.ENOENT) {
+			fmt.Printf("Символическая ссылка '%s' испорчена\n", path)
+			return nil, nil
+		} else if err != nil {
 			return nil, err
-		} else if target, err = fp.Abs(target); err != nil {
+		}
+
+		if target, err = fp.Abs(target); err != nil {
 			return nil, err
 		} else {
 			h = header.NewSymItem(path, target)
