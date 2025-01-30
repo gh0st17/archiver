@@ -45,5 +45,6 @@ func (arc Arc) restoreHandler(typ header.HeaderType, arcFile io.ReadSeekCloser) 
 	if err != nil && err != io.EOF {
 		return errtype.ErrDecompress(err)
 	}
+
 	return nil
 }
