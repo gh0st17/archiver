@@ -1,7 +1,8 @@
 package arc
 
 import (
-	"archiver/arc/header"
+	"archiver/arc/internal/decompress"
+	"archiver/arc/internal/header"
 	"archiver/errtype"
 	"fmt"
 	"os"
@@ -16,7 +17,7 @@ func (arc Arc) ViewStat() error {
 		)
 	}
 
-	headers, err := arc.readHeaders(arcFile)
+	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),
@@ -49,7 +50,7 @@ func (arc Arc) ViewList() error {
 		)
 	}
 
-	headers, err := arc.readHeaders(arcFile)
+	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),

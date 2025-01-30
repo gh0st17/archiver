@@ -1,7 +1,7 @@
-//go:build darwin
-// +build darwin
+//go:build windows
+// +build windows
 
-package arc
+package platform
 
 import (
 	"os"
@@ -11,9 +11,9 @@ import (
 
 // Возвращает временные метки доступа и изменения
 func amTimes(info os.FileInfo) (atime time.Time, mtime time.Time) {
-	stat := info.Sys().(*syscall.Stat_t)
-	atime = time.Unix(stat.Atimespec.Sec, stat.Atimespec.Nsec)
-	mtime = time.Unix(stat.Mtimespec.Sec, stat.Mtimespec.Nsec)
+	stat := info.Sys().(*syscall.Win32FileAttributeData)
+	atime = time.Unix(0, stat.LastAccessTime.Nanoseconds())
+	mtime = time.Unix(0, stat.LastWriteTime.Nanoseconds())
 
 	return atime, mtime
 }

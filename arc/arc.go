@@ -1,40 +1,21 @@
 package arc
 
 import (
+	"archiver/arc/internal/decompress"
 	c "archiver/compressor"
 	"archiver/errtype"
 	"archiver/filesystem"
 	"archiver/params"
-	"bytes"
 	"fmt"
-	"hash/crc32"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 )
 
 const (
 	magicNumber  uint16 = 0x5717
-	bufferSize   int64  = 1048576 // 1М
-	arcHeaderLen        = 3
-)
-
-var (
-	// Полином CRC32
-	crct = crc32.MakeTable(crc32.Koopman)
-	// Количество доступных процессоров
-	ncpu = runtime.NumCPU()
-	// Буффер для сжатых данных
-	compressedBuf = make([]*bytes.Buffer, ncpu)
-	// Буфер для несжатых данных
-	decompressedBuf = make([]*bytes.Buffer, ncpu)
-	compressor      = make([]*c.Writer, ncpu)
-	decompressor    = make([]*c.Reader, ncpu)
-	writeBuf        *bytes.Buffer
-	writeBufSize    int
+	arcHeaderLen int64  = 3
 )
 
 // Структура параметров архива
@@ -95,6 +76,16 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	return arc, nil
 }
 
+func (arc Arc) ToRestoreParams() decompress.RestoreParams {
+	return decompress.RestoreParams{
+		OutputDir:  arc.outputDir,
+		Integ:      arc.integ,
+		Ct:         arc.ct,
+		Cl:         arc.cl,
+		ReplaceAll: arc.replaceAll,
+	}
+}
+
 // Удаляет архив
 func (arc Arc) RemoveTmp() {
 	os.Remove(arc.arcPath)
@@ -115,32 +106,4 @@ func (Arc) PrintMemStat() {
 	fmt.Printf("Всего аллокаций:       %8d KB\n", m.TotalAlloc/1024)
 	fmt.Printf("Системная память:      %8d KB\n", m.Sys/1024)
 	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
-}
-
-// Проверяет корректность размера буфера.
-// Возвращает true если размер некорректный.
-func (Arc) checkBufferSize(bufferSize int64) bool {
-	return bufferSize < 0 || bufferSize>>1 > bufferSize
-}
-
-// Сбрасывает буфер данных для записи на диск
-func (Arc) flushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
-	defer wg.Done()
-
-	if writeBuf.Len() == 0 {
-		return
-	}
-
-	wrote, err := writeBuf.WriteTo(w)
-	if err != nil {
-		errtype.ErrorHandler(errtype.Join(ErrFlushWrBuf, err))
-	}
-	log.Println("Буфер записи сброшен на диск:", wrote)
-}
-
-func init() {
-	for i := 0; i < ncpu; i++ {
-		compressedBuf[i] = bytes.NewBuffer(nil)
-		decompressedBuf[i] = bytes.NewBuffer(nil)
-	}
 }
