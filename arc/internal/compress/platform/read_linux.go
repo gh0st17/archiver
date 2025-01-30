@@ -1,7 +1,7 @@
 //go:build linux
 // +build linux
 
-package arc
+package platform
 
 import (
 	"os"

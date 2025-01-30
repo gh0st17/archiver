@@ -1,8 +1,6 @@
 package header
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // Описание директории
 type DirItem struct {

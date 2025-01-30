@@ -1,7 +1,8 @@
 package arc
 
 import (
-	"archiver/arc/header"
+	"archiver/arc/internal/decompress"
+	"archiver/arc/internal/header"
 	"archiver/errtype"
 	"fmt"
 	"os"
@@ -16,14 +17,14 @@ func (arc Arc) ViewStat() error {
 		)
 	}
 
-	headers, err := arc.readHeaders(arcFile)
+	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),
 		)
 	}
 
-	fmt.Printf("Тип компрессора: %s\n", arc.ct)
+	fmt.Printf("Тип компрессора: %s\n", arc.Ct)
 	header.PrintStatHeader()
 
 	var original, compressed header.Size
@@ -49,7 +50,7 @@ func (arc Arc) ViewList() error {
 		)
 	}
 
-	headers, err := arc.readHeaders(arcFile)
+	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),
