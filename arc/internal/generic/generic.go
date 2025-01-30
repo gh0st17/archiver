@@ -10,7 +10,6 @@ import (
 	"io"
 	"log"
 	"runtime"
-	"sync"
 )
 
 type RestoreParams struct {
@@ -32,36 +31,27 @@ var (
 	// Количество доступных процессоров
 	ncpu = runtime.NumCPU()
 	// Буффер для сжатых данных
-	compressedBuf = make([]*bytes.Buffer, ncpu)
+	compressedBufs = make([]*bytes.Buffer, ncpu)
 	// Буфер для несжатых данных
-	decompressedBuf = make([]*bytes.Buffer, ncpu)
-	compressor      = make([]*c.Writer, ncpu)
-	decompressor    = make([]*c.Reader, ncpu)
-	writeBuf        *bytes.Buffer
-	writeBufSize    int
+	decompressedBufs = make([]*bytes.Buffer, ncpu)
+	compressors      = make([]*c.Writer, ncpu)
+	decompressors    = make([]*c.Reader, ncpu)
+	writeBuf         *bytes.Buffer
 )
 
 func BufferSize() int { return bufferSize }
 
 func CRCTable() *crc32.Table         { return crct }
 func Ncpu() int                      { return ncpu }
-func CompBuffers() []*bytes.Buffer   { return compressedBuf }
-func DecompBuffers() []*bytes.Buffer { return decompressedBuf }
-func Compressors() []*c.Writer       { return compressor }
-func Decompressors() []*c.Reader     { return decompressor }
+func CompBuffers() []*bytes.Buffer   { return compressedBufs }
+func DecompBuffers() []*bytes.Buffer { return decompressedBufs }
+func Compressors() []*c.Writer       { return compressors }
+func Decompressors() []*c.Reader     { return decompressors }
 
 func WriteBuffer() *bytes.Buffer { return writeBuf }
-func WriteBufSize() int          { return writeBufSize }
-
-func SetWriteBufSize(size int) {
-	writeBufSize = size
-	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
-}
 
 // Сбрасывает буфер данных для записи на диск
-func FlushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
-	defer wg.Done()
-
+func FlushWriteBuffer(w io.Writer) {
 	if writeBuf.Len() == 0 {
 		return
 	}
@@ -82,7 +72,7 @@ func CheckBufferSize(bufferSize int64) bool {
 // Инициализирует компрессоры
 func InitCompressors(rp RestoreParams) (err error) {
 	for i := 0; i < ncpu; i++ { // Инициализация компрессоров
-		compressor[i], err = c.NewWriter(rp.Ct, compressedBuf[i], rp.Cl)
+		compressors[i], err = c.NewWriter(rp.Ct, compressedBufs[i], rp.Cl)
 		if err != nil {
 			return err
 		}
@@ -94,7 +84,7 @@ func InitCompressors(rp RestoreParams) (err error) {
 // Сбрасывает декомпрессоры
 func ResetDecomp() {
 	for i := 0; i < ncpu; i++ {
-		decompressor[i] = nil
+		decompressors[i] = nil
 	}
 }
 
@@ -123,7 +113,9 @@ func ProcessHeaders(arcFile io.ReadSeekCloser, arcLenH int64, handler ProcHeader
 
 func init() {
 	for i := 0; i < ncpu; i++ {
-		compressedBuf[i] = bytes.NewBuffer(nil)
-		decompressedBuf[i] = bytes.NewBuffer(nil)
+		compressedBufs[i] = bytes.NewBuffer(nil)
+		decompressedBufs[i] = bytes.NewBuffer(nil)
 	}
+
+	writeBuf = bytes.NewBuffer(nil)
 }

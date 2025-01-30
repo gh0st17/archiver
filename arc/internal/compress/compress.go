@@ -85,9 +85,16 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 	inBuf := bufio.NewReader(inFile)
 
 	var (
-		wrote, read int64
-		crc         uint32
-		wg          = sync.WaitGroup{}
+		crct           = generic.CRCTable()
+		ncpu           = generic.Ncpu()
+		compressedBufs = generic.CompBuffers()
+		compressors    = generic.Compressors()
+		writeBuf       = generic.WriteBuffer()
+
+		writeBufSize = (generic.BufferSize() * ncpu) << 1
+		wrote, read  int64
+		crc          uint32
+		wg           = sync.WaitGroup{}
 	)
 
 	for {
@@ -100,7 +107,10 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 
 		if read == 0 {
 			wg.Add(1)
-			go generic.FlushWriteBuffer(&wg, arcBuf)
+			go func() {
+				defer wg.Done()
+				generic.FlushWriteBuffer(arcBuf)
+			}()
 			break
 		}
 
@@ -109,35 +119,28 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 			return errtype.Join(ErrCompress, err)
 		}
 
-		var (
-			crct          = generic.CRCTable()
-			ncpu          = generic.Ncpu()
-			compressedBuf = generic.CompBuffers()
-			compressor    = generic.Compressors()
-			writeBuf      = generic.WriteBuffer()
-			writeBufSize  = generic.WriteBufSize()
-		)
-
-		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
+		for i := 0; i < ncpu && compressedBufs[i].Len() > 0; i++ {
 			// Пишем длину сжатого блока
-			length := int64(compressedBuf[i].Len())
+			length := int64(compressedBufs[i].Len())
 			if err = filesystem.BinaryWrite(writeBuf, length); err != nil {
 				return errtype.Join(ErrWriteBufLen, err)
 			}
 
-			crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
+			crc ^= crc32.Checksum(compressedBufs[i].Bytes(), crct)
 
 			// Пишем сжатый блок
-			if wrote, err = compressedBuf[i].WriteTo(writeBuf); err != nil {
+			if wrote, err = compressedBufs[i].WriteTo(writeBuf); err != nil {
 				return errtype.Join(ErrWriteCompressBuf, err)
 			}
 			log.Println("В буфер записи записан блок размера:", wrote)
-			compressor[i].Reset(compressedBuf[i])
+			compressors[i].Reset(compressedBufs[i])
 
 			if writeBuf.Len() >= int(writeBufSize) {
 				wg.Add(1)
-				go generic.FlushWriteBuffer(&wg, arcBuf)
-
+				go func() {
+					defer wg.Done()
+					generic.FlushWriteBuffer(arcBuf)
+				}()
 				if i+1 != ncpu {
 					wg.Wait()
 				}
@@ -167,14 +170,14 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 // Загружает данные в буферы несжатых данных
 func loadUncompressedBuf(inBuf io.Reader) (read int64, err error) {
 	var (
-		n               int64
-		ncpu            = generic.Ncpu()
-		decompressedBuf = generic.DecompBuffers()
-		bufferSize      = int64(generic.BufferSize())
+		n                int64
+		ncpu             = generic.Ncpu()
+		decompressedBufs = generic.DecompBuffers()
+		bufferSize       = int64(generic.BufferSize())
 	)
 
 	for i := 0; i < ncpu && err != io.EOF; i++ {
-		n, err = io.CopyN(decompressedBuf[i], inBuf, bufferSize)
+		n, err = io.CopyN(decompressedBufs[i], inBuf, bufferSize)
 		if err != nil && err != io.EOF {
 			return 0, errtype.Join(ErrReadUncompressBuf, err)
 		}
@@ -188,25 +191,25 @@ func loadUncompressedBuf(inBuf io.Reader) (read int64, err error) {
 // Сжимает данные в буферах несжатых данных
 func compressBuffers() error {
 	var (
-		ncpu            = generic.Ncpu()
-		decompressedBuf = generic.DecompBuffers()
-		compressor      = generic.Compressors()
+		ncpu             = generic.Ncpu()
+		decompressedBufs = generic.DecompBuffers()
+		compressors      = generic.Compressors()
 
 		errChan = make(chan error, ncpu)
 		wg      sync.WaitGroup
 	)
 
-	for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
+	for i := 0; i < ncpu && decompressedBufs[i].Len() > 0; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 
-			_, err := decompressedBuf[i].WriteTo(compressor[i])
+			_, err := decompressedBufs[i].WriteTo(compressors[i])
 			if err != nil {
 				errChan <- errtype.Join(ErrWriteCompressor, err)
 				return
 			}
-			if err = compressor[i].Close(); err != nil {
+			if err = compressors[i].Close(); err != nil {
 				errChan <- errtype.Join(ErrCloseCompressor, err)
 			}
 		}(i)

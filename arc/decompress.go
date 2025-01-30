@@ -23,8 +23,6 @@ func (arc Arc) Decompress() error {
 	}
 	defer arcFile.Close()
 
-	generic.SetWriteBufSize(generic.BufferSize() * generic.Ncpu())
-
 	if err := generic.ProcessHeaders(arcFile, arcHeaderLen, arc.restoreHandler); err != nil {
 		return errtype.ErrDecompress(err)
 	}

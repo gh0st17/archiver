@@ -36,7 +36,7 @@ func (arc Arc) Compress(paths []string) error {
 	}
 
 	// Установка размера буфера записи
-	generic.SetWriteBufSize((generic.BufferSize() * generic.Ncpu()) << 1)
+	//generic.SetWriteBufSize()
 
 	if err = compress.ProcessingHeaders(arcFile, headers); err != nil {
 		arc.closeRemove(arcFile)

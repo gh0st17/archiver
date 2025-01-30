@@ -129,10 +129,10 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 	}
 
 	var (
-		ncpu            = generic.Ncpu()
-		decompressedBuf = generic.DecompBuffers()
-		writeBuf        = generic.WriteBuffer()
-		writeBufSize    = generic.WriteBufSize()
+		ncpu             = generic.Ncpu()
+		decompressedBufs = generic.DecompBuffers()
+		writeBuf         = generic.WriteBuffer()
+		writeBufSize     = generic.BufferSize() * ncpu
 
 		wrote, read int64
 		calcCRC     uint32
@@ -154,8 +154,8 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 
 			wg.Wait()
 
-			for i := 0; i < ncpu && decompressedBuf[i].Len() > 0; i++ {
-				if wrote, err = decompressedBuf[i].WriteTo(writeBuf); err != nil {
+			for i := 0; i < ncpu && decompressedBufs[i].Len() > 0; i++ {
+				if wrote, err = decompressedBufs[i].WriteTo(writeBuf); err != nil {
 					return errtype.Join(ErrWriteOutBuf, err)
 				}
 				log.Println("В буфер записи записан блок размера:", wrote)
@@ -164,7 +164,10 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 
 		if writeBuf.Len() >= writeBufSize || eof == io.EOF {
 			wg.Add(1)
-			go generic.FlushWriteBuffer(&wg, outBuf)
+			go func() {
+				defer wg.Done()
+				generic.FlushWriteBuffer(outBuf)
+			}()
 		}
 	}
 	wg.Wait()
@@ -187,10 +190,10 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 // новых данных для файла не будет.
 func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type) (read int64, err error) {
 	var (
-		ncpu          = generic.Ncpu()
-		crct          = generic.CRCTable()
-		compressedBuf = generic.CompBuffers()
-		decompressor  = generic.Decompressors()
+		ncpu           = generic.Ncpu()
+		crct           = generic.CRCTable()
+		compressedBufs = generic.CompBuffers()
+		decompressors  = generic.Decompressors()
 
 		n, bufferSize int64
 	)
@@ -207,17 +210,17 @@ func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type) (read int64, er
 			return 0, errtype.Join(ErrBufSize(bufferSize), err)
 		}
 
-		if n, err = io.CopyN(compressedBuf[i], arcBuf, bufferSize); err != nil {
+		if n, err = io.CopyN(compressedBufs[i], arcBuf, bufferSize); err != nil {
 			return 0, errtype.Join(ErrReadCompBuf, err)
 		}
 		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
-		*crc ^= crc32.Checksum(compressedBuf[i].Bytes(), crct)
+		*crc ^= crc32.Checksum(compressedBufs[i].Bytes(), crct)
 		read += n
 
-		if decompressor[i] != nil {
-			decompressor[i].Reset(compressedBuf[i])
+		if decompressors[i] != nil {
+			decompressors[i].Reset(compressedBufs[i])
 		} else {
-			if decompressor[i], err = c.NewReader(ct, compressedBuf[i]); err != nil {
+			if decompressors[i], err = c.NewReader(ct, compressedBufs[i]); err != nil {
 				return 0, errtype.Join(ErrDecompInit, err)
 			}
 		}
@@ -229,22 +232,22 @@ func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type) (read int64, er
 // Распаковывает данные в буферах сжатых данных
 func decompressBuffers() error {
 	var (
-		ncpu            = generic.Ncpu()
-		compressedBuf   = generic.CompBuffers()
-		decompressedBuf = generic.DecompBuffers()
-		decompressor    = generic.Decompressors()
+		ncpu             = generic.Ncpu()
+		compressedBufs   = generic.CompBuffers()
+		decompressedBufs = generic.DecompBuffers()
+		decompressors    = generic.Decompressors()
 
 		errChan = make(chan error, ncpu)
 		wg      sync.WaitGroup
 	)
 
-	for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
+	for i := 0; i < ncpu && compressedBufs[i].Len() > 0; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 
-			defer decompressor[i].Close()
-			_, err := decompressedBuf[i].ReadFrom(decompressor[i])
+			defer decompressors[i].Close()
+			_, err := decompressedBufs[i].ReadFrom(decompressors[i])
 			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 				errChan <- errtype.Join(ErrReadDecomp, err)
 			}
@@ -268,8 +271,8 @@ func decompressBuffers() error {
 // количество прочитанных байт
 func CheckCRC(arcFile io.ReadSeeker, ct c.Type) (read header.Size, err error) {
 	var (
-		ncpu          = generic.Ncpu()
-		compressedBuf = generic.CompBuffers()
+		ncpu           = generic.Ncpu()
+		compressedBufs = generic.CompBuffers()
 
 		n       int64
 		eof     error
@@ -284,8 +287,8 @@ func CheckCRC(arcFile io.ReadSeeker, ct c.Type) (read header.Size, err error) {
 
 		read += header.Size(n)
 
-		for i := 0; i < ncpu && compressedBuf[i].Len() > 0; i++ {
-			compressedBuf[i].Reset()
+		for i := 0; i < ncpu && compressedBufs[i].Len() > 0; i++ {
+			compressedBufs[i].Reset()
 		}
 	}
 
