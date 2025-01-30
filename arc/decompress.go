@@ -32,7 +32,7 @@ func (arc Arc) Decompress() error {
 	return nil
 }
 
-// Обработчик заголовков
+// Обработчик заголовков архива для распаковки
 func (arc Arc) restoreHandler(typ header.HeaderType, arcFile io.ReadSeekCloser) (err error) {
 	switch typ {
 	case header.File:

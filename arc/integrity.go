@@ -2,9 +2,9 @@ package arc
 
 import (
 	"archiver/arc/internal/decompress"
+	"archiver/arc/internal/generic"
 	"archiver/arc/internal/header"
 	"archiver/errtype"
-	"archiver/filesystem"
 	"fmt"
 	"io"
 	"os"
@@ -23,45 +23,38 @@ func (arc Arc) IntegrityTest() error {
 	// Пропускаем магическое число и тип компрессора
 	arcFile.Seek(arcHeaderLen, io.SeekStart)
 
-	var typ header.HeaderType
-
-	for err != io.EOF {
-		err = filesystem.BinaryRead(arcFile, &typ)
-		if err != io.EOF && err != nil {
-			return errtype.ErrIntegrity(
-				errtype.Join(ErrReadHeaderType, err),
-			)
-		} else if err == io.EOF {
-			continue
-		}
-
-		switch typ {
-		case header.File:
-			if err = arc.checkFile(arcFile); err != nil {
-				return errtype.ErrIntegrity(
-					errtype.Join(ErrCheckFile, err),
-				)
-			}
-		case header.Symlink:
-			sym := &header.SymItem{}
-			if err = sym.Read(arcFile); err != nil && err != io.EOF {
-				return errtype.ErrIntegrity(
-					errtype.Join(ErrReadSymHeader, err),
-				)
-			}
-		default:
-			return errtype.ErrIntegrity(ErrHeaderType)
-		}
+	err = generic.ProcessHeaders(arcFile, arcHeaderLen, arc.integrityHeaderHandler)
+	if err != nil {
+		return errtype.ErrIntegrity(err)
 	}
 
 	return nil
 }
 
-// Распаковывает файл с проверкой CRC каждого
-// блока сжатых данных
-func (arc Arc) checkFile(arcFile io.ReadSeeker) error {
-	var err error
+// Обработчик заголовков архива для проверки целостности
+func (arc Arc) integrityHeaderHandler(typ header.HeaderType, arcFile io.ReadSeekCloser) (err error) {
+	switch typ {
+	case header.File:
+		if err = arc.checkFile(arcFile); err != nil {
+			return errtype.ErrIntegrity(
+				errtype.Join(ErrCheckFile, err),
+			)
+		}
+	case header.Symlink:
+		sym := &header.SymItem{} // Фактически пропускаем до следующего файла
+		if err = sym.Read(arcFile); err != nil && err != io.EOF {
+			return errtype.ErrIntegrity(
+				errtype.Join(ErrReadSymHeader, err),
+			)
+		}
+	default:
+		return errtype.ErrIntegrity(ErrHeaderType)
+	}
+	return nil
+}
 
+// Распаковывает файл с проверкой CRC каждого блока сжатых данных
+func (arc Arc) checkFile(arcFile io.ReadSeeker) (err error) {
 	fi := &header.FileItem{}
 	if err := fi.Read(arcFile); err != nil && err != io.EOF {
 		return errtype.Join(ErrReadFileHeader, err)
