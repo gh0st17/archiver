@@ -1,5 +1,8 @@
 package generic
 
-import "fmt"
+import "archiver/arc/internal/errors"
 
-var ErrFlushWrBuf = fmt.Errorf("ошибка сброса буфера записи на диск")
+var (
+	ErrFlushWrBuf     = errors.ErrFlushWrBuf
+	ErrReadHeaderType = errors.ErrReadHeaderType
+)

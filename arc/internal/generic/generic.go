@@ -1,8 +1,10 @@
 package generic
 
 import (
+	"archiver/arc/internal/header"
 	c "archiver/compressor"
 	"archiver/errtype"
+	"archiver/filesystem"
 	"bytes"
 	"hash/crc32"
 	"io"
@@ -89,6 +91,27 @@ func InitCompressors(rp RestoreParams) (err error) {
 func ResetDecomp() {
 	for i := 0; i < ncpu; i++ {
 		decompressor[i] = nil
+	}
+}
+
+type ProcHeaderHandler = func(header.HeaderType, io.ReadSeekCloser) error
+
+func ProcessHeaders(arcFile io.ReadSeekCloser, arcLenH int64, handler ProcHeaderHandler) error {
+	var typ header.HeaderType
+
+	arcFile.Seek(arcLenH, io.SeekStart) // Перемещаемся на начало заголовков
+
+	for {
+		err := filesystem.BinaryRead(arcFile, &typ) // Читаем тип заголовка
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return errtype.Join(ErrReadHeaderType, err)
+		}
+
+		if err := handler(typ, arcFile); err != nil {
+			return err
+		}
 	}
 }
 

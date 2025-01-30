@@ -12,53 +12,35 @@ import (
 )
 
 // Читает заголовки из архива, определяет смещение данных
-func ReadHeaders(arcFile io.ReadSeekCloser, arcLenH int64) (headers []header.Header, err error) {
-	var (
-		sym  *header.SymItem
-		file *header.FileItem
-		h    header.Header
-		typ  header.HeaderType
-	)
+func ReadHeaders(arcFile io.ReadSeekCloser, arcLenH int64) ([]header.Header, error) {
+	var headers []header.Header
 
-	// Пропускаем магическое число и тип компрессора
-	arcFile.Seek(arcLenH, io.SeekStart)
-
-	for err != io.EOF {
-		err = filesystem.BinaryRead(arcFile, &typ)
-		if err != io.EOF && err != nil {
-			return nil, errtype.Join(ErrReadHeaderType, err)
-		} else if err == io.EOF {
-			continue
-		}
-
+	handler := func(typ header.HeaderType, arcFile io.ReadSeekCloser) (err error) {
+		var h header.Header
 		switch typ {
 		case header.File:
-			if file, err = readFileHeader(arcFile); err != nil && err != io.EOF {
-				return nil, errtype.Join(ErrReadHeaders, err)
-			}
-			if file != nil {
-				h = file
-			}
+			h, err = readFileHeader(arcFile)
 		case header.Symlink:
-			if sym, err = readSymHeader(arcFile); err != nil && err != io.EOF {
-				return nil, errtype.Join(ErrReadHeaders, err)
-			}
-			if sym != nil {
-				h = sym
-			}
+			h, err = readSymHeader(arcFile)
 		default:
-			return nil, ErrHeaderType
+			return ErrHeaderType
 		}
 
+		if err != nil && err != io.EOF {
+			return errtype.Join(ErrReadHeaders, err)
+		}
 		if h != nil {
 			headers = append(headers, h)
 		}
-		h = nil
+		return nil
+	}
+
+	if err := generic.ProcessHeaders(arcFile, arcLenH, handler); err != nil {
+		return nil, err
 	}
 
 	// Возврат каретки в начало первого заголовка
 	arcFile.Seek(arcLenH, io.SeekStart)
-
 	dirs := insertDirs(headers)
 	headers = append(headers, dirs...)
 	sort.Sort(header.ByPathInArc(headers))
