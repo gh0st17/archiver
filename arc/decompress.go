@@ -29,6 +29,9 @@ func (arc Arc) Decompress() error {
 		return errtype.ErrDecompress(err)
 	}
 
+	// Сброс декомпрессоров перед новым вызовом это функции
+	generic.ResetDecomp()
+
 	return nil
 }
 

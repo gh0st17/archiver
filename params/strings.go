@@ -31,7 +31,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  -1 -- DefaultCompression
   0 -- Без сжатия
 1-9 -- Произвольная степень сжатия`
-	compDesc      = "Тип компрессора: GZip, LZW, ZLib"
+	compDesc      = "Тип компрессора: GZip, LZW, ZLib, Flate"
 	helpDesc      = "Показать эту помощь"
 	statDesc      = "Печать информации о сжатии и выход (игнорирует -l)"
 	listDesc      = "Печать списка файлов и выход"

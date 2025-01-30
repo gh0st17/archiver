@@ -16,11 +16,12 @@ const (
 	GZip
 	LempelZivWelch
 	ZLib
+	Flate
 )
 
 // Реализация fmt.Stringer
 func (ct Type) String() string {
-	return [...]string{"Nop", "GZip", "LZW", "ZLib"}[ct]
+	return [...]string{"Nop", "GZip", "LZW", "ZLib", "Flate"}[ct]
 }
 
 type Level int // Уровень сжатия
@@ -66,6 +67,23 @@ func (zr *zlibReader) Reset(r io.Reader) error {
 	return zr.reader.(zlib.Resetter).Reset(r, nil)
 }
 
+// Адаптер для [flate.reader]
+type flateReader struct {
+	reader io.ReadCloser
+}
+
+func (fr *flateReader) Read(p []byte) (int, error) {
+	return fr.reader.Read(p)
+}
+
+func (fr *flateReader) Close() error {
+	return fr.reader.Close()
+}
+
+func (fr *flateReader) Reset(r io.Reader) error {
+	return fr.reader.(flate.Resetter).Reset(r, nil)
+}
+
 type Reader struct {
 	reader ReadCloseResetter
 }
@@ -97,6 +115,8 @@ func newReader(typ Type, r io.Reader) (ReadCloseResetter, error) {
 			return nil, err
 		}
 		return &zlibReader{z}, nil
+	case Flate:
+		return &flateReader{flate.NewReader(r)}, nil
 	case Nop:
 		return &nopReader{io.NopCloser(r)}, nil
 	default:
@@ -160,6 +180,8 @@ func newWriter(typ Type, w io.Writer, l Level) (WriteCloseResetter, error) {
 		return &lzwWriter{lzw.NewWriter(w, lzw.MSB, 8).(*lzw.Writer)}, nil
 	case ZLib:
 		return zlib.NewWriterLevel(w, int(l))
+	case Flate:
+		return flate.NewWriter(w, int(l))
 	case Nop:
 		return nopWriteCloser{Writer: w}, nil
 	default:

@@ -59,7 +59,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 			return nil, err
 		}
 
-		if compType <= byte(c.ZLib) {
+		if compType <= byte(c.Flate) {
 			arc.Ct = c.Type(compType)
 		} else {
 			return nil, ErrUnknownComp

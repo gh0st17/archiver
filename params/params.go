@@ -172,6 +172,8 @@ func (p *Params) checkCompType(compType string) {
 		p.Ct = compressor.LempelZivWelch
 	case "zlib":
 		p.Ct = compressor.ZLib
+	case "flate":
+		p.Ct = compressor.Flate
 	default:
 		printError(compTypeError)
 	}

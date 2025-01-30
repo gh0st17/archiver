@@ -31,6 +31,12 @@ func TestZlib(t *testing.T) {
 	}
 }
 
+func TestFlate(t *testing.T) {
+	for cl := compressor.Level(-2); cl <= 9; cl++ {
+		runTest(t, compressor.Flate, cl)
+	}
+}
+
 func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
 	const dataSize = 12 * 1024 * 1024
 

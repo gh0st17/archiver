@@ -53,6 +53,10 @@ func TestZlibAll(t *testing.T) {
 	runTestAll(t, compressor.ZLib)
 }
 
+func TestFlateAll(t *testing.T) {
+	runTestAll(t, compressor.Flate)
+}
+
 func TestNopByEntry(t *testing.T) {
 	runTestByEntry(t, compressor.Nop)
 }
@@ -69,6 +73,10 @@ func TestZlibByEntry(t *testing.T) {
 	runTestByEntry(t, compressor.ZLib)
 }
 
+func TestFlateByEntry(t *testing.T) {
+	runTestByEntry(t, compressor.Flate)
+}
+
 func TestNopByFile(t *testing.T) {
 	runTestByFile(t, compressor.Nop)
 }
@@ -83,6 +91,10 @@ func TestLzwByFile(t *testing.T) {
 
 func TestZlibByFile(t *testing.T) {
 	runTestByFile(t, compressor.ZLib)
+}
+
+func TestFlateByFile(t *testing.T) {
+	runTestByFile(t, compressor.Flate)
 }
 
 func runTestAll(t *testing.T, ct compressor.Type) {
