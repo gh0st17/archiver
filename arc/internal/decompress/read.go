@@ -36,7 +36,7 @@ func ReadHeaders(arcFile io.ReadSeekCloser, arcLenH int64) ([]header.Header, err
 	}
 
 	if err := generic.ProcessHeaders(arcFile, arcLenH, handler); err != nil {
-		return nil, err
+		return nil, errtype.Join(ErrReadHeaderType, err)
 	}
 
 	// Возврат каретки в начало первого заголовка

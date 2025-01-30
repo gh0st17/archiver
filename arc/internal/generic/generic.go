@@ -106,7 +106,7 @@ func ProcessHeaders(arcFile io.ReadSeekCloser, arcLenH int64, handler ProcHeader
 		if err == io.EOF {
 			return nil
 		} else if err != nil {
-			return errtype.Join(ErrReadHeaderType, err)
+			return err
 		}
 
 		if err := handler(typ, arcFile); err != nil {
