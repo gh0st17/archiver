@@ -22,6 +22,8 @@ type RestoreParams struct {
 	ReplaceAll bool
 }
 
+// Базовый размер буфера
+// для операции ввода вывода
 const bufferSize int = 1048576 // 1М
 
 var (
@@ -77,6 +79,7 @@ func CheckBufferSize(bufferSize int64) bool {
 	return bufferSize < 0 || bufferSize>>1 > bufferSize
 }
 
+// Инициализирует компрессоры
 func InitCompressors(rp RestoreParams) (err error) {
 	for i := 0; i < ncpu; i++ { // Инициализация компрессоров
 		compressor[i], err = c.NewWriter(rp.Ct, compressedBuf[i], rp.Cl)
@@ -88,14 +91,17 @@ func InitCompressors(rp RestoreParams) (err error) {
 	return nil
 }
 
+// Сбрасывает декомпрессоры
 func ResetDecomp() {
 	for i := 0; i < ncpu; i++ {
 		decompressor[i] = nil
 	}
 }
 
+// Прототип функции-обработчика заголовков
 type ProcHeaderHandler = func(header.HeaderType, io.ReadSeekCloser) error
 
+// Универсальная функция обработки заголовков из arcFile
 func ProcessHeaders(arcFile io.ReadSeekCloser, arcLenH int64, handler ProcHeaderHandler) error {
 	var typ header.HeaderType
 
