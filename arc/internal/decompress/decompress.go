@@ -17,15 +17,6 @@ import (
 	"unicode"
 )
 
-type RestoreParams struct {
-	OutputDir string
-	Integ     bool
-	Ct        c.Type  // Тип компрессора
-	Cl        c.Level // Уровень сжатия
-	// Флаг замены файлов без подтверждения
-	ReplaceAll bool
-}
-
 // Восстанавливает файл из архива.
 //
 // Читает заголовок файла, проверяет
@@ -33,7 +24,7 @@ type RestoreParams struct {
 // а затем либо декомпрессирует файл, либо пропускает его в
 // случае повреждений. Также обрабатывает сценарии замены уже
 // существующих файлов.
-func RestoreFile(arcFile io.ReadSeeker, rp RestoreParams) error {
+func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 	fi := &header.FileItem{}
 	err := fi.Read(arcFile)
 	if err != nil && err != io.EOF {
@@ -74,7 +65,7 @@ func RestoreFile(arcFile io.ReadSeeker, rp RestoreParams) error {
 }
 
 // Восстанавливает символьную ссылку
-func RestoreSym(arcFile io.ReadSeeker, rp RestoreParams) error {
+func RestoreSym(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 	sym := &header.SymItem{}
 
 	err := sym.Read(arcFile)

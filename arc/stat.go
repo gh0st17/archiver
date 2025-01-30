@@ -24,7 +24,7 @@ func (arc Arc) ViewStat() error {
 		)
 	}
 
-	fmt.Printf("Тип компрессора: %s\n", arc.ct)
+	fmt.Printf("Тип компрессора: %s\n", arc.Ct)
 	header.PrintStatHeader()
 
 	var original, compressed header.Size

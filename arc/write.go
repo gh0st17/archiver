@@ -20,7 +20,7 @@ func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 	}
 
 	// Пишем тип компрессора
-	if err = filesystem.BinaryWrite(arcFile, arc.ct); err != nil {
+	if err = filesystem.BinaryWrite(arcFile, arc.Ct); err != nil {
 		return nil, errtype.Join(ErrWriteCompType, err)
 	}
 

@@ -29,7 +29,7 @@ func (arc Arc) Compress(paths []string) error {
 		)
 	}
 
-	if err = generic.InitCompressors(arc.ct, arc.cl); err != nil {
+	if err = generic.InitCompressors(arc.RestoreParams); err != nil {
 		return errtype.ErrCompress(
 			errtype.Join(ErrCompressorInit, err),
 		)

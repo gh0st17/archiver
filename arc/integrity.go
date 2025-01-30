@@ -67,7 +67,7 @@ func (arc Arc) checkFile(arcFile io.ReadSeeker) error {
 		return errtype.Join(ErrReadFileHeader, err)
 	}
 
-	if _, err = decompress.CheckCRC(arcFile, arc.ct); err == ErrWrongCRC {
+	if _, err = decompress.CheckCRC(arcFile, arc.Ct); err == ErrWrongCRC {
 		fmt.Println(fi.PathOnDisk() + ": Файл поврежден")
 	} else if err != nil {
 		return errtype.Join(ErrCheckCRC, err)

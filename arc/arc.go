@@ -1,7 +1,7 @@
 package arc
 
 import (
-	"archiver/arc/internal/decompress"
+	"archiver/arc/internal/generic"
 	c "archiver/compressor"
 	"archiver/errtype"
 	"archiver/filesystem"
@@ -20,29 +20,25 @@ const (
 
 // Структура параметров архива
 type Arc struct {
-	arcPath   string // Путь к файлу архива
-	outputDir string
-	integ     bool
-	ct        c.Type  // Тип компрессора
-	cl        c.Level // Уровень сжатия
-	// Флаг замены файлов без подтверждения
-	replaceAll bool
+	arcPath string // Путь к файлу архива
+	generic.RestoreParams
 }
 
 // Возвращает новый [Arc] из входных параметров программы
 func NewArc(p params.Params) (arc *Arc, err error) {
 	arc = &Arc{
-		arcPath:    p.ArcPath,
-		replaceAll: p.ReplaceAll,
+		arcPath: p.ArcPath,
 	}
 
 	if filesystem.DirExists(arc.arcPath) {
 		return nil, errIsDir(filepath.Base(arc.arcPath))
 	}
 
+	arc.ReplaceAll = p.ReplaceAll
+
 	if len(p.InputPaths) > 0 {
-		arc.ct = p.Ct
-		arc.cl = p.Cl
+		arc.Ct = p.Ct
+		arc.Cl = p.Cl
 	} else {
 		arcFile, err := os.Open(arc.arcPath)
 		if err != nil {
@@ -64,26 +60,16 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		}
 
 		if compType <= byte(c.ZLib) {
-			arc.ct = c.Type(compType)
+			arc.Ct = c.Type(compType)
 		} else {
 			return nil, ErrUnknownComp
 		}
 
-		arc.integ = p.XIntegTest
-		arc.outputDir = p.OutputDir
+		arc.Integ = p.XIntegTest
+		arc.OutputDir = p.OutputDir
 	}
 
 	return arc, nil
-}
-
-func (arc Arc) ToRestoreParams() decompress.RestoreParams {
-	return decompress.RestoreParams{
-		OutputDir:  arc.outputDir,
-		Integ:      arc.integ,
-		Ct:         arc.ct,
-		Cl:         arc.cl,
-		ReplaceAll: arc.replaceAll,
-	}
 }
 
 // Удаляет архив

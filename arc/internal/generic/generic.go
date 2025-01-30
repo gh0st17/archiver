@@ -11,6 +11,15 @@ import (
 	"sync"
 )
 
+type RestoreParams struct {
+	OutputDir string
+	Integ     bool
+	Ct        c.Type  // Тип компрессора
+	Cl        c.Level // Уровень сжатия
+	// Флаг замены файлов без подтверждения
+	ReplaceAll bool
+}
+
 const bufferSize int = 1048576 // 1М
 
 var (
@@ -66,9 +75,9 @@ func CheckBufferSize(bufferSize int64) bool {
 	return bufferSize < 0 || bufferSize>>1 > bufferSize
 }
 
-func InitCompressors(ct c.Type, cl c.Level) (err error) {
+func InitCompressors(rp RestoreParams) (err error) {
 	for i := 0; i < ncpu; i++ { // Инициализация компрессоров
-		compressor[i], err = c.NewWriter(ct, compressedBuf[i], cl)
+		compressor[i], err = c.NewWriter(rp.Ct, compressedBuf[i], rp.Cl)
 		if err != nil {
 			return err
 		}

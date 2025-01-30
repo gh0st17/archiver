@@ -30,7 +30,6 @@ func (arc Arc) Decompress() error {
 
 	// Установка размера буфера записи
 	generic.SetWriteBufSize(generic.BufferSize() * generic.Ncpu())
-	rp := arc.ToRestoreParams()
 
 	var typ header.HeaderType
 	for err != io.EOF {
@@ -45,14 +44,14 @@ func (arc Arc) Decompress() error {
 
 		switch typ {
 		case header.File:
-			err = decompress.RestoreFile(arcFile, rp)
+			err = decompress.RestoreFile(arcFile, arc.RestoreParams)
 			if err != nil && err != io.EOF {
 				return errtype.ErrDecompress(
 					errtype.Join(ErrDecompressFile, err),
 				)
 			}
 		case header.Symlink:
-			err = decompress.RestoreSym(arcFile, rp)
+			err = decompress.RestoreSym(arcFile, arc.RestoreParams)
 			if err != nil && err != io.EOF {
 				return errtype.ErrDecompress(
 					errtype.Join(ErrDecompressSym, err),
