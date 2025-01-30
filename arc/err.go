@@ -1,13 +1,13 @@
 package arc
 
-import (
-	"archiver/arc/internal/errors"
-	c "archiver/compressor"
-)
+import "archiver/arc/internal/errors"
 
-var errIsDir = errors.ErrIsDir
-var errNotArc = errors.ErrNotArc
-var ErrUnknownComp = c.ErrUnknownComp
+// Ошибки при открытии архива
+var (
+	ErrIsDir       = errors.ErrIsDir
+	ErrNotArc      = errors.ErrNotArc
+	ErrUnknownComp = errors.ErrUnknownComp
+)
 
 // Ошибки при сжатии
 var (

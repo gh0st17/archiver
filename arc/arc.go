@@ -31,7 +31,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	}
 
 	if filesystem.DirExists(arc.arcPath) {
-		return nil, errIsDir(filepath.Base(arc.arcPath))
+		return nil, ErrIsDir(filepath.Base(arc.arcPath))
 	}
 
 	arc.ReplaceAll = p.ReplaceAll
@@ -51,7 +51,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 			return nil, errtype.Join(ErrReadMagic, err)
 		}
 		if magic != magicNumber {
-			return nil, errNotArc(arcFile.Name())
+			return nil, ErrNotArc(arcFile.Name())
 		}
 
 		var compType byte

@@ -1,8 +1,6 @@
 package compressor
 
-import (
-	"fmt"
-)
+import "fmt"
 
 var (
 	ErrDecompCreate = fmt.Errorf("не могу создать новый декомпрессор")

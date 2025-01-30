@@ -1,8 +1,6 @@
 package decompress
 
-import (
-	"archiver/arc/internal/errors"
-)
+import "archiver/arc/internal/errors"
 
 // Ошибки при распаковке
 var (
