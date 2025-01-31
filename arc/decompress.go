@@ -23,6 +23,10 @@ func (arc Arc) Decompress() error {
 	}
 	defer arcFile.Close()
 
+	if err := generic.LoadDict(arc.RestoreParams); err != nil {
+		return errtype.ErrDecompress(err)
+	}
+
 	if err := generic.ProcessHeaders(arcFile, arcHeaderLen, arc.restoreHandler); err != nil {
 		return errtype.ErrDecompress(err)
 	}

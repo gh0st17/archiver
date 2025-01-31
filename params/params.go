@@ -117,35 +117,33 @@ func (p Params) PrintNopLevelIgnore() {
 
 // Флаги которые могут быть проигнорированы
 // другими флагами
-var ignores = []string{
-	"f", "o", "xinteg", "integ", "l", "s", "c", "L",
+var ignores = [...]string{
+	"f", "o", "xinteg", "dict", "integ", "l", "s", "c", "L",
 }
 
-// Явный вывод какие флаги игнорирует
-// наличие путей после имени архива
-func PrintPathsIgnore() {
-	printIgnore("Наличие путей после имени архива", ignores[:6])
+// Явный вывод какие флаги игнорирует режим сжатия
+func PrintCompressIgnore() {
+	printIgnore("Сжатие файлов", append(ignores[:3], ignores[4:7]...))
 }
 
 // Явный вывод какие флаги игнорирует флаг '-s'
 func PrintStatIgnore() {
-	printIgnore("Наличие флага 's'", append(ignores[:5], ignores[6:]...))
+	printIgnore("Наличие флага 's'", append(ignores[:6], ignores[7:]...))
 }
 
 // Явный вывод какие флаги игнорирует флаг '-l'
 func PrintListIgnore() {
-	printIgnore("Наличие флага 'l'", append(ignores[:4], ignores[5:]...))
+	printIgnore("Наличие флага 'l'", append(ignores[:5], ignores[7:]...))
 }
 
 // Явный вывод какие флаги игнорирует флаг '--integ'
 func PrintIntegIgnore() {
-	printIgnore("Наличие флага 'integ'", append(ignores[:3], ignores[4:]...))
+	printIgnore("Наличие флага 'integ'", append(ignores[:4], ignores[7:]...))
 }
 
-// Явный вывод какие флаги игнорирует
-// отсутствие путей после имени архива
+// Явный вывод какие флаги игнорирует распаковка архива
 func PrintDecompressIgnore() {
-	printIgnore("Отсутствие путей после имени архива", ignores[3:])
+	printIgnore("Распаковка архива", ignores[4:])
 }
 
 // Общий шаблон вывода информации о том какие
@@ -199,7 +197,7 @@ func (p *Params) checkCompType(compType string) error {
 // Проверяет пути к файлам и архиву
 func (p *Params) checkPaths() error {
 	if len(flag.Args()) == 0 {
-		return ErrArchivePathInputPath
+		return ErrArcInPath
 	}
 
 	pathsLen := len(flag.Args()[1:])
@@ -220,7 +218,7 @@ func (p *Params) checkPaths() error {
 }
 
 func (p Params) checkDict() error {
-	if p.DictPath == "" {
+	if len(p.InputPaths) == 0 || p.DictPath == "" {
 		return nil
 	}
 

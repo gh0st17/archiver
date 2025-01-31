@@ -75,16 +75,25 @@ func CheckBufferSize(bufferSize int64) bool {
 
 // Инициализирует компрессоры
 func InitCompressors(rp RestoreParams) (err error) {
-	if rp.DictPath != "" {
-		if dict, err = os.ReadFile(rp.DictPath); err != nil {
-			return errtype.Join(ErrReadDict, err)
-		}
+	if err = LoadDict(rp); err != nil {
+		return err
 	}
 
 	for i := 0; i < ncpu; i++ { // Инициализация компрессоров
 		compressors[i], err = c.NewWriterDict(rp.Ct, dict, compressedBufs[i], rp.Cl)
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+// Загружает файл словаря в байтовый срез
+func LoadDict(rp RestoreParams) (err error) {
+	if rp.DictPath != "" {
+		if dict, err = os.ReadFile(rp.DictPath); err != nil {
+			return errtype.Join(ErrReadDict, err)
 		}
 	}
 

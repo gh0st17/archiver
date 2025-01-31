@@ -36,7 +36,7 @@ func main() {
 	switch {
 	case len(p.InputPaths) > 0:
 		p.PrintNopLevelIgnore()
-		params.PrintPathsIgnore()
+		params.PrintCompressIgnore()
 		err = a.Compress(p.InputPaths)
 	case p.PrintStat:
 		params.PrintStatIgnore()

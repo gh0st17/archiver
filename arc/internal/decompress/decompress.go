@@ -143,7 +143,7 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 
 	outBuf := bufio.NewWriter(outFile)
 	for eof != io.EOF {
-		if read, eof = loadCompressedBuf(arcFile, &calcCRC, ct); eof != nil && eof != io.EOF {
+		if read, eof = loadCompressedBuf(arcFile, &calcCRC, ct, false); eof != nil && eof != io.EOF {
 			return errtype.Join(ErrReadCompressed, eof)
 		}
 
@@ -188,7 +188,11 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 // Возвращает количество прочитанных байт и ошибку.
 // Если err == io.EOF, то был прочитан признак конца файла,
 // новых данных для файла не будет.
-func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type) (read int64, err error) {
+//
+// Для определения длины файла без распаковки используется
+// countOnly == true, благодаря чему инициализация или сброс
+// декомпрессоров пропускается
+func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type, countOnly bool) (read int64, err error) {
 	var (
 		ncpu           = generic.Ncpu()
 		crct           = generic.CRCTable()
@@ -217,6 +221,10 @@ func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type) (read int64, er
 		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
 		*crc ^= crc32.Checksum(compressedBufs[i].Bytes(), crct)
 		read += n
+
+		if countOnly {
+			continue
+		}
 
 		if decompressors[i] != nil {
 			decompressors[i].Reset(compressedBufs[i])
@@ -267,9 +275,8 @@ func decompressBuffers() error {
 	return nil
 }
 
-// Считывает данные сжатого файла из arcFile,
-// проверяет контрольную сумму и возвращает
-// количество прочитанных байт
+// Считывает данные сжатого файла из arcFile, проверяет
+// контрольную сумму и возвращает количество прочитанных байт
 func CheckCRC(arcFile io.ReadSeeker, ct c.Type) (read header.Size, err error) {
 	var (
 		ncpu           = generic.Ncpu()
@@ -282,7 +289,7 @@ func CheckCRC(arcFile io.ReadSeeker, ct c.Type) (read header.Size, err error) {
 	)
 
 	for eof != io.EOF {
-		if n, eof = loadCompressedBuf(arcFile, &calcCRC, ct); eof != nil && eof != io.EOF {
+		if n, eof = loadCompressedBuf(arcFile, &calcCRC, ct, true); eof != nil && eof != io.EOF {
 			return 0, errtype.Join(ErrReadCompressed, eof)
 		}
 
