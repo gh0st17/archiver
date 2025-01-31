@@ -92,16 +92,7 @@ type Reader struct {
 
 // Возвращает нового читателя типа typ
 func NewReader(typ Type, r io.Reader) (*Reader, error) {
-	reader, err := newReaderDict(typ, nil, r)
-	if err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-
-		return nil, errtype.Join(ErrDecompCreate, err)
-	}
-
-	return &Reader{reader: reader}, nil
+	return NewReaderDict(typ, nil, r)
 }
 
 // Возвращает нового читателя типа typ со словарем dict
@@ -183,15 +174,7 @@ type Writer struct {
 
 // Возвращает нового писателя типа typ
 func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
-	writer, err := newWriterDict(typ, nil, w, l)
-	if err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-		return nil, errtype.Join(ErrCompCreate, err)
-	}
-
-	return &Writer{writer: writer}, nil
+	return NewWriterDict(typ, nil, w, l)
 }
 
 // Возвращает нового писателя типа typ со словарем dict
