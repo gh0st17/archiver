@@ -10,3 +10,5 @@ out/
 __debug**
 *.prof
 **.DS_Store
+**.dat
+**.bin

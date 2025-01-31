@@ -53,6 +53,7 @@ func (lr *lzwReader) Reset(r io.Reader) error {
 // Адаптер для [zlib.reader]
 type zlibReader struct {
 	reader io.ReadCloser
+	dict   *[]byte
 }
 
 func (zr *zlibReader) Read(p []byte) (int, error) {
@@ -64,12 +65,13 @@ func (zr *zlibReader) Close() error {
 }
 
 func (zr *zlibReader) Reset(r io.Reader) error {
-	return zr.reader.(zlib.Resetter).Reset(r, nil)
+	return zr.reader.(zlib.Resetter).Reset(r, *zr.dict)
 }
 
 // Адаптер для [flate.reader]
 type flateReader struct {
 	reader io.ReadCloser
+	dict   *[]byte
 }
 
 func (fr *flateReader) Read(p []byte) (int, error) {
@@ -81,7 +83,7 @@ func (fr *flateReader) Close() error {
 }
 
 func (fr *flateReader) Reset(r io.Reader) error {
-	return fr.reader.(flate.Resetter).Reset(r, nil)
+	return fr.reader.(flate.Resetter).Reset(r, *fr.dict)
 }
 
 type Reader struct {
@@ -90,7 +92,7 @@ type Reader struct {
 
 // Возвращает нового читателя типа typ
 func NewReader(typ Type, r io.Reader) (*Reader, error) {
-	reader, err := newReader(typ, r)
+	reader, err := newReaderDict(typ, nil, r)
 	if err != nil {
 		if err == io.EOF {
 			return nil, err
@@ -102,23 +104,44 @@ func NewReader(typ Type, r io.Reader) (*Reader, error) {
 	return &Reader{reader: reader}, nil
 }
 
-// Выбирает читателя согласно typ
-func newReader(typ Type, r io.Reader) (ReadCloseResetter, error) {
+// Возвращает нового читателя типа typ со словарем dict
+func NewReaderDict(typ Type, dict []byte, r io.Reader) (*Reader, error) {
+	reader, err := newReaderDict(typ, dict, r)
+	if err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+
+		return nil, errtype.Join(ErrDecompCreate, err)
+	}
+
+	return &Reader{reader: reader}, nil
+}
+
+// Выбирает читателя согласно typ со словарем dict
+func newReaderDict(typ Type, dict []byte, r io.Reader) (ReadCloseResetter, error) {
 	switch typ {
-	case GZip:
-		return gzip.NewReader(r)
-	case LempelZivWelch:
-		return &lzwReader{lzw.NewReader(r, lzw.MSB, 8).(*lzw.Reader)}, nil
+	case GZip, LempelZivWelch, Nop:
+		if dict != nil {
+			return nil, ErrUnsupportedDict(typ)
+		} else {
+			switch typ {
+			case GZip:
+				return gzip.NewReader(r)
+			case LempelZivWelch:
+				return &lzwReader{lzw.NewReader(r, lzw.MSB, 8).(*lzw.Reader)}, nil
+			default:
+				return &nopReader{io.NopCloser(r)}, nil
+			}
+		}
 	case ZLib:
-		z, err := zlib.NewReader(r)
+		z, err := zlib.NewReaderDict(r, dict)
 		if err != nil {
 			return nil, err
 		}
-		return &zlibReader{z}, nil
+		return &zlibReader{z, &dict}, nil
 	case Flate:
-		return &flateReader{flate.NewReader(r)}, nil
-	case Nop:
-		return &nopReader{io.NopCloser(r)}, nil
+		return &flateReader{flate.NewReaderDict(r, dict), &dict}, nil
 	default:
 		return nil, ErrUnknownComp
 	}
@@ -160,7 +183,7 @@ type Writer struct {
 
 // Возвращает нового писателя типа typ
 func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
-	writer, err := newWriter(typ, w, l)
+	writer, err := newWriterDict(typ, nil, w, l)
 	if err != nil {
 		if err == io.EOF {
 			return nil, err
@@ -171,19 +194,39 @@ func NewWriter(typ Type, w io.Writer, l Level) (*Writer, error) {
 	return &Writer{writer: writer}, nil
 }
 
-// Выбирает писателя согласно typ
-func newWriter(typ Type, w io.Writer, l Level) (WriteCloseResetter, error) {
+// Возвращает нового писателя типа typ со словарем dict
+func NewWriterDict(typ Type, dict []byte, w io.Writer, l Level) (*Writer, error) {
+	writer, err := newWriterDict(typ, dict, w, l)
+	if err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+		return nil, errtype.Join(ErrCompCreate, err)
+	}
+
+	return &Writer{writer: writer}, nil
+}
+
+// Выбирает писателя согласно typ со словарем dict
+func newWriterDict(typ Type, dict []byte, w io.Writer, l Level) (WriteCloseResetter, error) {
 	switch typ {
-	case GZip:
-		return gzip.NewWriterLevel(w, int(l))
-	case LempelZivWelch:
-		return &lzwWriter{lzw.NewWriter(w, lzw.MSB, 8).(*lzw.Writer)}, nil
+	case GZip, LempelZivWelch, Nop:
+		if dict != nil {
+			return nil, ErrUnsupportedDict(typ)
+		} else {
+			switch typ {
+			case GZip:
+				return gzip.NewWriterLevel(w, int(l))
+			case LempelZivWelch:
+				return &lzwWriter{lzw.NewWriter(w, lzw.MSB, 8).(*lzw.Writer)}, nil
+			default:
+				return nopWriteCloser{Writer: w}, nil
+			}
+		}
 	case ZLib:
-		return zlib.NewWriterLevel(w, int(l))
+		return zlib.NewWriterLevelDict(w, int(l), dict)
 	case Flate:
-		return flate.NewWriter(w, int(l))
-	case Nop:
-		return nopWriteCloser{Writer: w}, nil
+		return flate.NewWriterDict(w, int(l), dict)
 	default:
 		return nil, ErrUnknownComp
 	}

@@ -9,11 +9,13 @@ import (
 	"hash/crc32"
 	"io"
 	"log"
+	"os"
 	"runtime"
 )
 
 type RestoreParams struct {
 	OutputDir string
+	DictPath  string
 	Integ     bool
 	Ct        c.Type  // Тип компрессора
 	Cl        c.Level // Уровень сжатия
@@ -37,6 +39,7 @@ var (
 	compressors      = make([]*c.Writer, ncpu)
 	decompressors    = make([]*c.Reader, ncpu)
 	writeBuf         *bytes.Buffer
+	dict             []byte
 )
 
 func BufferSize() int { return bufferSize }
@@ -49,6 +52,7 @@ func Compressors() []*c.Writer       { return compressors }
 func Decompressors() []*c.Reader     { return decompressors }
 
 func WriteBuffer() *bytes.Buffer { return writeBuf }
+func Dict() []byte               { return dict }
 
 // Сбрасывает буфер данных для записи на диск
 func FlushWriteBuffer(w io.Writer) {
@@ -71,8 +75,14 @@ func CheckBufferSize(bufferSize int64) bool {
 
 // Инициализирует компрессоры
 func InitCompressors(rp RestoreParams) (err error) {
+	if rp.DictPath != "" {
+		if dict, err = os.ReadFile(rp.DictPath); err != nil {
+			return errtype.Join(ErrReadDict, err)
+		}
+	}
+
 	for i := 0; i < ncpu; i++ { // Инициализация компрессоров
-		compressors[i], err = c.NewWriter(rp.Ct, compressedBufs[i], rp.Cl)
+		compressors[i], err = c.NewWriterDict(rp.Ct, dict, compressedBufs[i], rp.Cl)
 		if err != nil {
 			return err
 		}

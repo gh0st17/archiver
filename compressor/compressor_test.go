@@ -68,7 +68,7 @@ func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
 	}
 	inMD5 = hashBytes(decompBuf.Bytes())
 
-	if c, err = compressor.NewWriter(ct, compBuf, cl); err != nil {
+	if c, err = compressor.NewWriterDict(ct, nil, compBuf, cl); err != nil {
 		t.Fatal(err)
 	}
 

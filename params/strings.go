@@ -26,6 +26,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 	viewExample   = "[-l | -s] <путь до архива>"
 
 	outputDirDesc = "Путь к директории для распаковки"
+	dictPathDesc  = "Путь к файлу словаря"
 	levelDesc     = `Уровень сжатия от -2 до 9 (Не применяется для LZW)
  -2 -- HuffmanOnly
  -1 -- DefaultCompression

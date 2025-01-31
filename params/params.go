@@ -16,6 +16,7 @@ type Params struct {
 	InputPaths []string         // Пути для архивирования
 	OutputDir  string           // Путь к директории для распаковки
 	ArcPath    string           // Путь к файлу архива
+	DictPath   string           // Путь к словарю
 	Ct         compressor.Type  // Тип компрессора
 	Cl         compressor.Level // Уровень сжатия
 	PrintStat  bool             // Флаг вывода информации об архиве
@@ -45,6 +46,7 @@ func PrintHelp() {
 func ParseParams() (p Params) {
 	flag.Usage = PrintHelp
 	flag.StringVar(&p.OutputDir, "o", "", outputDirDesc)
+	flag.StringVar(&p.DictPath, "dict", "", dictPathDesc)
 
 	var level int
 	flag.IntVar(&level, "L", -1, levelDesc)
@@ -129,7 +131,7 @@ func PrintIntegIgnore() {
 	printIgnore("Наличие флага 'integ'", append(ignores[:3], ignores[4:]...))
 }
 
-// Явный вывод какие флаги игнорирует флаг
+// Явный вывод какие флаги игнорирует
 // отсутствие путей после имени архива
 func PrintDecompressIgnore() {
 	printIgnore("Отсутствие путей после имени архива", ignores[3:])
@@ -204,5 +206,5 @@ func (p *Params) checkPaths() {
 func printError(message string) {
 	fmt.Printf("%s\n\n", message)
 	PrintHelp()
-	os.Exit(1)
+	os.Exit(-1)
 }

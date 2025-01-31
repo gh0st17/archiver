@@ -84,6 +84,7 @@ var (
 	ErrSkipData       = fmt.Errorf("ошибка пропуска блока сжатых данных")
 	ErrReadHeaderType = fmt.Errorf("ошибка чтения типа")
 	ErrHeaderType     = fmt.Errorf("неизвестный тип")
+	ErrReadDict       = fmt.Errorf("ошибка чтения словаря")
 )
 
 // Ошибки функции записи

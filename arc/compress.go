@@ -17,6 +17,12 @@ func (arc Arc) Compress(paths []string) error {
 		err     error
 	)
 
+	if err = generic.InitCompressors(arc.RestoreParams); err != nil {
+		return errtype.ErrCompress(
+			errtype.Join(ErrCompressorInit, err),
+		)
+	}
+
 	if headers, err = compress.PrepareHeaders(paths); err != nil {
 		return errtype.ErrCompress(err)
 	}
@@ -26,12 +32,6 @@ func (arc Arc) Compress(paths []string) error {
 	if err != nil {
 		return errtype.ErrCompress(
 			errtype.Join(ErrWriteArcHeaders, err),
-		)
-	}
-
-	if err = generic.InitCompressors(arc.RestoreParams); err != nil {
-		return errtype.ErrCompress(
-			errtype.Join(ErrCompressorInit, err),
 		)
 	}
 

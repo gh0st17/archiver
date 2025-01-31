@@ -194,6 +194,7 @@ func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type) (read int64, er
 		crct           = generic.CRCTable()
 		compressedBufs = generic.CompBuffers()
 		decompressors  = generic.Decompressors()
+		dict           = generic.Dict()
 
 		n, bufferSize int64
 	)
@@ -220,7 +221,7 @@ func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type) (read int64, er
 		if decompressors[i] != nil {
 			decompressors[i].Reset(compressedBufs[i])
 		} else {
-			if decompressors[i], err = c.NewReader(ct, compressedBufs[i]); err != nil {
+			if decompressors[i], err = c.NewReaderDict(ct, dict, compressedBufs[i]); err != nil {
 				return 0, errtype.Join(ErrDecompInit, err)
 			}
 		}
