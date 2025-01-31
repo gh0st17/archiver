@@ -20,7 +20,7 @@ type RestoreParams struct {
 	Ct        c.Type  // Тип компрессора
 	Cl        c.Level // Уровень сжатия
 	// Флаг замены файлов без подтверждения
-	ReplaceAll bool
+	ReplaceAll *bool
 }
 
 // Базовый размер буфера

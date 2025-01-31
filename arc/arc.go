@@ -34,7 +34,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 		return nil, ErrIsDir(filepath.Base(arc.arcPath))
 	}
 
-	arc.ReplaceAll = p.ReplaceAll
+	arc.ReplaceAll = &p.ReplaceAll
 	arc.DictPath = p.DictPath
 
 	if len(p.InputPaths) > 0 {

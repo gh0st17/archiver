@@ -36,8 +36,8 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 	}
 
 	outPath := fp.Join(rp.OutputDir, fi.PathOnDisk())
-	if _, err = os.Stat(outPath); err == nil && !rp.ReplaceAll {
-		if replaceInput(outPath, arcFile, &rp.ReplaceAll) {
+	if _, err = os.Stat(outPath); err == nil && !*rp.ReplaceAll {
+		if replaceInput(outPath, arcFile, rp.ReplaceAll) {
 			return nil
 		}
 	}
@@ -91,7 +91,7 @@ func replaceInput(outPath string, arcFile io.ReadSeeker, replaceAll *bool) bool 
 	for {
 		fmt.Printf("Файл '%s' существует, заменить? [(Д)а/(Н)ет/(В)се]: ", outPath)
 		input, _, _ = stdin.ReadRune()
-		unicode.ToLower(input)
+		input = unicode.ToLower(input)
 
 		switch input {
 		case 'a', 'в':
