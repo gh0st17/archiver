@@ -1,3 +1,14 @@
+// Пакет compressor типы-адаптеры и интерфейсы для работы
+// со встроенными типами компрессоров.
+// Позволяет создавать новых читателей и писателей архива
+//
+// Основные функции:
+//   - NewReader: Создает читателя [compressor.Reader]
+//   - NewReaderDict: Создает читателя [compressor.Reader]
+//     с указанием словаря
+//   - NewWriter: Создает писателя [compressor.Writer]
+//   - NewWriterDict: Создает писателя [compressor.Writer]
+//     с указанием словаря
 package compressor
 
 import (

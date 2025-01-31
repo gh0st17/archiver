@@ -1,3 +1,8 @@
+// Пакет compress предоставляет функции для сжатия файлов
+//
+// Основные функции:
+//   - PrepareHeaders: Подготавливает заголовки для сжатия
+//   - ProcessingHeaders: Обработка заголовков
 package compress
 
 import (
@@ -91,7 +96,7 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 		compressors    = generic.Compressors()
 		writeBuf       = generic.WriteBuffer()
 
-		writeBufSize = (generic.BufferSize() * ncpu) << 1
+		writeBufSize = (generic.BufferSize * ncpu) << 1
 		wrote, read  int64
 		crc          uint32
 		wg           = sync.WaitGroup{}
@@ -173,7 +178,7 @@ func loadUncompressedBuf(inBuf io.Reader) (read int64, err error) {
 		n                int64
 		ncpu             = generic.Ncpu()
 		decompressedBufs = generic.DecompBuffers()
-		bufferSize       = int64(generic.BufferSize())
+		bufferSize       = int64(generic.BufferSize)
 	)
 
 	for i := 0; i < ncpu && err != io.EOF; i++ {

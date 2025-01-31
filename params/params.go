@@ -1,3 +1,9 @@
+// Пакет params предоставляет набор функции для
+// обработки входных параметров программы
+//
+// Основные функции:
+//   - ParseParams: Обрабатывает входные флаги и возвращает
+//     структуру [Params] с результатом обработанных флагов
 package params
 
 import (
@@ -30,7 +36,7 @@ type Params struct {
 }
 
 // Печатает справку
-func PrintHelp() {
+func printHelp() {
 	program := filepath.Base(os.Args[0])
 
 	fmt.Println("Сжатие:    ", program, compExample)
@@ -45,7 +51,7 @@ func PrintHelp() {
 // входными аргументами программы
 func ParseParams() (p *Params, err error) {
 	p = &Params{}
-	flag.Usage = PrintHelp
+	flag.Usage = printHelp
 	flag.StringVar(&p.OutputDir, "o", "", outputDirDesc)
 	flag.StringVar(&p.DictPath, "dict", "", dictPathDesc)
 
@@ -76,7 +82,7 @@ func ParseParams() (p *Params, err error) {
 		os.Exit(0)
 	}
 	if *help {
-		PrintHelp()
+		printHelp()
 		os.Exit(0)
 	}
 

@@ -1,3 +1,8 @@
+// Пакет decompress предоставляет функции для распаковки
+//
+// Основные функции:
+//   - RestoreFile: Восстанавливает файл из архива
+//   - RestoreSym: Восстанавливает символьную ссылку
 package decompress
 
 import (
@@ -132,7 +137,7 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 		ncpu             = generic.Ncpu()
 		decompressedBufs = generic.DecompBuffers()
 		writeBuf         = generic.WriteBuffer()
-		writeBufSize     = generic.BufferSize() * ncpu
+		writeBufSize     = generic.BufferSize * ncpu
 
 		wrote, read int64
 		calcCRC     uint32

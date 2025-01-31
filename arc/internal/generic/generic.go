@@ -1,3 +1,5 @@
+// Пакет generic предоставляет глобальные переменные,
+// константы и функции для работы с ними
 package generic
 
 import (
@@ -25,7 +27,7 @@ type RestoreParams struct {
 
 // Базовый размер буфера
 // для операции ввода вывода
-const bufferSize int = 1048576 // 1М
+const BufferSize int = 1048576 // 1М
 
 var (
 	// Полином CRC32
@@ -41,8 +43,6 @@ var (
 	writeBuf         *bytes.Buffer
 	dict             []byte
 )
-
-func BufferSize() int { return bufferSize }
 
 func CRCTable() *crc32.Table         { return crct }
 func Ncpu() int                      { return ncpu }
