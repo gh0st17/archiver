@@ -11,8 +11,12 @@ import (
 )
 
 func main() {
-	p := params.ParseParams()
-	a, err := arc.NewArc(p)
+	p, err := params.ParseParams()
+	if err != nil {
+		errtype.ErrorHandler(errtype.ErrArgument(err))
+	}
+
+	a, err := arc.NewArc(*p)
 	if err != nil {
 		errtype.ErrorHandler(err)
 	}

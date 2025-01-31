@@ -17,12 +17,6 @@ func (arc Arc) Compress(paths []string) error {
 		err     error
 	)
 
-	if err = generic.InitCompressors(arc.RestoreParams); err != nil {
-		return errtype.ErrCompress(
-			errtype.Join(ErrCompressorInit, err),
-		)
-	}
-
 	if headers, err = compress.PrepareHeaders(paths); err != nil {
 		return errtype.ErrCompress(err)
 	}
@@ -35,8 +29,11 @@ func (arc Arc) Compress(paths []string) error {
 		)
 	}
 
-	// Установка размера буфера записи
-	//generic.SetWriteBufSize()
+	if err = generic.InitCompressors(arc.RestoreParams); err != nil {
+		return errtype.ErrCompress(
+			errtype.Join(ErrCompressorInit, err),
+		)
+	}
 
 	if err = compress.ProcessingHeaders(arcFile, headers); err != nil {
 		arc.closeRemove(arcFile)

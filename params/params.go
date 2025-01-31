@@ -1,7 +1,7 @@
 package params
 
 import (
-	"archiver/compressor"
+	c "archiver/compressor"
 	"flag"
 	"fmt"
 	"io"
@@ -13,16 +13,16 @@ import (
 )
 
 type Params struct {
-	InputPaths []string         // Пути для архивирования
-	OutputDir  string           // Путь к директории для распаковки
-	ArcPath    string           // Путь к файлу архива
-	DictPath   string           // Путь к словарю
-	Ct         compressor.Type  // Тип компрессора
-	Cl         compressor.Level // Уровень сжатия
-	PrintStat  bool             // Флаг вывода информации об архиве
-	PrintList  bool             // Флаг вывода списка содержимого
-	IntegTest  bool             // Флаг проверки целостности
-	XIntegTest bool             // Флаг распаковки с учетом целостности
+	InputPaths []string // Пути для архивирования
+	OutputDir  string   // Путь к директории для распаковки
+	ArcPath    string   // Путь к файлу архива
+	DictPath   string   // Путь к словарю
+	Ct         c.Type   // Тип компрессора
+	Cl         c.Level  // Уровень сжатия
+	PrintStat  bool     // Флаг вывода информации об архиве
+	PrintList  bool     // Флаг вывода списка содержимого
+	IntegTest  bool     // Флаг проверки целостности
+	XIntegTest bool     // Флаг распаковки с учетом целостности
 	// Флаг вывода статистики использования ОЗУ после выполнения
 	MemStat bool
 	// Флаг замены всех файлов при распаковке без подтверждения
@@ -43,7 +43,8 @@ func PrintHelp() {
 
 // Возвращает структуру Params с прочитанными
 // входными аргументами программы
-func ParseParams() (p Params) {
+func ParseParams() (p *Params, err error) {
+	p = &Params{}
 	flag.Usage = PrintHelp
 	flag.StringVar(&p.OutputDir, "o", "", outputDirDesc)
 	flag.StringVar(&p.DictPath, "dict", "", dictPathDesc)
@@ -80,22 +81,32 @@ func ParseParams() (p Params) {
 	}
 
 	if (p.PrintList || p.PrintStat) && len(flag.Args()) == 0 {
-		printError(archivePathError)
+		return nil, ErrArchivePath
 	}
 
-	p.checkPaths()
+	if err = p.checkPaths(); err != nil {
+		return nil, err
+	}
 	if len(p.InputPaths) > 0 {
-		p.checkCompType(compType)
-		p.checkCompLevel(level)
+		if err = p.checkCompType(compType); err != nil {
+			return nil, err
+		}
+		if err = p.checkCompLevel(level); err != nil {
+			return nil, err
+		}
 	}
 
-	return p
+	if err = p.checkDict(); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 // Явный вывод какие флаги игнорирует флаг
 // '-L' со значением '0'
 func (p Params) PrintNopLevelIgnore() {
-	if p.Cl == compressor.Level(0) {
+	if p.Cl == c.Level(0) {
 		flag.Visit(func(f *flag.Flag) {
 			if f.Name == "c" {
 				fmt.Println(zeroLevel)
@@ -154,37 +165,41 @@ func printIgnore(fstr string, ignores []string) {
 }
 
 // Проверяет параметр уровня сжатия
-func (p *Params) checkCompLevel(level int) {
-	p.Cl = compressor.Level(level)
+func (p *Params) checkCompLevel(level int) error {
+	p.Cl = c.Level(level)
 	if p.Cl < -2 || p.Cl > 9 {
-		printError(compLevelError)
+		return ErrCompLevel
 	} else if p.Cl == 0 {
-		p.Ct = compressor.Nop
+		p.Ct = c.Nop
 	}
+
+	return nil
 }
 
 // Проверяет параметр типа компрессора
-func (p *Params) checkCompType(compType string) {
+func (p *Params) checkCompType(compType string) error {
 	compType = strings.ToLower(compType)
 
 	switch compType {
 	case "gzip":
-		p.Ct = compressor.GZip
+		p.Ct = c.GZip
 	case "lzw":
-		p.Ct = compressor.LempelZivWelch
+		p.Ct = c.LempelZivWelch
 	case "zlib":
-		p.Ct = compressor.ZLib
+		p.Ct = c.ZLib
 	case "flate":
-		p.Ct = compressor.Flate
+		p.Ct = c.Flate
 	default:
-		printError(compTypeError)
+		return ErrUnknownComp
 	}
+
+	return nil
 }
 
 // Проверяет пути к файлам и архиву
-func (p *Params) checkPaths() {
+func (p *Params) checkPaths() error {
 	if len(flag.Args()) == 0 {
-		printError(archivePathInputPathError)
+		return ErrArchivePathInputPath
 	}
 
 	pathsLen := len(flag.Args()[1:])
@@ -198,13 +213,21 @@ func (p *Params) checkPaths() {
 	}
 
 	if slices.Contains(p.InputPaths, p.ArcPath) {
-		printError(containsError)
+		return ErrSelfContains
 	}
+
+	return nil
 }
 
-// Выводит сообщение об ошибке
-func printError(message string) {
-	fmt.Printf("%s\n\n", message)
-	PrintHelp()
-	os.Exit(-1)
+func (p Params) checkDict() error {
+	if p.DictPath == "" {
+		return nil
+	}
+
+	switch p.Ct {
+	case c.GZip, c.LempelZivWelch, c.Nop:
+		return ErrUnsupportedDict(p.Ct)
+	}
+
+	return nil
 }
