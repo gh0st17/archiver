@@ -32,7 +32,8 @@ const (
 
 // Структура параметров архива
 type Arc struct {
-	path string // Путь к файлу архива
+	path    string // Путь к файлу архива
+	verbose bool
 	generic.RestoreParams
 }
 
@@ -48,6 +49,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 	arc.ReplaceAll = &p.ReplaceAll
 	arc.DictPath = p.DictPath
+	arc.verbose = p.Verbose
 
 	if len(p.InputPaths) > 0 {
 		arc.Ct = p.Ct

@@ -33,6 +33,7 @@ type Params struct {
 	MemStat bool
 	// Флаг замены всех файлов при распаковке без подтверждения
 	ReplaceAll bool
+	Verbose    bool
 }
 
 // Печатает справку
@@ -67,6 +68,7 @@ func ParseParams() (p *Params, err error) {
 	flag.BoolVar(&p.XIntegTest, "xinteg", false, xIntegDesc)
 	flag.BoolVar(&p.MemStat, "mstat", false, memStatDesc)
 	flag.BoolVar(&p.ReplaceAll, "f", false, relaceAllDesc)
+	flag.BoolVar(&p.Verbose, "v", false, verboseDesc)
 
 	logging := flag.Bool("log", false, logDesc)
 	version := flag.Bool("V", false, versionDesc)

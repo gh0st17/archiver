@@ -35,7 +35,7 @@ func (arc Arc) Compress(paths []string) error {
 		)
 	}
 
-	if err = compress.ProcessingHeaders(arcFile, headers); err != nil {
+	if err = compress.ProcessingHeaders(arcFile, headers, arc.verbose); err != nil {
 		arc.closeRemove(arcFile)
 		return errtype.ErrCompress(err)
 	}

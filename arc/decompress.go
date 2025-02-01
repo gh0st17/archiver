@@ -41,9 +41,9 @@ func (arc Arc) Decompress() error {
 func (arc Arc) restoreHandler(typ header.HeaderType, arcFile io.ReadSeekCloser) (err error) {
 	switch typ {
 	case header.File:
-		err = decompress.RestoreFile(arcFile, arc.RestoreParams)
+		err = decompress.RestoreFile(arcFile, arc.RestoreParams, arc.verbose)
 	case header.Symlink:
-		err = decompress.RestoreSym(arcFile, arc.RestoreParams)
+		err = decompress.RestoreSym(arcFile, arc.RestoreParams, arc.verbose)
 	default:
 		return ErrHeaderType
 	}

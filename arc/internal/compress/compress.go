@@ -37,17 +37,17 @@ func PrepareHeaders(paths []string) (headers []header.Header, err error) {
 }
 
 // Обработка заголовков
-func ProcessingHeaders(arcFile io.WriteCloser, headers []header.Header) error {
+func ProcessingHeaders(arcFile io.WriteCloser, headers []header.Header, verbose bool) error {
 	arcBuf := bufio.NewWriter(arcFile)
 	for _, h := range headers { // Перебираем заголовки
 		if fi, ok := h.(*header.FileItem); ok {
-			if err := processingFile(fi, arcBuf); err != nil {
+			if err := processingFile(fi, arcBuf, verbose); err != nil {
 				return err
 			}
 		} else if di, ok := h.(*header.DirItem); ok {
-			processingDir(di)
+			processingDir(di, verbose)
 		} else if si, ok := h.(*header.SymItem); ok {
-			processingSym(si, arcBuf)
+			processingSym(si, arcBuf, verbose)
 		}
 	}
 	arcBuf.Flush()
@@ -55,33 +55,37 @@ func ProcessingHeaders(arcFile io.WriteCloser, headers []header.Header) error {
 }
 
 // Обрабатывает заголовок файла
-func processingFile(fi *header.FileItem, arcBuf io.Writer) error {
+func processingFile(fi *header.FileItem, arcBuf io.Writer, verbose bool) error {
 	err := fi.Write(arcBuf)
 	if err != nil {
 		return errtype.Join(ErrWriteFileHeader, err)
 	}
 
-	if err = compressFile(fi, arcBuf); err != nil {
+	if err = compressFile(fi, arcBuf, verbose); err != nil {
 		return errtype.Join(ErrCompressFile, err)
 	}
 	return nil
 }
 
 // Обрабатывает заголовок директории
-func processingDir(di *header.DirItem) error {
-	fmt.Println(di.PathInArc())
+func processingDir(di *header.DirItem, verbose bool) error {
+	if verbose {
+		fmt.Println(di.PathInArc())
+	}
 	return nil
 }
 
 // Обрабатывает заголовок символьной ссылки
-func processingSym(si *header.SymItem, arcBuf io.Writer) error {
+func processingSym(si *header.SymItem, arcBuf io.Writer, verbose bool) error {
 	si.Write(arcBuf)
-	fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
+	if verbose {
+		fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
+	}
 	return nil
 }
 
 // Сжимает файл блоками
-func compressFile(fi header.PathProvider, arcBuf io.Writer) error {
+func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error {
 	inFile, err := os.Open(fi.PathOnDisk())
 	if err != nil {
 		return errtype.Join(ErrOpenFileCompress(fi.PathOnDisk()), err)
@@ -167,7 +171,9 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer) error {
 	}
 	log.Printf("Записан CRC: %X\n", crc)
 
-	fmt.Println(fi.PathInArc())
+	if verbose {
+		fmt.Println(fi.PathInArc())
+	}
 
 	return nil
 }

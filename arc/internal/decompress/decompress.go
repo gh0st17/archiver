@@ -29,7 +29,7 @@ import (
 // а затем либо декомпрессирует файл, либо пропускает его в
 // случае повреждений. Также обрабатывает сценарии замены уже
 // существующих файлов.
-func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
+func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) error {
 	fi := &header.FileItem{}
 	err := fi.Read(arcFile)
 	if err != nil && err != io.EOF {
@@ -69,7 +69,7 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 
 	if fi.IsDamaged() {
 		fmt.Printf("%s: CRC сумма не совпадает\n", outPath)
-	} else {
+	} else if verbose {
 		fmt.Println(outPath)
 	}
 
@@ -77,7 +77,7 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 }
 
 // Восстанавливает символьную ссылку
-func RestoreSym(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
+func RestoreSym(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) error {
 	sym := &header.SymItem{}
 
 	err := sym.Read(arcFile)
@@ -91,7 +91,9 @@ func RestoreSym(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 		)
 	}
 
-	fmt.Println(sym.PathInArc(), "->", sym.PathOnDisk())
+	if verbose {
+		fmt.Println(sym.PathInArc(), "->", sym.PathOnDisk())
+	}
 
 	return nil
 }

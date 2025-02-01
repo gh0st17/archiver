@@ -49,7 +49,9 @@ func ReplacePrompt(outPath string, allFunc func(), negFunc func()) bool {
 		}
 
 		if needContinue {
-			stdin.ReadString('\n')
+			if input != '\n' {
+				stdin.ReadString('\n')
+			}
 			continue
 		}
 
