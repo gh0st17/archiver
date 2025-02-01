@@ -18,7 +18,7 @@ import (
 //
 // Если ответ был негативный функция возвращает true
 func ReplacePrompt(outPath string, allFunc func(), negFunc func()) bool {
-	if isNonInteractive() {
+	if IsNonInteractive() {
 		return false
 	}
 
@@ -90,7 +90,7 @@ func yesNoSwitch(input rune, negFunc func()) (bool, bool) {
 }
 
 // Проверяет является ли стандратный ввод терминалом
-func isNonInteractive() bool {
+func IsNonInteractive() bool {
 	fi, _ := os.Stdin.Stat()
 	return (fi.Mode()&os.ModeCharDevice) == 0 || !term.IsTerminal(int(os.Stdin.Fd()))
 }

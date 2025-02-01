@@ -4,8 +4,8 @@
 package header
 
 import (
+	"archiver/arc/internal/userinput"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"strings"
@@ -127,15 +127,17 @@ func prefix(filename string, maxWidth int) string {
 }
 
 func init() {
+	if userinput.IsNonInteractive() {
+		return
+	}
+
 	var err error
-	terminalWidth, _, err = term.GetSize(int(os.Stdout.Fd()))
+	terminalWidth, _, err = term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprint("header.init: ", err))
 	}
 
 	// Ширина терминала минус ширина заголовка
 	// без имени первого столбца
 	nameWidth = terminalWidth - 56
-	log.Printf("terminalWidth: %v\n", terminalWidth)
-	log.Printf("nameWidth: %v\n", nameWidth)
 }
