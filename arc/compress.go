@@ -17,17 +17,17 @@ func (arc Arc) Compress(paths []string) error {
 		err     error
 	)
 
-	if headers, err = compress.PrepareHeaders(paths); err != nil {
-		return errtype.ErrCompress(err)
-	}
-	sort.Sort(header.ByPathInArc(headers)) // Сортруем без учета регистра
-
 	arcFile, err = arc.writeArcHeader() // Пишем заголовок архива
 	if err != nil {
 		return errtype.ErrCompress(
 			errtype.Join(ErrWriteArcHeaders, err),
 		)
 	}
+
+	if headers, err = compress.PrepareHeaders(paths); err != nil {
+		return errtype.ErrCompress(err)
+	}
+	sort.Sort(header.ByPathInArc(headers)) // Сортруем без учета регистра
 
 	if err = generic.InitCompressors(arc.RestoreParams); err != nil {
 		return errtype.ErrCompress(

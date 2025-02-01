@@ -10,14 +10,14 @@ import (
 
 // Печатает информацию об архиве
 func (arc Arc) ViewStat() error {
-	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	arcFile, err := os.OpenFile(arc.path, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrOpenArc, err),
 		)
 	}
 
-	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
+	headers, err := decompress.ReadHeaders(arcFile, headerLen)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),
@@ -43,14 +43,14 @@ func (arc Arc) ViewStat() error {
 
 // Печатает список файлов в архиве
 func (arc Arc) ViewList() error {
-	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	arcFile, err := os.OpenFile(arc.path, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrOpenArc, err),
 		)
 	}
 
-	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
+	headers, err := decompress.ReadHeaders(arcFile, headerLen)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),

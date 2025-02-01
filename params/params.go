@@ -129,7 +129,7 @@ var ignores = [...]string{
 
 // Явный вывод какие флаги игнорирует режим сжатия
 func PrintCompressIgnore() {
-	printIgnore("Сжатие файлов", append(ignores[:3], ignores[4:7]...))
+	printIgnore("Сжатие файлов", append(ignores[1:3], ignores[4:7]...))
 }
 
 // Явный вывод какие флаги игнорирует флаг '-s'

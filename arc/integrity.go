@@ -12,7 +12,7 @@ import (
 
 // Проверяет целостность данных в архиве
 func (arc Arc) IntegrityTest() error {
-	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	arcFile, err := os.OpenFile(arc.path, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrIntegrity(
 			errtype.Join(ErrOpenArc, err),
@@ -21,9 +21,9 @@ func (arc Arc) IntegrityTest() error {
 	defer arcFile.Close()
 
 	// Пропускаем магическое число и тип компрессора
-	arcFile.Seek(arcHeaderLen, io.SeekStart)
+	arcFile.Seek(headerLen, io.SeekStart)
 
-	err = generic.ProcessHeaders(arcFile, arcHeaderLen, arc.integrityHeaderHandler)
+	err = generic.ProcessHeaders(arcFile, headerLen, arc.integrityHeaderHandler)
 	if err != nil {
 		return errtype.ErrIntegrity(err)
 	}

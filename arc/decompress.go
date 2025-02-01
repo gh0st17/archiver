@@ -17,7 +17,7 @@ import (
 // обрабатываются соответствующими методами, а после завершения
 // работы освобождаются декомпрессоры.
 func (arc Arc) Decompress() error {
-	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	arcFile, err := os.OpenFile(arc.path, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrDecompress(errtype.Join(ErrOpenArc, err))
 	}
@@ -27,11 +27,11 @@ func (arc Arc) Decompress() error {
 		return errtype.ErrDecompress(err)
 	}
 
-	if err := generic.ProcessHeaders(arcFile, arcHeaderLen, arc.restoreHandler); err != nil {
+	if err := generic.ProcessHeaders(arcFile, headerLen, arc.restoreHandler); err != nil {
 		return errtype.ErrDecompress(err)
 	}
 
-	// Сброс декомпрессоров перед новым вызовом это функции
+	// Сброс декомпрессоров перед новым вызовом этой функции
 	generic.ResetDecomp()
 
 	return nil

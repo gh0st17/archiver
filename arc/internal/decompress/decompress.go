@@ -8,6 +8,7 @@ package decompress
 import (
 	"archiver/arc/internal/generic"
 	"archiver/arc/internal/header"
+	"archiver/arc/internal/userinput"
 	c "archiver/compressor"
 	"archiver/errtype"
 	"archiver/filesystem"
@@ -19,7 +20,6 @@ import (
 	"os"
 	fp "path/filepath"
 	"sync"
-	"unicode"
 )
 
 // Восстанавливает файл из архива.
@@ -42,7 +42,14 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 
 	outPath := fp.Join(rp.OutputDir, fi.PathOnDisk())
 	if _, err = os.Stat(outPath); err == nil && !*rp.ReplaceAll {
-		if replaceInput(outPath, arcFile, rp.ReplaceAll) {
+		allFunc := func() {
+			*rp.ReplaceAll = true
+		}
+		negFunc := func() {
+			skipFileData(arcFile, true)
+		}
+
+		if userinput.ReplacePrompt(outPath, allFunc, negFunc) {
 			return nil
 		}
 	}
@@ -87,32 +94,6 @@ func RestoreSym(arcFile io.ReadSeeker, rp generic.RestoreParams) error {
 	fmt.Println(sym.PathInArc(), "->", sym.PathOnDisk())
 
 	return nil
-}
-
-// Обрабатывает диалог замены файла
-func replaceInput(outPath string, arcFile io.ReadSeeker, replaceAll *bool) bool {
-	var input rune
-	stdin := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Printf("Файл '%s' существует, заменить? [(Д)а/(Н)ет/(В)се]: ", outPath)
-		input, _, _ = stdin.ReadRune()
-		input = unicode.ToLower(input)
-
-		switch input {
-		case 'a', 'в':
-			*replaceAll = true
-		case 'y', 'д':
-		case 'n', 'н':
-			skipFileData(arcFile, true)
-			return true
-		default:
-			stdin.ReadString('\n')
-			continue
-		}
-		break
-	}
-
-	return false
 }
 
 // Распаковывает файл
