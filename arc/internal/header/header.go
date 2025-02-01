@@ -5,14 +5,27 @@ package header
 
 import (
 	"fmt"
+	"log"
 	"math"
+	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // Максимальная ширина имени файла
 // в выводе статистики
-const maxInArcWidth int = 31
-const maxOnDiskWidth int = 58
+var terminalWidth, nameWidth int
+
+func IsEnoughWidth() bool { return nameWidth >= 9 }
+
+// Возвращает на сколько столбцов нужно увеличить окно терминала
+func ExtraWidth() int {
+	if nameWidth-9 < 0 {
+		return -(nameWidth - 9)
+	}
+	return 9 - nameWidth
+}
 
 const dateFormat string = "02.01.2006 15:04:05"
 
@@ -56,19 +69,6 @@ func (bytes Size) String() string {
 		float64(bytes)/float64(div), []rune("КМГТПЭ")[exp])
 }
 
-// Сокращает длинные имена файлов, добавляя '...' в начале
-func prefix(filename string, maxWidth int) string {
-	runes := []rune(filename)
-	count := len(runes)
-
-	if count > maxWidth {
-		filename = string(runes[count-(maxWidth-3):])
-		return string("..." + filename)
-	} else {
-		return filename
-	}
-}
-
 // Проверяет пути к элементам и оставляет только
 // уникальные заголовки по этому критерию
 func DropDups(headers []Header) []Header {
@@ -91,9 +91,9 @@ func DropDups(headers []Header) []Header {
 
 // Печатает заголовок статистики
 func PrintStatHeader() {
-	fmt.Printf( // Заголовок
-		"%-*s %11s %11s %7s  %19s %8s\n",
-		maxInArcWidth, "Имя файла", "Размер",
+	fmt.Printf(
+		"%-*s  %6s  %6s  %7s  %19s  %8s\n",
+		nameWidth, "Имя файла", "Размер",
 		"Сжатый", "%", "Время модификации", "CRC32",
 	)
 }
@@ -107,8 +107,35 @@ func PrintSummary(compressed, original Size) {
 	}
 
 	fmt.Printf( // Выводим итог
-		"%-*s %11s %11s %7.2f\n",
-		maxInArcWidth, "Итого",
+		"%-*s  %6s  %6s  %7.2f\n",
+		nameWidth, "Итого",
 		original, compressed, ratio,
 	)
+}
+
+// Сокращает длинные имена файлов, добавляя '...' в начале
+func prefix(filename string, maxWidth int) string {
+	runes := []rune(filename)
+	count := len(runes)
+
+	if count > maxWidth {
+		filename = string(runes[count-(maxWidth-3):])
+		return "..." + filename
+	} else {
+		return filename
+	}
+}
+
+func init() {
+	var err error
+	terminalWidth, _, err = term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		panic(err)
+	}
+
+	// Ширина терминала минус ширина заголовка
+	// без имени первого столбца
+	nameWidth = terminalWidth - 56
+	log.Printf("terminalWidth: %v\n", terminalWidth)
+	log.Printf("nameWidth: %v\n", nameWidth)
 }

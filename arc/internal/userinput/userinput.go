@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"os"
 	"unicode"
-)
 
-type AllFunc = func()
-type NegFunc = func()
+	"golang.org/x/term"
+)
 
 // Обрабатывает диалог замены файла
 //
@@ -18,7 +17,11 @@ type NegFunc = func()
 // выбора всех файлов и негативном ответе
 //
 // Если ответ был негативный функция возвращает true
-func ReplacePrompt(outPath string, allFunc AllFunc, negFunc NegFunc) bool {
+func ReplacePrompt(outPath string, allFunc func(), negFunc func()) bool {
+	if isNonInteractive() {
+		return false
+	}
+
 	actions := func() string {
 		if allFunc == nil {
 			return "(Д)а/(Н)ет"
@@ -28,10 +31,12 @@ func ReplacePrompt(outPath string, allFunc AllFunc, negFunc NegFunc) bool {
 	}()
 
 	var (
-		result, needContinue bool
-		input                rune
+		result       bool
+		needContinue bool
+		input        rune
+		stdin        = bufio.NewReader(os.Stdin)
 	)
-	stdin := bufio.NewReader(os.Stdin)
+
 	for {
 		fmt.Printf("Файл '%s' существует, заменить? [%s]: ", outPath, actions)
 		input, _, _ = stdin.ReadRune()
@@ -54,7 +59,7 @@ func ReplacePrompt(outPath string, allFunc AllFunc, negFunc NegFunc) bool {
 
 // Обрабатывает диалог замены с возможностью применить
 // выбор пользователя для всех файлов
-func allSwitch(input rune, allFunc AllFunc, negFunc NegFunc) (bool, bool) {
+func allSwitch(input rune, allFunc func(), negFunc func()) (bool, bool) {
 	switch input {
 	case 'a', 'в':
 		if allFunc != nil {
@@ -68,8 +73,8 @@ func allSwitch(input rune, allFunc AllFunc, negFunc NegFunc) (bool, bool) {
 	return false, false
 }
 
-// Обрабатывает диалог замены формата "Да" и "Нет"
-func yesNoSwitch(input rune, negFunc NegFunc) (bool, bool) {
+// Обрабатывает диалог замены формата "Да/Нет"
+func yesNoSwitch(input rune, negFunc func()) (bool, bool) {
 	switch input {
 	case 'y', 'д':
 	case 'n', 'н':
@@ -82,4 +87,10 @@ func yesNoSwitch(input rune, negFunc NegFunc) (bool, bool) {
 	}
 
 	return false, false
+}
+
+// Проверяет является ли стандратный ввод терминалом
+func isNonInteractive() bool {
+	fi, _ := os.Stdin.Stat()
+	return (fi.Mode()&os.ModeCharDevice) == 0 || !term.IsTerminal(int(os.Stdin.Fd()))
 }

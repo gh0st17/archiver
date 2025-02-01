@@ -16,7 +16,16 @@ func ErrNotArc(path string) error {
 	return fmt.Errorf("'%s' не архив Arc", path)
 }
 
-var ErrUnknownComp = c.ErrUnknownComp
+var (
+	ErrUnknownComp   = c.ErrUnknownComp
+	ErrTerminalWidth = func(needExtra int) error {
+		return fmt.Errorf(
+			`недостаточная ширина терминала для вывода статистики, `+
+				`увеличьте ширину терминала на %d столбцов`,
+			needExtra,
+		)
+	}
+)
 
 // Ошибки при сжатии
 var (

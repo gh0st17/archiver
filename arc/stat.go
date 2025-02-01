@@ -10,6 +10,12 @@ import (
 
 // Печатает информацию об архиве
 func (arc Arc) ViewStat() error {
+	if !header.IsEnoughWidth() {
+		return errtype.ErrRuntime(
+			ErrTerminalWidth(header.ExtraWidth()),
+		)
+	}
+
 	arcFile, err := os.OpenFile(arc.path, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrRuntime(

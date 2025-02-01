@@ -39,12 +39,13 @@ func (si SymItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (si SymItem) String() string {
-	filename := prefix(si.pathInArc, maxInArcWidth)
-	target := prefix(si.pathOnDisk, maxOnDiskWidth)
+	filename := prefix(si.pathInArc, nameWidth)
+	diff := terminalWidth - len([]rune(filename)) - 4
+	target := prefix(si.pathOnDisk, diff)
 
 	return fmt.Sprintf(
-		"%-*s -> %s", maxInArcWidth,
-		filename, target,
+		"%-s%-*s", filename+" -> ",
+		diff, target,
 	)
 }
 
