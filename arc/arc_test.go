@@ -32,8 +32,6 @@ var (
 		Cl:        -1,
 	}
 	rootEnts []os.DirEntry
-	stdout   = os.Stdout
-	stderr   = os.Stderr
 	ncpu     = runtime.NumCPU()
 )
 
@@ -138,12 +136,9 @@ func baseTesting(t *testing.T, path string) {
 	}
 
 	t.Logf("Testing %s compress '%s'", params.Ct, path)
-	disableStdout()
 	if err = archive.Compress(params.InputPaths); err != nil {
-		enableStdout()
 		t.Fatal(err)
 	}
-	enableStdout()
 
 	paramsCopy := params
 	paramsCopy.InputPaths = nil
@@ -154,12 +149,9 @@ func baseTesting(t *testing.T, path string) {
 	}
 
 	t.Logf("Testing %s decompress '%s'", params.Ct, path)
-	disableStdout()
 	if err = archive.Decompress(); err != nil {
-		enableStdout()
 		t.Fatal(err)
 	}
-	enableStdout()
 }
 
 func runAll(t *testing.T) {
@@ -234,16 +226,6 @@ func init() {
 func clearArcOut() {
 	os.RemoveAll(outPath)
 	os.Remove(archivePath)
-}
-
-func disableStdout() {
-	os.Stdout = nil
-	os.Stderr = nil
-}
-
-func enableStdout() {
-	os.Stdout = stdout
-	os.Stderr = stderr
 }
 
 func fetchRootDir() ([]os.DirEntry, error) {
