@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
+	"syscall"
 )
 
 const (
@@ -34,11 +37,15 @@ const (
 type Arc struct {
 	path    string // Путь к файлу архива
 	verbose bool
+	sigChan chan os.Signal
 	generic.RestoreParams
 }
 
+var allowRemove atomic.Bool
+
 // Возвращает новый [Arc] из входных параметров программы
 func NewArc(p params.Params) (arc *Arc, err error) {
+	allowRemove.Store(true)
 	arc = &Arc{
 		path: p.ArcPath,
 	}
@@ -50,6 +57,10 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	arc.ReplaceAll = &p.ReplaceAll
 	arc.DictPath = p.DictPath
 	arc.verbose = p.Verbose
+
+	arc.sigChan = make(chan os.Signal, 1)
+	signal.Notify(arc.sigChan, os.Interrupt, syscall.SIGTERM)
+	go arc.sigFunc()
 
 	if len(p.InputPaths) > 0 {
 		arc.Ct = p.Ct
@@ -87,11 +98,6 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	return arc, nil
 }
 
-// Удаляет архив
-func (arc Arc) RemoveTmp() {
-	os.Remove(arc.path)
-}
-
 // Печать статистики использования памяти
 func (Arc) PrintMemStat() {
 	var m runtime.MemStats
@@ -103,18 +109,34 @@ func (Arc) PrintMemStat() {
 	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
 }
 
+func (arc Arc) sigFunc() {
+	<-arc.sigChan
+	fmt.Println("Прерываю...")
+	if allowRemove.Load() {
+		arc.removeTmp()
+	}
+	os.Exit(0)
+}
+
+// Удаляет архив
+func (arc Arc) removeTmp() {
+	os.Remove(arc.path)
+}
+
 // Закрывает файл архива и удаляет его
 func (arc Arc) closeRemove(arcFile io.Closer) {
 	arcFile.Close()
-	arc.RemoveTmp()
+	arc.removeTmp()
 }
 
 // Создает файл архива и пишет информацию об архиве
 func (arc Arc) writeArcHeader() (arcFile *os.File, err error) {
 	if _, err = os.Stat(arc.path); err == nil && !*arc.ReplaceAll {
+		allowRemove.Store(false)
 		if userinput.ReplacePrompt(arc.path, nil, nil) {
 			os.Exit(0)
 		}
+		allowRemove.Store(true)
 	}
 
 	// Создаем файл

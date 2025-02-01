@@ -4,10 +4,6 @@ import (
 	"archiver/arc"
 	"archiver/errtype"
 	"archiver/params"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
@@ -20,18 +16,6 @@ func main() {
 	if err != nil {
 		errtype.ErrorHandler(err)
 	}
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		fmt.Println("Прерываю...")
-		if len(p.InputPaths) > 0 {
-			a.RemoveTmp()
-		}
-		os.Exit(0)
-	}()
 
 	switch {
 	case len(p.InputPaths) > 0:
