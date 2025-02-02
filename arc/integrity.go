@@ -21,7 +21,11 @@ func (arc Arc) IntegrityTest() error {
 	defer arcFile.Close()
 
 	// Пропускаем магическое число и тип компрессора
-	arcFile.Seek(headerLen, io.SeekStart)
+	if _, err = arcFile.Seek(headerLen, io.SeekStart); err != nil {
+		return errtype.ErrIntegrity(
+			errtype.Join(ErrSeek, err),
+		)
+	}
 
 	err = generic.ProcessHeaders(arcFile, headerLen, arc.integrityHeaderHandler)
 	if err != nil {

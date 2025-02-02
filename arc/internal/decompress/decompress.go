@@ -59,6 +59,8 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 		if _, err = CheckCRC(arcFile, rp.Ct); err == ErrWrongCRC {
 			fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
 			return nil
+		} else if err != nil {
+			return errtype.Join(ErrCheckCRC, err)
 		}
 		arcFile.Seek(pos, io.SeekStart)
 	}
@@ -73,7 +75,11 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 		fmt.Println(outPath)
 	}
 
-	return fi.RestoreTime(rp.OutputDir)
+	if err = fi.RestoreTime(rp.OutputDir); err != nil {
+		return errtype.Join(ErrRestoreTime, err)
+	}
+
+	return nil
 }
 
 // Восстанавливает символьную ссылку
@@ -109,7 +115,7 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 	// Если размер файла равен 0, то пропускаем запись
 	if fi.UcSize() == 0 {
 		if pos, err := arcFile.Seek(12, io.SeekCurrent); err != nil {
-			return errtype.Join(ErrSkipEofCrc, err)
+			return errtype.Join(ErrSeek, err)
 		} else {
 			log.Println("Нулевой размер, перемещаю на позицию:", pos)
 			return nil

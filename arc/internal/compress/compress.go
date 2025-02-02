@@ -21,10 +21,10 @@ import (
 
 // Подготавливает заголовки для сжатия
 func PrepareHeaders(paths []string) (headers []header.Header, err error) {
-	// Печать предпреждения о наличии абсолютных путей
+	// Печать предупреждения о наличии абсолютных путей
 	filesystem.PrintPathsCheck(paths)
 
-	// Собираем элементы по путям path в заголовки
+	// Собираем элементы по путям paths в заголовки
 	if headers, err = fetchHeaders(paths); err != nil {
 		return nil, err
 	}
@@ -68,16 +68,17 @@ func processingFile(fi *header.FileItem, arcBuf io.Writer, verbose bool) error {
 }
 
 // Обрабатывает заголовок директории
-func processingDir(di *header.DirItem, verbose bool) error {
+func processingDir(di *header.DirItem, verbose bool) {
 	if verbose {
 		fmt.Println(di.PathInArc())
 	}
-	return nil
 }
 
 // Обрабатывает заголовок символьной ссылки
 func processingSym(si *header.SymItem, arcBuf io.Writer, verbose bool) error {
-	si.Write(arcBuf)
+	if err := si.Write(arcBuf); err != nil {
+		return errtype.Join(ErrWriteSymHeader, err)
+	}
 	if verbose {
 		fmt.Println(si.PathInArc(), "->", si.PathOnDisk())
 	}

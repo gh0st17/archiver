@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-// Создает файл архива с содержимым путей path
+// Создает файл архива с содержимым путей paths
 func (arc Arc) Compress(paths []string) error {
 	var (
 		headers []header.Header
@@ -39,7 +39,12 @@ func (arc Arc) Compress(paths []string) error {
 		arc.closeRemove(arcFile)
 		return errtype.ErrCompress(err)
 	}
-	arcFile.Close()
+
+	if err = arcFile.Close(); err != nil {
+		return errtype.ErrCompress(
+			errtype.Join(ErrCloseFile, err),
+		)
+	}
 
 	return nil
 }

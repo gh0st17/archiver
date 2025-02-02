@@ -40,7 +40,10 @@ func ReadHeaders(arcFile io.ReadSeekCloser, arcLenH int64) ([]header.Header, err
 	}
 
 	// Возврат каретки в начало первого заголовка
-	arcFile.Seek(arcLenH, io.SeekStart)
+	if _, err := arcFile.Seek(arcLenH, io.SeekStart); err != nil {
+		return nil, errtype.Join(ErrSeek, err)
+	}
+
 	dirs := insertDirs(headers)
 	headers = append(headers, dirs...)
 	sort.Sort(header.ByPathInArc(headers))
@@ -48,7 +51,7 @@ func ReadHeaders(arcFile io.ReadSeekCloser, arcLenH int64) ([]header.Header, err
 	return headers, nil
 }
 
-// Читает и возвращает заголовки файлов
+// Читает заголовок файла из arcFile и возвращает его
 func readFileHeader(arcFile io.ReadSeeker) (*header.FileItem, error) {
 	var (
 		file     = &header.FileItem{}
@@ -80,7 +83,7 @@ func readFileHeader(arcFile io.ReadSeeker) (*header.FileItem, error) {
 	return file, nil
 }
 
-// Читает заголовок символьной ссылки из архива
+// Читает заголовок символьной ссылки из arcFile и возвращает его
 func readSymHeader(arcFile io.ReadSeeker) (sym *header.SymItem, err error) {
 	sym = &header.SymItem{}
 	pos, _ := arcFile.Seek(0, io.SeekCurrent)
@@ -94,7 +97,8 @@ func readSymHeader(arcFile io.ReadSeeker) (sym *header.SymItem, err error) {
 	return sym, nil
 }
 
-// Вставляет в срез с заголовками пути к директориям
+// Просматривает срез с заголовками headers, выделяет
+// из них уникальные пути к директориям и возвращает их
 func insertDirs(headers []header.Header) []header.Header {
 	var (
 		dirs  []header.Header
@@ -127,7 +131,7 @@ func insertDirs(headers []header.Header) []header.Header {
 	return dirs
 }
 
-// Пропускает файл в дескрипторе файла архива
+// Пропускает файл в читателе файла архива
 func skipFileData(arcFile io.ReadSeeker, skipCRC bool) (read header.Size, err error) {
 	var bufferSize int64
 
@@ -147,13 +151,13 @@ func skipFileData(arcFile io.ReadSeeker, skipCRC bool) (read header.Size, err er
 		read += header.Size(bufferSize)
 
 		if _, err = arcFile.Seek(bufferSize, io.SeekCurrent); err != nil {
-			return 0, errtype.Join(ErrSkipData, err)
+			return 0, errtype.Join(ErrSeek, err)
 		}
 	}
 
 	if skipCRC {
 		if _, err = arcFile.Seek(4, io.SeekCurrent); err != nil {
-			return 0, errtype.Join(ErrSkipCRC, err)
+			return 0, errtype.Join(ErrSeek, err)
 		}
 	}
 

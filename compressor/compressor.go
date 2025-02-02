@@ -114,7 +114,7 @@ func NewReaderDict(typ Type, dict []byte, r io.Reader) (*Reader, error) {
 			return nil, err
 		}
 
-		return nil, errtype.Join(ErrDecompCreate, err)
+		return nil, errtype.Join(ErrNewReader, err)
 	}
 
 	return &Reader{reader: reader}, nil
@@ -195,7 +195,7 @@ func NewWriterDict(typ Type, dict []byte, w io.Writer, l Level) (*Writer, error)
 		if err == io.EOF {
 			return nil, err
 		}
-		return nil, errtype.Join(ErrCompCreate, err)
+		return nil, errtype.Join(ErrNewWriter, err)
 	}
 
 	return &Writer{writer: writer}, nil

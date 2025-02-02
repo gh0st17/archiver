@@ -6,6 +6,7 @@ import "archiver/arc/internal/errors"
 var (
 	ErrNoEntries         = errors.ErrNoEntries
 	ErrWriteFileHeader   = errors.ErrWriteFileHeader
+	ErrWriteSymHeader    = errors.ErrWriteSymHeader
 	ErrCompressFile      = errors.ErrCompressFile
 	ErrReadUncompressed  = errors.ErrReadUncompressed
 	ErrCompress          = errors.ErrCompress

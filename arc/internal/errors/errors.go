@@ -16,6 +16,7 @@ func ErrNotArc(path string) error {
 	return fmt.Errorf("'%s' не архив Arc", path)
 }
 
+// Общие ошибки
 var (
 	ErrUnknownComp   = c.ErrUnknownComp
 	ErrTerminalWidth = func(needExtra int) error {
@@ -25,6 +26,8 @@ var (
 			needExtra,
 		)
 	}
+	ErrCloseFile = fmt.Errorf("ошибка закрытия файла")
+	ErrSeek      = fmt.Errorf("ошибка чтения/установки позиции")
 )
 
 // Ошибки при сжатии
@@ -33,6 +36,7 @@ var (
 	ErrCompressorInit    = fmt.Errorf("ошибка иницализации компрессора")
 	ErrWriteArcHeaders   = fmt.Errorf("ошибка записи заголовка архива")
 	ErrWriteFileHeader   = fmt.Errorf("ошибка записи заголовка файла")
+	ErrWriteSymHeader    = fmt.Errorf("ошибка записи заголовка символической ссылки")
 	ErrCompressFile      = fmt.Errorf("ошибка сжатия файла")
 	ErrReadUncompressed  = fmt.Errorf("ошибка чтения несжатых блоков")
 	ErrCompress          = fmt.Errorf("ошибка сжатия буфферов")
@@ -57,15 +61,14 @@ var (
 	ErrReadHeaders    = fmt.Errorf("ошибка чтения заголовоков")
 	ErrDecompressFile = fmt.Errorf("ошибка распаковки файла")
 	ErrDecompressSym  = fmt.Errorf("ошибка распаковки символьной ссылки")
-	ErrSkipCRC        = fmt.Errorf("ошибка пропуска CRC")
 	ErrCreateOutFile  = fmt.Errorf("не могу создать файл")
-	ErrSkipEofCrc     = fmt.Errorf("ошибка пропуска признака EOF")
 	ErrDecompress     = fmt.Errorf("ошибка распаковки буферов")
 	ErrWriteOutBuf    = fmt.Errorf("ошибка записи в буфер выхода")
 	ErrReadCompLen    = fmt.Errorf("ошибка чтения размера блока")
 	ErrReadCompBuf    = fmt.Errorf("ошибка чтения блока")
 	ErrDecompInit     = fmt.Errorf("ошибка иницализации декомпрессора")
 	ErrReadDecomp     = fmt.Errorf("ошибка чтения декомпрессора")
+	ErrRestoreTime    = fmt.Errorf("ошибка восставновления времени")
 
 	ErrRestorePath = func(path string) error {
 		return fmt.Errorf("не могу создать путь для '%s'", path)

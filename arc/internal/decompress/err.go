@@ -6,9 +6,8 @@ import "archiver/arc/internal/errors"
 var (
 	ErrReadHeaders   = errors.ErrReadHeaders
 	ErrDecompressSym = errors.ErrDecompressSym
-	ErrSkipCRC       = errors.ErrSkipCRC
+	ErrSeek          = errors.ErrSeek
 	ErrCreateOutFile = errors.ErrCreateOutFile
-	ErrSkipEofCrc    = errors.ErrSkipEofCrc
 	ErrDecompress    = errors.ErrDecompress
 	ErrWriteOutBuf   = errors.ErrWriteOutBuf
 	ErrReadCompLen   = errors.ErrReadCompLen
@@ -16,7 +15,9 @@ var (
 	ErrDecompInit    = errors.ErrDecompInit
 	ErrReadDecomp    = errors.ErrReadDecomp
 	ErrRestorePath   = errors.ErrRestorePath
+	ErrRestoreTime   = errors.ErrRestoreTime
 	ErrBufSize       = errors.ErrBufSize
+	ErrCheckCRC      = errors.ErrCheckCRC
 )
 
 // Ошибки функции чтения

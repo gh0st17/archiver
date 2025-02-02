@@ -2,7 +2,12 @@ package arc
 
 import "archiver/arc/internal/errors"
 
-var ErrTerminalWidth = errors.ErrTerminalWidth
+// Общие ошибки
+var (
+	ErrTerminalWidth = errors.ErrTerminalWidth
+	ErrCloseFile     = errors.ErrCloseFile
+	ErrSeek          = errors.ErrSeek
+)
 
 // Ошибки при открытии архива
 var (

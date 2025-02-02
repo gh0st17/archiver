@@ -109,6 +109,7 @@ func (Arc) PrintMemStat() {
 	fmt.Printf("Количество сборок мусора: %d\n", m.NumGC)
 }
 
+// Обработчик прерывания SIGINT
 func (arc Arc) sigFunc() {
 	<-arc.sigChan
 	fmt.Println("Прерываю...")
