@@ -14,7 +14,6 @@ import (
 	"archiver/filesystem"
 	"bufio"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"log"
 	"os"
@@ -137,7 +136,8 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 
 	outBuf := bufio.NewWriter(outFile)
 	for eof != io.EOF {
-		if read, eof = loadCompressedBuf(arcFile, &calcCRC, ct, false); eof != nil && eof != io.EOF {
+		read, eof = loadCompressedBuf(arcFile, &calcCRC, ct, false)
+		if eof != nil && eof != io.EOF {
 			return errtype.Join(ErrReadCompressed, eof)
 		}
 
@@ -166,12 +166,10 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 	}
 	wg.Wait()
 
-	err = filesystem.BinaryRead(arcFile, &fileCRC)
-	if err != nil {
+	if err = filesystem.BinaryRead(arcFile, &fileCRC); err != nil {
 		return errtype.Join(ErrReadCRC, err)
 	}
 	fi.SetDamaged(calcCRC != fileCRC)
-
 	outBuf.Flush()
 
 	return nil
@@ -189,7 +187,6 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type, countOnly bool) (read int64, err error) {
 	var (
 		ncpu           = generic.Ncpu()
-		crct           = generic.CRCTable()
 		compressedBufs = generic.CompBuffers()
 		decompressors  = generic.Decompressors()
 		dict           = generic.Dict()
@@ -213,7 +210,7 @@ func loadCompressedBuf(arcBuf io.Reader, crc *uint32, ct c.Type, countOnly bool)
 			return 0, errtype.Join(ErrReadCompBuf, err)
 		}
 		log.Println("Прочитан блок сжатых данных размера:", bufferSize)
-		*crc ^= crc32.Checksum(compressedBufs[i].Bytes(), crct)
+		*crc ^= generic.Checksum(compressedBufs[i].Bytes())
 		read += n
 
 		if countOnly {

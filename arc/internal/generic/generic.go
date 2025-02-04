@@ -44,7 +44,6 @@ var (
 	dict             []byte
 )
 
-func CRCTable() *crc32.Table         { return crct }
 func Ncpu() int                      { return ncpu }
 func CompBuffers() []*bytes.Buffer   { return compressedBufs }
 func DecompBuffers() []*bytes.Buffer { return decompressedBufs }
@@ -53,6 +52,8 @@ func Decompressors() []*c.Reader     { return decompressors }
 
 func WriteBuffer() *bytes.Buffer { return writeBuf }
 func Dict() []byte               { return dict }
+
+func Checksum(data []byte) uint32 { return crc32.Checksum(data, crct) }
 
 // Сбрасывает буфер данных для записи на диск
 func FlushWriteBuffer(w io.Writer) {

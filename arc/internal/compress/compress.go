@@ -12,7 +12,6 @@ import (
 	"archiver/filesystem"
 	"bufio"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"log"
 	"os"
@@ -95,7 +94,6 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 	inBuf := bufio.NewReader(inFile)
 
 	var (
-		crct           = generic.CRCTable()
 		ncpu           = generic.Ncpu()
 		compressedBufs = generic.CompBuffers()
 		compressors    = generic.Compressors()
@@ -107,6 +105,14 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 		wg           = sync.WaitGroup{}
 	)
 
+	flush := func() {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			generic.FlushWriteBuffer(arcBuf)
+		}()
+	}
+
 	for {
 		// Заполняем буферы несжатыми частями (блоками) файла
 		if read, err = loadUncompressedBuf(inBuf); err != nil {
@@ -116,11 +122,7 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 		wg.Wait()
 
 		if read == 0 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				generic.FlushWriteBuffer(arcBuf)
-			}()
+			flush()
 			break
 		}
 
@@ -136,7 +138,7 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 				return errtype.Join(ErrWriteBufLen, err)
 			}
 
-			crc ^= crc32.Checksum(compressedBufs[i].Bytes(), crct)
+			crc ^= generic.Checksum(compressedBufs[i].Bytes())
 
 			// Пишем сжатый блок
 			if wrote, err = compressedBufs[i].WriteTo(writeBuf); err != nil {
@@ -146,11 +148,7 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 			compressors[i].Reset(compressedBufs[i])
 
 			if writeBuf.Len() >= int(writeBufSize) {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					generic.FlushWriteBuffer(arcBuf)
-				}()
+				flush()
 				if i+1 != ncpu {
 					wg.Wait()
 				}
@@ -159,7 +157,17 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 	}
 
 	wg.Wait()
+	if err = writeFileFooter(arcBuf, crc); err != nil {
+		return err
+	}
+	if verbose {
+		fmt.Println(fi.PathInArc())
+	}
+	return nil
+}
 
+// Записывает признак конца файла и его CRC32
+func writeFileFooter(arcBuf io.Writer, crc uint32) (err error) {
 	// Пишем признак конца файла
 	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
 		return errtype.Join(ErrWriteEOF, err)
@@ -171,10 +179,6 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 		return errtype.Join(ErrWriteCRC, err)
 	}
 	log.Printf("Записан CRC: %X\n", crc)
-
-	if verbose {
-		fmt.Println(fi.PathInArc())
-	}
 
 	return nil
 }
