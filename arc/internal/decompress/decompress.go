@@ -126,7 +126,6 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 		ncpu             = generic.Ncpu()
 		decompressedBufs = generic.DecompBuffers()
 		writeBuf         = generic.WriteBuffer()
-		writeBufSize     = generic.BufferSize * ncpu
 
 		wrote, read int64
 		calcCRC     uint32
@@ -157,7 +156,7 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 			}
 		}
 
-		if writeBuf.Len() >= writeBufSize || eof == io.EOF {
+		if writeBuf.Len() >= generic.BufferSize || eof == io.EOF {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

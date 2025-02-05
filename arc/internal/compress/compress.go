@@ -100,10 +100,9 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 		compressors    = generic.Compressors()
 		writeBuf       = generic.WriteBuffer()
 
-		writeBufSize = (generic.BufferSize * ncpu) << 1
-		wrote, read  int64
-		crc          uint32
-		wg           = sync.WaitGroup{}
+		wrote, read int64
+		crc         uint32
+		wg          = sync.WaitGroup{}
 	)
 
 	flush := func() {
@@ -148,7 +147,7 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 			log.Println("В буфер записи записан блок размера:", wrote)
 			compressors[i].Reset(compressedBufs[i])
 
-			if writeBuf.Len() >= int(writeBufSize) {
+			if writeBuf.Len() >= generic.BufferSize {
 				flush()
 				if i+1 != ncpu {
 					wg.Wait()

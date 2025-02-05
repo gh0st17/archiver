@@ -56,7 +56,7 @@ func Dict() []byte               { return dict }
 
 func Checksum(data []byte) uint32 { return crc32.Checksum(data, crct) }
 
-// Сбрасывает буфер данных для записи на диск
+// Сбрасывает буфер данных для записи в w
 func FlushWriteBuffer(w io.Writer) {
 	if writeBuf.Len() == 0 {
 		return
@@ -66,7 +66,7 @@ func FlushWriteBuffer(w io.Writer) {
 	if err != nil {
 		errtype.ErrorHandler(errtype.Join(ErrFlushWrBuf, err))
 	}
-	log.Println("Буфер записи сброшен на диск:", wrote)
+	log.Println("Буфер записи сброшен в писателя:", wrote)
 }
 
 // Проверяет корректность размера буфера.
