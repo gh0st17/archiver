@@ -1,9 +1,6 @@
 package arc_test
 
 import (
-	"archiver/arc"
-	"archiver/compressor"
-	p "archiver/params"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -14,6 +11,10 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+
+	"github.com/gh0st17/archiver/arc"
+	"github.com/gh0st17/archiver/compressor"
+	p "github.com/gh0st17/archiver/params"
 )
 
 const (

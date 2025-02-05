@@ -1,15 +1,16 @@
 package compress
 
 import (
-	"archiver/arc/internal/compress/platform"
-	"archiver/arc/internal/header"
-	"archiver/errtype"
-	"archiver/filesystem"
 	"errors"
 	"fmt"
 	"os"
 	fp "path/filepath"
 	"syscall"
+
+	"github.com/gh0st17/archiver/arc/internal/compress/platform"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Проверяет чем является path, директорией,

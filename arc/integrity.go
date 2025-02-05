@@ -1,13 +1,14 @@
 package arc
 
 import (
-	"archiver/arc/internal/decompress"
-	"archiver/arc/internal/generic"
-	"archiver/arc/internal/header"
-	"archiver/errtype"
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/gh0st17/archiver/arc/internal/decompress"
+	"github.com/gh0st17/archiver/arc/internal/generic"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/errtype"
 )
 
 // Проверяет целостность данных в архиве

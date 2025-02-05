@@ -1,9 +1,9 @@
 package main
 
 import (
-	"archiver/arc"
-	"archiver/errtype"
-	"archiver/params"
+	"github.com/gh0st17/archiver/arc"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/params"
 )
 
 func main() {

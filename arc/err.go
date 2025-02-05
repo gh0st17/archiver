@@ -1,6 +1,6 @@
 package arc
 
-import "archiver/arc/internal/errors"
+import "github.com/gh0st17/archiver/arc/internal/errors"
 
 // Общие ошибки
 var (

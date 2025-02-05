@@ -4,7 +4,7 @@ package params
 
 const (
 	versionDesc = "Печать номера версии и выход"
-	versionText = "archiver 1.0.4\n" +
+	versionText = "github.com/gh0st17/archiver 1.0.4\n" +
 		"Copyright (C) 2025\n" +
 		"Лицензия MIT: THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY\n" +
 		"OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO\n" +

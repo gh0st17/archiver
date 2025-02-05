@@ -1,11 +1,12 @@
 package header
 
 import (
-	"archiver/filesystem"
 	"fmt"
 	"io"
 	"math"
 	"path/filepath"
+
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Описание файла

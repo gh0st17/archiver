@@ -1,8 +1,9 @@
 package params
 
 import (
-	"archiver/compressor"
 	"fmt"
+
+	"github.com/gh0st17/archiver/compressor"
 )
 
 var (

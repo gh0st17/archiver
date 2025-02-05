@@ -3,9 +3,10 @@
 package errors
 
 import (
-	"archiver/arc/internal/header"
-	c "archiver/compressor"
 	"fmt"
+
+	"github.com/gh0st17/archiver/arc/internal/header"
+	c "github.com/gh0st17/archiver/compressor"
 )
 
 func ErrIsDir(path string) error {

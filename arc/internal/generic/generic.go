@@ -3,16 +3,17 @@
 package generic
 
 import (
-	"archiver/arc/internal/header"
-	c "archiver/compressor"
-	"archiver/errtype"
-	"archiver/filesystem"
 	"bytes"
 	"hash/crc32"
 	"io"
 	"log"
 	"os"
 	"runtime"
+
+	"github.com/gh0st17/archiver/arc/internal/header"
+	c "github.com/gh0st17/archiver/compressor"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 type RestoreParams struct {

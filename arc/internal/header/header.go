@@ -4,11 +4,12 @@
 package header
 
 import (
-	"archiver/arc/internal/userinput"
 	"fmt"
 	"math"
 	"os"
 	"strings"
+
+	"github.com/gh0st17/archiver/arc/internal/userinput"
 
 	"golang.org/x/term"
 )

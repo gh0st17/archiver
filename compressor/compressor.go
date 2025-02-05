@@ -12,12 +12,13 @@
 package compressor
 
 import (
-	"archiver/errtype"
 	"compress/flate"
 	"compress/gzip"
 	"compress/lzw"
 	"compress/zlib"
 	"io"
+
+	"github.com/gh0st17/archiver/errtype"
 )
 
 type Type byte // Тип компрессора

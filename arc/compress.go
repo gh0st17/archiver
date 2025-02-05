@@ -1,12 +1,13 @@
 package arc
 
 import (
-	"archiver/arc/internal/compress"
-	"archiver/arc/internal/generic"
-	"archiver/arc/internal/header"
-	"archiver/errtype"
 	"io"
 	"sort"
+
+	"github.com/gh0st17/archiver/arc/internal/compress"
+	"github.com/gh0st17/archiver/arc/internal/generic"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/errtype"
 )
 
 // Создает файл архива с содержимым путей paths

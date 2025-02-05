@@ -1,14 +1,15 @@
 package decompress
 
 import (
-	"archiver/arc/internal/generic"
-	"archiver/arc/internal/header"
-	"archiver/errtype"
-	"archiver/filesystem"
 	"io"
 	"log"
 	fp "path/filepath"
 	"sort"
+
+	"github.com/gh0st17/archiver/arc/internal/generic"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Читает заголовки из архива, определяет смещение данных

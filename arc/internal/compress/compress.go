@@ -6,16 +6,17 @@
 package compress
 
 import (
-	"archiver/arc/internal/generic"
-	"archiver/arc/internal/header"
-	"archiver/errtype"
-	"archiver/filesystem"
 	"bufio"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"sync"
+
+	"github.com/gh0st17/archiver/arc/internal/generic"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Подготавливает заголовки для сжатия

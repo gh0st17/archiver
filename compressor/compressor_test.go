@@ -1,7 +1,6 @@
 package compressor_test
 
 import (
-	"archiver/compressor"
 	"bytes"
 	"crypto/md5"
 	"fmt"
@@ -9,6 +8,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/gh0st17/archiver/compressor"
 )
 
 func TestNop(t *testing.T) {

@@ -7,7 +7,6 @@
 package params
 
 import (
-	c "archiver/compressor"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +15,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	c "github.com/gh0st17/archiver/compressor"
 )
 
 type Params struct {

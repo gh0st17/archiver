@@ -1,12 +1,13 @@
 package header
 
 import (
-	"archiver/filesystem"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Описание символической ссылки

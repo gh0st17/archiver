@@ -1,6 +1,6 @@
 package compress
 
-import "archiver/arc/internal/errors"
+import "github.com/gh0st17/archiver/arc/internal/errors"
 
 // Ошибки при сжатии
 var (

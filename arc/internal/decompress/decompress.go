@@ -6,12 +6,6 @@
 package decompress
 
 import (
-	"archiver/arc/internal/generic"
-	"archiver/arc/internal/header"
-	"archiver/arc/internal/userinput"
-	c "archiver/compressor"
-	"archiver/errtype"
-	"archiver/filesystem"
 	"bufio"
 	"fmt"
 	"io"
@@ -19,6 +13,13 @@ import (
 	"os"
 	fp "path/filepath"
 	"sync"
+
+	"github.com/gh0st17/archiver/arc/internal/generic"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/arc/internal/userinput"
+	c "github.com/gh0st17/archiver/compressor"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Восстанавливает файл из архива.
