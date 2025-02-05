@@ -82,7 +82,7 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 }
 
 // Восстанавливает символьную ссылку
-func RestoreSym(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) error {
+func RestoreSym(arcFile io.Reader, rp generic.RestoreParams, verbose bool) error {
 	sym := &header.SymItem{}
 
 	err := sym.Read(arcFile)
@@ -268,7 +268,7 @@ func decompressBuffers() error {
 
 // Считывает данные сжатого файла из arcFile, проверяет
 // контрольную сумму и возвращает количество прочитанных байт
-func CheckCRC(arcFile io.ReadSeeker, ct c.Type) (read header.Size, err error) {
+func CheckCRC(arcFile io.Reader, ct c.Type) (read header.Size, err error) {
 	var (
 		ncpu           = generic.Ncpu()
 		compressedBufs = generic.CompBuffers()

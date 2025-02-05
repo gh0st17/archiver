@@ -12,10 +12,10 @@ import (
 )
 
 // Читает заголовки из архива, определяет смещение данных
-func ReadHeaders(arcFile io.ReadSeekCloser, arcLenH int64) ([]header.Header, error) {
+func ReadHeaders(arcFile io.ReadSeeker, arcLenH int64) ([]header.Header, error) {
 	var headers []header.Header
 
-	handler := func(typ header.HeaderType, arcFile io.ReadSeekCloser) (err error) {
+	handler := func(typ header.HeaderType, arcFile io.ReadSeeker) (err error) {
 		var h header.Header
 		switch typ {
 		case header.File:
@@ -35,7 +35,7 @@ func ReadHeaders(arcFile io.ReadSeekCloser, arcLenH int64) ([]header.Header, err
 		return nil
 	}
 
-	if err := generic.ProcessHeaders(arcFile, arcLenH, handler); err != nil {
+	if err := generic.ProcessHeaders(arcFile, handler); err != nil {
 		return nil, errtype.Join(ErrReadHeaderType, err)
 	}
 

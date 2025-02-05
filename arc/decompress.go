@@ -27,7 +27,12 @@ func (arc Arc) Decompress() error {
 		return errtype.ErrDecompress(err)
 	}
 
-	if err := generic.ProcessHeaders(arcFile, headerLen, arc.restoreHandler); err != nil {
+	// Пропускаем магическое число и тип компрессора
+	if _, err = arcFile.Seek(headerLen, io.SeekStart); err != nil {
+		return errtype.ErrDecompress(errtype.Join(ErrSeek, err))
+	}
+
+	if err := generic.ProcessHeaders(arcFile, arc.restoreHandler); err != nil {
 		return errtype.ErrDecompress(err)
 	}
 
@@ -38,7 +43,7 @@ func (arc Arc) Decompress() error {
 }
 
 // Обработчик заголовков архива для распаковки
-func (arc Arc) restoreHandler(typ header.HeaderType, arcFile io.ReadSeekCloser) (err error) {
+func (arc Arc) restoreHandler(typ header.HeaderType, arcFile io.ReadSeeker) (err error) {
 	switch typ {
 	case header.File:
 		err = decompress.RestoreFile(arcFile, arc.RestoreParams, arc.verbose)
@@ -48,7 +53,7 @@ func (arc Arc) restoreHandler(typ header.HeaderType, arcFile io.ReadSeekCloser) 
 		return ErrHeaderType
 	}
 	if err != nil && err != io.EOF {
-		return errtype.ErrDecompress(err)
+		return err
 	}
 
 	return nil

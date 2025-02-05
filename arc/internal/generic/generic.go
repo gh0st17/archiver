@@ -109,13 +109,11 @@ func ResetDecomp() {
 }
 
 // Прототип функции-обработчика заголовков
-type ProcHeaderHandler = func(header.HeaderType, io.ReadSeekCloser) error
+type ProcHeaderHandler = func(header.HeaderType, io.ReadSeeker) error
 
 // Универсальная функция обработки заголовков из arcFile
-func ProcessHeaders(arcFile io.ReadSeekCloser, arcLenH int64, handler ProcHeaderHandler) error {
+func ProcessHeaders(arcFile io.ReadSeeker, handler ProcHeaderHandler) error {
 	var typ header.HeaderType
-
-	arcFile.Seek(arcLenH, io.SeekStart) // Перемещаемся на начало заголовков
 
 	for {
 		err := filesystem.BinaryRead(arcFile, &typ) // Читаем тип заголовка
