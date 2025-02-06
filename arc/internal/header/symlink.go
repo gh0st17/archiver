@@ -26,7 +26,7 @@ func NewSymItem(symlink, target string) *SymItem {
 func (si SymItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, si.pathInArc)
 
-	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outDir), 0755); err != nil {
 		return err
 	}
 

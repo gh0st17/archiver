@@ -123,7 +123,7 @@ func insertDirs(headers []header.Header) []header.Header {
 			path = fp.Join(path, p)
 			if _, ok := seen[path]; !ok {
 				seen[path] = struct{}{} // Такого пути нет
-				dirs = append(dirs, header.NewDirItem(path))
+				dirs = append(dirs, header.NewDirItem(fp.ToSlash(path)))
 			}
 		}
 	}

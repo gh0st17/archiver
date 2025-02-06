@@ -6,12 +6,10 @@ package header
 import (
 	"fmt"
 	"math"
-	"os"
 	"strings"
 
+	"github.com/gh0st17/archiver/arc/internal/header/platform"
 	"github.com/gh0st17/archiver/arc/internal/userinput"
-
-	"golang.org/x/term"
 )
 
 // Максимальная ширина имени файла
@@ -133,7 +131,7 @@ func init() {
 	}
 
 	var err error
-	terminalWidth, _, err = term.GetSize(int(os.Stdin.Fd()))
+	terminalWidth, _, err = platform.GetTerminalSize()
 	if err != nil {
 		panic(fmt.Sprint("header.init: ", err))
 	}

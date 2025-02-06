@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"path/filepath"
 
 	"github.com/gh0st17/archiver/filesystem"
@@ -79,7 +80,7 @@ func (fi *FileItem) Write(w io.Writer) (err error) {
 // Восстанавливает путь к файлу
 func (fi FileItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, fi.pathOnDisk)
-	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outDir), 0755); err != nil {
 		return err
 	}
 
