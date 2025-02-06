@@ -2,6 +2,7 @@ package arc
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/gh0st17/archiver/arc/internal/decompress"
@@ -24,11 +25,14 @@ func (arc Arc) ViewStat() error {
 		)
 	}
 
+	// Пропускаем магическое число и тип компрессора
+	if _, err = arcFile.Seek(headerLen, io.SeekStart); err != nil {
+		return errtype.ErrRuntime(errtype.Join(ErrSeek, err))
+	}
+
 	headers, err := decompress.ReadHeaders(arcFile, headerLen)
 	if err != nil {
-		return errtype.ErrRuntime(
-			errtype.Join(ErrReadHeaders, err),
-		)
+		return errtype.ErrRuntime(errtype.Join(ErrReadHeaders, err))
 	}
 
 	fmt.Printf("Тип компрессора: %s\n", arc.Ct)
@@ -55,6 +59,11 @@ func (arc Arc) ViewList() error {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrOpenArc, err),
 		)
+	}
+
+	// Пропускаем магическое число и тип компрессора
+	if _, err = arcFile.Seek(headerLen, io.SeekStart); err != nil {
+		return errtype.ErrRuntime(errtype.Join(ErrSeek, err))
 	}
 
 	headers, err := decompress.ReadHeaders(arcFile, headerLen)

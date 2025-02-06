@@ -36,14 +36,13 @@ func ReadHeaders(arcFile io.ReadSeeker, arcLenH int64) ([]header.Header, error) 
 		return nil
 	}
 
-	if err := generic.ProcessHeaders(arcFile, handler); err != nil {
+	// Сохраняем позицию каретки
+	pos, err := arcFile.Seek(0, io.SeekCurrent)
+	if err = generic.ProcessHeaders(arcFile, handler); err != nil {
 		return nil, errtype.Join(ErrReadHeaderType, err)
 	}
-
-	// Возврат каретки в начало первого заголовка
-	if _, err := arcFile.Seek(arcLenH, io.SeekStart); err != nil {
-		return nil, errtype.Join(ErrSeek, err)
-	}
+	// Восстанавливаем позицию каретки
+	arcFile.Seek(pos, io.SeekStart)
 
 	dirs := insertDirs(headers)
 	headers = append(headers, dirs...)
