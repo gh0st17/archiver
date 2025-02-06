@@ -10,3 +10,8 @@ import (
 func Timestamp(info os.FileInfo) (atime time.Time, mtime time.Time) {
 	return amTimes(info)
 }
+
+// Возвращает размеры терминала
+func GetTerminalSize() (int, int, error) {
+	return getTerminalSize()
+}

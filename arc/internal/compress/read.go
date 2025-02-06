@@ -7,8 +7,8 @@ import (
 	fp "path/filepath"
 	"syscall"
 
-	"github.com/gh0st17/archiver/arc/internal/compress/platform"
 	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/arc/internal/platform"
 	"github.com/gh0st17/archiver/errtype"
 	"github.com/gh0st17/archiver/filesystem"
 )

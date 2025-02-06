@@ -8,7 +8,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/gh0st17/archiver/arc/internal/header/platform"
+	"github.com/gh0st17/archiver/arc/internal/platform"
 	"github.com/gh0st17/archiver/arc/internal/userinput"
 )
 
