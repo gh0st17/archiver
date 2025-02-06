@@ -1,11 +1,13 @@
 package header
 
 import (
-	"archiver/filesystem"
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"path/filepath"
+
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Описание файла
@@ -78,7 +80,7 @@ func (fi *FileItem) Write(w io.Writer) (err error) {
 // Восстанавливает путь к файлу
 func (fi FileItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, fi.pathOnDisk)
-	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outDir), 0755); err != nil {
 		return err
 	}
 
@@ -87,7 +89,7 @@ func (fi FileItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (fi FileItem) String() string {
-	path := prefix(fi.pathOnDisk, maxInArcWidth)
+	path := prefix(fi.pathOnDisk, nameWidth)
 
 	ratio := float32(fi.cSize) / float32(fi.ucSize) * 100.0
 	if math.IsInf(float64(ratio), 1) {
@@ -106,8 +108,8 @@ func (fi FileItem) String() string {
 	}()
 
 	return fmt.Sprintf(
-		"%-*s %11s %11s %7.2f  %s %s",
-		maxInArcWidth, path, fi.ucSize,
+		"%-*s  %6s  %6s  %7.2f  %s  %s",
+		nameWidth, path, fi.ucSize,
 		fi.cSize, ratio, mtime, crc,
 	)
 }

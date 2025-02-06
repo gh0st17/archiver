@@ -1,27 +1,38 @@
 package arc
 
 import (
-	"archiver/arc/internal/decompress"
-	"archiver/arc/internal/header"
-	"archiver/errtype"
 	"fmt"
+	"io"
 	"os"
+
+	"github.com/gh0st17/archiver/arc/internal/decompress"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/errtype"
 )
 
 // Печатает информацию об архиве
 func (arc Arc) ViewStat() error {
-	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	if !header.IsEnoughWidth() {
+		return errtype.ErrRuntime(
+			ErrTerminalWidth(header.ExtraWidth()),
+		)
+	}
+
+	arcFile, err := os.OpenFile(arc.path, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrOpenArc, err),
 		)
 	}
 
-	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
+	// Пропускаем магическое число и тип компрессора
+	if _, err = arcFile.Seek(headerLen, io.SeekStart); err != nil {
+		return errtype.ErrRuntime(errtype.Join(ErrSeek, err))
+	}
+
+	headers, err := decompress.ReadHeaders(arcFile, headerLen)
 	if err != nil {
-		return errtype.ErrRuntime(
-			errtype.Join(ErrReadHeaders, err),
-		)
+		return errtype.ErrRuntime(errtype.Join(ErrReadHeaders, err))
 	}
 
 	fmt.Printf("Тип компрессора: %s\n", arc.Ct)
@@ -43,14 +54,19 @@ func (arc Arc) ViewStat() error {
 
 // Печатает список файлов в архиве
 func (arc Arc) ViewList() error {
-	arcFile, err := os.OpenFile(arc.arcPath, os.O_RDONLY, 0644)
+	arcFile, err := os.OpenFile(arc.path, os.O_RDONLY, 0644)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrOpenArc, err),
 		)
 	}
 
-	headers, err := decompress.ReadHeaders(arcFile, arcHeaderLen)
+	// Пропускаем магическое число и тип компрессора
+	if _, err = arcFile.Seek(headerLen, io.SeekStart); err != nil {
+		return errtype.ErrRuntime(errtype.Join(ErrSeek, err))
+	}
+
+	headers, err := decompress.ReadHeaders(arcFile, headerLen)
 	if err != nil {
 		return errtype.ErrRuntime(
 			errtype.Join(ErrReadHeaders, err),

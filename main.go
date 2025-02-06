@@ -1,38 +1,26 @@
 package main
 
 import (
-	"archiver/arc"
-	"archiver/errtype"
-	"archiver/params"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
+	"github.com/gh0st17/archiver/arc"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/params"
 )
 
 func main() {
-	p := params.ParseParams()
-	a, err := arc.NewArc(p)
+	p, err := params.ParseParams()
+	if err != nil {
+		errtype.ErrorHandler(errtype.ErrArgument(err))
+	}
+
+	a, err := arc.NewArc(*p)
 	if err != nil {
 		errtype.ErrorHandler(err)
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		fmt.Println("Прерываю...")
-		if len(p.InputPaths) > 0 {
-			a.RemoveTmp()
-		}
-		os.Exit(0)
-	}()
-
 	switch {
 	case len(p.InputPaths) > 0:
 		p.PrintNopLevelIgnore()
-		params.PrintPathsIgnore()
+		params.PrintCompressIgnore()
 		err = a.Compress(p.InputPaths)
 	case p.PrintStat:
 		params.PrintStatIgnore()

@@ -1,7 +1,12 @@
+// Пакет params предоставляет набор функции для
+// обработки входных параметров программы
+//
+// Основные функции:
+//   - ParseParams: Обрабатывает входные флаги и возвращает
+//     структуру [Params] с результатом обработанных флагов
 package params
 
 import (
-	"archiver/compressor"
 	"flag"
 	"fmt"
 	"io"
@@ -10,26 +15,30 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	c "github.com/gh0st17/archiver/compressor"
 )
 
 type Params struct {
-	InputPaths []string         // Пути для архивирования
-	OutputDir  string           // Путь к директории для распаковки
-	ArcPath    string           // Путь к файлу архива
-	Ct         compressor.Type  // Тип компрессора
-	Cl         compressor.Level // Уровень сжатия
-	PrintStat  bool             // Флаг вывода информации об архиве
-	PrintList  bool             // Флаг вывода списка содержимого
-	IntegTest  bool             // Флаг проверки целостности
-	XIntegTest bool             // Флаг распаковки с учетом целостности
+	InputPaths []string // Пути для архивирования
+	OutputDir  string   // Путь к директории для распаковки
+	ArcPath    string   // Путь к файлу архива
+	DictPath   string   // Путь к словарю
+	Ct         c.Type   // Тип компрессора
+	Cl         c.Level  // Уровень сжатия
+	PrintStat  bool     // Флаг вывода информации об архиве
+	PrintList  bool     // Флаг вывода списка содержимого
+	IntegTest  bool     // Флаг проверки целостности
+	XIntegTest bool     // Флаг распаковки с учетом целостности
 	// Флаг вывода статистики использования ОЗУ после выполнения
 	MemStat bool
 	// Флаг замены всех файлов при распаковке без подтверждения
 	ReplaceAll bool
+	Verbose    bool
 }
 
 // Печатает справку
-func PrintHelp() {
+func printHelp() {
 	program := filepath.Base(os.Args[0])
 
 	fmt.Println("Сжатие:    ", program, compExample)
@@ -42,9 +51,11 @@ func PrintHelp() {
 
 // Возвращает структуру Params с прочитанными
 // входными аргументами программы
-func ParseParams() (p Params) {
-	flag.Usage = PrintHelp
+func ParseParams() (p *Params, err error) {
+	p = &Params{}
+	flag.Usage = printHelp
 	flag.StringVar(&p.OutputDir, "o", "", outputDirDesc)
+	flag.StringVar(&p.DictPath, "dict", "", dictPathDesc)
 
 	var level int
 	flag.IntVar(&level, "L", -1, levelDesc)
@@ -58,6 +69,7 @@ func ParseParams() (p Params) {
 	flag.BoolVar(&p.XIntegTest, "xinteg", false, xIntegDesc)
 	flag.BoolVar(&p.MemStat, "mstat", false, memStatDesc)
 	flag.BoolVar(&p.ReplaceAll, "f", false, relaceAllDesc)
+	flag.BoolVar(&p.Verbose, "v", false, verboseDesc)
 
 	logging := flag.Bool("log", false, logDesc)
 	version := flag.Bool("V", false, versionDesc)
@@ -73,27 +85,37 @@ func ParseParams() (p Params) {
 		os.Exit(0)
 	}
 	if *help {
-		PrintHelp()
+		printHelp()
 		os.Exit(0)
 	}
 
 	if (p.PrintList || p.PrintStat) && len(flag.Args()) == 0 {
-		printError(archivePathError)
+		return nil, ErrArchivePath
 	}
 
-	p.checkPaths()
+	if err = p.checkPaths(); err != nil {
+		return nil, err
+	}
 	if len(p.InputPaths) > 0 {
-		p.checkCompType(compType)
-		p.checkCompLevel(level)
+		if err = p.checkCompType(compType); err != nil {
+			return nil, err
+		}
+		if err = p.checkCompLevel(level); err != nil {
+			return nil, err
+		}
 	}
 
-	return p
+	if err = p.checkDict(); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 // Явный вывод какие флаги игнорирует флаг
 // '-L' со значением '0'
 func (p Params) PrintNopLevelIgnore() {
-	if p.Cl == compressor.Level(0) {
+	if p.Cl == c.Level(0) {
 		flag.Visit(func(f *flag.Flag) {
 			if f.Name == "c" {
 				fmt.Println(zeroLevel)
@@ -104,35 +126,33 @@ func (p Params) PrintNopLevelIgnore() {
 
 // Флаги которые могут быть проигнорированы
 // другими флагами
-var ignores = []string{
-	"f", "o", "xinteg", "integ", "l", "s", "c", "L",
+var ignores = [...]string{
+	"f", "o", "xinteg", "dict", "integ", "l", "s", "c", "L",
 }
 
-// Явный вывод какие флаги игнорирует
-// наличие путей после имени архива
-func PrintPathsIgnore() {
-	printIgnore("Наличие путей после имени архива", ignores[:6])
+// Явный вывод какие флаги игнорирует режим сжатия
+func PrintCompressIgnore() {
+	printIgnore("Сжатие файлов", append(ignores[1:3], ignores[4:7]...))
 }
 
 // Явный вывод какие флаги игнорирует флаг '-s'
 func PrintStatIgnore() {
-	printIgnore("Наличие флага 's'", append(ignores[:5], ignores[6:]...))
+	printIgnore("Наличие флага 's'", append(ignores[:6], ignores[7:]...))
 }
 
 // Явный вывод какие флаги игнорирует флаг '-l'
 func PrintListIgnore() {
-	printIgnore("Наличие флага 'l'", append(ignores[:4], ignores[5:]...))
+	printIgnore("Наличие флага 'l'", append(ignores[:5], ignores[7:]...))
 }
 
 // Явный вывод какие флаги игнорирует флаг '--integ'
 func PrintIntegIgnore() {
-	printIgnore("Наличие флага 'integ'", append(ignores[:3], ignores[4:]...))
+	printIgnore("Наличие флага 'integ'", append(ignores[:4], ignores[7:]...))
 }
 
-// Явный вывод какие флаги игнорирует флаг
-// отсутствие путей после имени архива
+// Явный вывод какие флаги игнорирует распаковка архива
 func PrintDecompressIgnore() {
-	printIgnore("Отсутствие путей после имени архива", ignores[3:])
+	printIgnore("Распаковка архива", ignores[4:])
 }
 
 // Общий шаблон вывода информации о том какие
@@ -152,35 +172,41 @@ func printIgnore(fstr string, ignores []string) {
 }
 
 // Проверяет параметр уровня сжатия
-func (p *Params) checkCompLevel(level int) {
-	p.Cl = compressor.Level(level)
+func (p *Params) checkCompLevel(level int) error {
+	p.Cl = c.Level(level)
 	if p.Cl < -2 || p.Cl > 9 {
-		printError(compLevelError)
+		return ErrCompLevel
 	} else if p.Cl == 0 {
-		p.Ct = compressor.Nop
+		p.Ct = c.Nop
 	}
+
+	return nil
 }
 
 // Проверяет параметр типа компрессора
-func (p *Params) checkCompType(compType string) {
+func (p *Params) checkCompType(compType string) error {
 	compType = strings.ToLower(compType)
 
 	switch compType {
 	case "gzip":
-		p.Ct = compressor.GZip
+		p.Ct = c.GZip
 	case "lzw":
-		p.Ct = compressor.LempelZivWelch
+		p.Ct = c.LempelZivWelch
 	case "zlib":
-		p.Ct = compressor.ZLib
+		p.Ct = c.ZLib
+	case "flate":
+		p.Ct = c.Flate
 	default:
-		printError(compTypeError)
+		return ErrUnknownComp
 	}
+
+	return nil
 }
 
 // Проверяет пути к файлам и архиву
-func (p *Params) checkPaths() {
+func (p *Params) checkPaths() error {
 	if len(flag.Args()) == 0 {
-		printError(archivePathInputPathError)
+		return ErrArcInPath
 	}
 
 	pathsLen := len(flag.Args()[1:])
@@ -194,13 +220,21 @@ func (p *Params) checkPaths() {
 	}
 
 	if slices.Contains(p.InputPaths, p.ArcPath) {
-		printError(containsError)
+		return ErrSelfContains
 	}
+
+	return nil
 }
 
-// Выводит сообщение об ошибке
-func printError(message string) {
-	fmt.Printf("%s\n\n", message)
-	PrintHelp()
-	os.Exit(1)
+func (p Params) checkDict() error {
+	if len(p.InputPaths) == 0 || p.DictPath == "" {
+		return nil
+	}
+
+	switch p.Ct {
+	case c.GZip, c.LempelZivWelch, c.Nop:
+		return ErrUnsupportedDict(p.Ct)
+	}
+
+	return nil
 }

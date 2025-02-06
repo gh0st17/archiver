@@ -1,26 +1,22 @@
 package arc
 
 import (
-	"archiver/arc/internal/compress"
-	"archiver/arc/internal/generic"
-	"archiver/arc/internal/header"
-	"archiver/errtype"
 	"io"
 	"sort"
+
+	"github.com/gh0st17/archiver/arc/internal/compress"
+	"github.com/gh0st17/archiver/arc/internal/generic"
+	"github.com/gh0st17/archiver/arc/internal/header"
+	"github.com/gh0st17/archiver/errtype"
 )
 
-// Создает файл архива с содержимым путей path
+// Создает файл архива с содержимым путей paths
 func (arc Arc) Compress(paths []string) error {
 	var (
 		headers []header.Header
 		arcFile io.WriteCloser
 		err     error
 	)
-
-	if headers, err = compress.PrepareHeaders(paths); err != nil {
-		return errtype.ErrCompress(err)
-	}
-	sort.Sort(header.ByPathInArc(headers)) // Сортруем без учета регистра
 
 	arcFile, err = arc.writeArcHeader() // Пишем заголовок архива
 	if err != nil {
@@ -29,20 +25,27 @@ func (arc Arc) Compress(paths []string) error {
 		)
 	}
 
+	if headers, err = compress.PrepareHeaders(paths); err != nil {
+		return errtype.ErrCompress(err)
+	}
+	sort.Sort(header.ByPathInArc(headers)) // Сортруем без учета регистра
+
 	if err = generic.InitCompressors(arc.RestoreParams); err != nil {
 		return errtype.ErrCompress(
 			errtype.Join(ErrCompressorInit, err),
 		)
 	}
 
-	// Установка размера буфера записи
-	generic.SetWriteBufSize((generic.BufferSize() * generic.Ncpu()) << 1)
-
-	if err = compress.ProcessingHeaders(arcFile, headers); err != nil {
+	if err = compress.ProcessingHeaders(arcFile, headers, arc.verbose); err != nil {
 		arc.closeRemove(arcFile)
 		return errtype.ErrCompress(err)
 	}
-	arcFile.Close()
+
+	if err = arcFile.Close(); err != nil {
+		return errtype.ErrCompress(
+			errtype.Join(ErrCloseFile, err),
+		)
+	}
 
 	return nil
 }

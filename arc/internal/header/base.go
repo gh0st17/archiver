@@ -1,12 +1,13 @@
 package header
 
 import (
-	"archiver/filesystem"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 type PathProvider interface {

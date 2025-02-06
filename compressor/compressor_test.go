@@ -1,7 +1,6 @@
 package compressor_test
 
 import (
-	"archiver/compressor"
 	"bytes"
 	"crypto/md5"
 	"fmt"
@@ -9,6 +8,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/gh0st17/archiver/compressor"
 )
 
 func TestNop(t *testing.T) {
@@ -28,6 +29,12 @@ func TestLzw(t *testing.T) {
 func TestZlib(t *testing.T) {
 	for cl := compressor.Level(-2); cl <= 9; cl++ {
 		runTest(t, compressor.ZLib, cl)
+	}
+}
+
+func TestFlate(t *testing.T) {
+	for cl := compressor.Level(-2); cl <= 9; cl++ {
+		runTest(t, compressor.Flate, cl)
 	}
 }
 

@@ -14,9 +14,9 @@ func NewDirItem(pathInArc string) *DirItem {
 
 // Реализация fmt.Stringer
 func (di DirItem) String() string {
-	filename := prefix(di.pathInArc, maxInArcWidth)
+	filename := prefix(di.pathInArc, nameWidth)
 
 	return fmt.Sprintf(
-		"%-*s", maxInArcWidth, filename,
+		"%-*s", nameWidth, filename,
 	)
 }

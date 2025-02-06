@@ -9,3 +9,6 @@ out/
 !testdata/README.md
 __debug**
 *.prof
+**.DS_Store
+**.dat
+**.bin

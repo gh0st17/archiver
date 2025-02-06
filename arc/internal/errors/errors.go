@@ -1,9 +1,12 @@
+// Пакет errors предоставляет переменные и функции
+// для описания внутренних ошибок
 package errors
 
 import (
-	"archiver/arc/internal/header"
-	c "archiver/compressor"
 	"fmt"
+
+	"github.com/gh0st17/archiver/arc/internal/header"
+	c "github.com/gh0st17/archiver/compressor"
 )
 
 func ErrIsDir(path string) error {
@@ -14,7 +17,19 @@ func ErrNotArc(path string) error {
 	return fmt.Errorf("'%s' не архив Arc", path)
 }
 
-var ErrUnknownComp = c.ErrUnknownComp
+// Общие ошибки
+var (
+	ErrUnknownComp   = c.ErrUnknownComp
+	ErrTerminalWidth = func(needExtra int) error {
+		return fmt.Errorf(
+			`недостаточная ширина терминала для вывода статистики, `+
+				`увеличьте ширину терминала на %d столбцов`,
+			needExtra,
+		)
+	}
+	ErrCloseFile = fmt.Errorf("ошибка закрытия файла")
+	ErrSeek      = fmt.Errorf("ошибка чтения/установки позиции")
+)
 
 // Ошибки при сжатии
 var (
@@ -22,6 +37,7 @@ var (
 	ErrCompressorInit    = fmt.Errorf("ошибка иницализации компрессора")
 	ErrWriteArcHeaders   = fmt.Errorf("ошибка записи заголовка архива")
 	ErrWriteFileHeader   = fmt.Errorf("ошибка записи заголовка файла")
+	ErrWriteSymHeader    = fmt.Errorf("ошибка записи заголовка символической ссылки")
 	ErrCompressFile      = fmt.Errorf("ошибка сжатия файла")
 	ErrReadUncompressed  = fmt.Errorf("ошибка чтения несжатых блоков")
 	ErrCompress          = fmt.Errorf("ошибка сжатия буфферов")
@@ -46,15 +62,14 @@ var (
 	ErrReadHeaders    = fmt.Errorf("ошибка чтения заголовоков")
 	ErrDecompressFile = fmt.Errorf("ошибка распаковки файла")
 	ErrDecompressSym  = fmt.Errorf("ошибка распаковки символьной ссылки")
-	ErrSkipCRC        = fmt.Errorf("ошибка пропуска CRC")
 	ErrCreateOutFile  = fmt.Errorf("не могу создать файл")
-	ErrSkipEofCrc     = fmt.Errorf("ошибка пропуска признака EOF")
 	ErrDecompress     = fmt.Errorf("ошибка распаковки буферов")
 	ErrWriteOutBuf    = fmt.Errorf("ошибка записи в буфер выхода")
 	ErrReadCompLen    = fmt.Errorf("ошибка чтения размера блока")
 	ErrReadCompBuf    = fmt.Errorf("ошибка чтения блока")
 	ErrDecompInit     = fmt.Errorf("ошибка иницализации декомпрессора")
 	ErrReadDecomp     = fmt.Errorf("ошибка чтения декомпрессора")
+	ErrRestoreTime    = fmt.Errorf("ошибка восставновления времени")
 
 	ErrRestorePath = func(path string) error {
 		return fmt.Errorf("не могу создать путь для '%s'", path)
@@ -84,6 +99,7 @@ var (
 	ErrSkipData       = fmt.Errorf("ошибка пропуска блока сжатых данных")
 	ErrReadHeaderType = fmt.Errorf("ошибка чтения типа")
 	ErrHeaderType     = fmt.Errorf("неизвестный тип")
+	ErrReadDict       = fmt.Errorf("ошибка чтения словаря")
 )
 
 // Ошибки функции записи

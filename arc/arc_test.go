@@ -1,9 +1,6 @@
 package arc_test
 
 import (
-	"archiver/arc"
-	"archiver/compressor"
-	p "archiver/params"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -14,6 +11,10 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+
+	"github.com/gh0st17/archiver/arc"
+	"github.com/gh0st17/archiver/compressor"
+	p "github.com/gh0st17/archiver/params"
 )
 
 const (
@@ -32,8 +33,6 @@ var (
 		Cl:        -1,
 	}
 	rootEnts []os.DirEntry
-	stdout   = os.Stdout
-	stderr   = os.Stderr
 	ncpu     = runtime.NumCPU()
 )
 
@@ -53,6 +52,10 @@ func TestZlibAll(t *testing.T) {
 	runTestAll(t, compressor.ZLib)
 }
 
+func TestFlateAll(t *testing.T) {
+	runTestAll(t, compressor.Flate)
+}
+
 func TestNopByEntry(t *testing.T) {
 	runTestByEntry(t, compressor.Nop)
 }
@@ -69,6 +72,10 @@ func TestZlibByEntry(t *testing.T) {
 	runTestByEntry(t, compressor.ZLib)
 }
 
+func TestFlateByEntry(t *testing.T) {
+	runTestByEntry(t, compressor.Flate)
+}
+
 func TestNopByFile(t *testing.T) {
 	runTestByFile(t, compressor.Nop)
 }
@@ -83,6 +90,10 @@ func TestLzwByFile(t *testing.T) {
 
 func TestZlibByFile(t *testing.T) {
 	runTestByFile(t, compressor.ZLib)
+}
+
+func TestFlateByFile(t *testing.T) {
+	runTestByFile(t, compressor.Flate)
 }
 
 func runTestAll(t *testing.T, ct compressor.Type) {
@@ -126,12 +137,9 @@ func baseTesting(t *testing.T, path string) {
 	}
 
 	t.Logf("Testing %s compress '%s'", params.Ct, path)
-	disableStdout()
 	if err = archive.Compress(params.InputPaths); err != nil {
-		enableStdout()
 		t.Fatal(err)
 	}
-	enableStdout()
 
 	paramsCopy := params
 	paramsCopy.InputPaths = nil
@@ -142,12 +150,9 @@ func baseTesting(t *testing.T, path string) {
 	}
 
 	t.Logf("Testing %s decompress '%s'", params.Ct, path)
-	disableStdout()
 	if err = archive.Decompress(); err != nil {
-		enableStdout()
 		t.Fatal(err)
 	}
-	enableStdout()
 }
 
 func runAll(t *testing.T) {
@@ -222,16 +227,6 @@ func init() {
 func clearArcOut() {
 	os.RemoveAll(outPath)
 	os.Remove(archivePath)
-}
-
-func disableStdout() {
-	os.Stdout = nil
-	os.Stderr = nil
-}
-
-func enableStdout() {
-	os.Stdout = stdout
-	os.Stderr = stderr
 }
 
 func fetchRootDir() ([]os.DirEntry, error) {

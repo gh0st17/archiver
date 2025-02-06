@@ -1,8 +1,9 @@
+// Пакет filesystem предоставляет набор функции для работы
+// с файловой системой и ее элементами
 package filesystem
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,35 +17,16 @@ func SplitPath(path string) []string {
 		return []string{path}
 	}
 
-	dir, last := filepath.Split(path)
-	if dir == "" {
-		return []string{last}
-	}
-	return append(SplitPath(filepath.Clean(dir)), last)
-}
+	parts := strings.Split(filepath.ToSlash(path), "/")
 
-// Создает директории на всем пути `path`
-func CreatePath(path string) error {
-	var (
-		splitedPath = SplitPath(path)
-		fullPath    string
-	)
-
-	for _, pathPart := range splitedPath {
-		fullPath = filepath.Join(fullPath, pathPart)
-
-		if DirExists(fullPath) {
-			continue
-		}
-
-		if err := os.Mkdir(fullPath, 0755); err != nil {
-			if !errors.Is(err, os.ErrExist) {
-				return err
-			}
+	var cleanedParts []string
+	for _, part := range parts {
+		if part != "" {
+			cleanedParts = append(cleanedParts, part)
 		}
 	}
 
-	return nil
+	return cleanedParts
 }
 
 // Проверяет существование директории
@@ -58,6 +40,7 @@ func DirExists(dirPath string) bool {
 
 // Номализует путь
 func Clean(path string) string {
+	path = filepath.ToSlash(path)
 	path = strings.TrimPrefix(path, "/")
 	parts := strings.Split(path, "/")
 	stack := []string{}
@@ -87,8 +70,8 @@ func Clean(path string) string {
 func PrintPathsCheck(paths []string) {
 	var prefix = map[string]struct{}{}
 	for _, p := range paths {
-		path := p
-		path = Clean(path)
+		p = filepath.ToSlash(p)
+		path := Clean(p)
 		deleted := strings.TrimSuffix(p, path)
 		if len(deleted) > 0 {
 			if _, exists := prefix[deleted]; !exists {
@@ -103,12 +86,14 @@ func PrintPathsCheck(paths []string) {
 	}
 }
 
-// Оборачивание двоичной записи
+// Обертка для [binary.Write] с порядком следования
+// байт [binary.LittleEndian]
 func BinaryWrite(w io.Writer, data any) error {
 	return binary.Write(w, binary.LittleEndian, data)
 }
 
-// Оборачивание двоичного чтения
+// Обертка для [binary.Read] с порядком следования
+// байт [binary.LittleEndian]
 func BinaryRead(r io.Reader, data any) error {
 	return binary.Read(r, binary.LittleEndian, data)
 }

@@ -1,11 +1,12 @@
 package compress
 
-import "archiver/arc/internal/errors"
+import "github.com/gh0st17/archiver/arc/internal/errors"
 
 // Ошибки при сжатии
 var (
 	ErrNoEntries         = errors.ErrNoEntries
 	ErrWriteFileHeader   = errors.ErrWriteFileHeader
+	ErrWriteSymHeader    = errors.ErrWriteSymHeader
 	ErrCompressFile      = errors.ErrCompressFile
 	ErrReadUncompressed  = errors.ErrReadUncompressed
 	ErrCompress          = errors.ErrCompress

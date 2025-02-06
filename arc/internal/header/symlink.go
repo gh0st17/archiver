@@ -1,12 +1,13 @@
 package header
 
 import (
-	"archiver/filesystem"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 // Описание символической ссылки
@@ -25,7 +26,7 @@ func NewSymItem(symlink, target string) *SymItem {
 func (si SymItem) RestorePath(outDir string) error {
 	outDir = filepath.Join(outDir, si.pathInArc)
 
-	if err := filesystem.CreatePath(filepath.Dir(outDir)); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outDir), 0755); err != nil {
 		return err
 	}
 
@@ -39,12 +40,13 @@ func (si SymItem) RestorePath(outDir string) error {
 
 // Реализация fmt.Stringer
 func (si SymItem) String() string {
-	filename := prefix(si.pathInArc, maxInArcWidth)
-	target := prefix(si.pathOnDisk, maxOnDiskWidth)
+	filename := prefix(si.pathInArc, nameWidth)
+	diff := terminalWidth - len([]rune(filename)) - 4
+	target := prefix(si.pathOnDisk, diff)
 
 	return fmt.Sprintf(
-		"%-*s -> %s", maxInArcWidth,
-		filename, target,
+		"%-s%-*s", filename+" -> ",
+		diff, target,
 	)
 }
 

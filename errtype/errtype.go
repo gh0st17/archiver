@@ -1,3 +1,5 @@
+// Пакет errtype предоставляет логику обработки
+// и порождения ошибок в программе
 package errtype
 
 import (
@@ -55,11 +57,19 @@ func ErrRuntime(err error) error {
 	}
 }
 
+// Возвращает ошибки обработки входных параметром программы
+func ErrArgument(err error) error {
+	return &Error{
+		text: err.Error(),
+		code: 2,
+	}
+}
+
 // Возвращает ошибки при сжатии
 func ErrCompress(err error) error {
 	return &Error{
 		text: err.Error(),
-		code: 2,
+		code: 3,
 	}
 }
 
@@ -67,7 +77,7 @@ func ErrCompress(err error) error {
 func ErrDecompress(err error) error {
 	return &Error{
 		text: err.Error(),
-		code: 3,
+		code: 4,
 	}
 }
 
@@ -75,7 +85,7 @@ func ErrDecompress(err error) error {
 func ErrIntegrity(err error) error {
 	return &Error{
 		text: err.Error(),
-		code: 4,
+		code: 5,
 	}
 }
 

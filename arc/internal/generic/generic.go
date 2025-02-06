@@ -1,30 +1,34 @@
+// Пакет generic предоставляет глобальные переменные,
+// константы и функции для работы с ними
 package generic
 
 import (
-	"archiver/arc/internal/header"
-	c "archiver/compressor"
-	"archiver/errtype"
-	"archiver/filesystem"
 	"bytes"
 	"hash/crc32"
 	"io"
 	"log"
+	"os"
 	"runtime"
-	"sync"
+
+	"github.com/gh0st17/archiver/arc/internal/header"
+	c "github.com/gh0st17/archiver/compressor"
+	"github.com/gh0st17/archiver/errtype"
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 type RestoreParams struct {
 	OutputDir string
+	DictPath  string
 	Integ     bool
 	Ct        c.Type  // Тип компрессора
 	Cl        c.Level // Уровень сжатия
 	// Флаг замены файлов без подтверждения
-	ReplaceAll bool
+	ReplaceAll *bool
 }
 
 // Базовый размер буфера
 // для операции ввода вывода
-const bufferSize int = 1048576 // 1М
+const BufferSize int = 1048576 // 1М
 
 var (
 	// Полином CRC32
@@ -32,36 +36,28 @@ var (
 	// Количество доступных процессоров
 	ncpu = runtime.NumCPU()
 	// Буффер для сжатых данных
-	compressedBuf = make([]*bytes.Buffer, ncpu)
+	compressedBufs = make([]*bytes.Buffer, ncpu)
 	// Буфер для несжатых данных
-	decompressedBuf = make([]*bytes.Buffer, ncpu)
-	compressor      = make([]*c.Writer, ncpu)
-	decompressor    = make([]*c.Reader, ncpu)
-	writeBuf        *bytes.Buffer
-	writeBufSize    int
+	decompressedBufs = make([]*bytes.Buffer, ncpu)
+	compressors      = make([]*c.Writer, ncpu)
+	decompressors    = make([]*c.Reader, ncpu)
+	writeBuf         *bytes.Buffer
+	dict             []byte
 )
 
-func BufferSize() int { return bufferSize }
-
-func CRCTable() *crc32.Table         { return crct }
 func Ncpu() int                      { return ncpu }
-func CompBuffers() []*bytes.Buffer   { return compressedBuf }
-func DecompBuffers() []*bytes.Buffer { return decompressedBuf }
-func Compressors() []*c.Writer       { return compressor }
-func Decompressors() []*c.Reader     { return decompressor }
+func CompBuffers() []*bytes.Buffer   { return compressedBufs }
+func DecompBuffers() []*bytes.Buffer { return decompressedBufs }
+func Compressors() []*c.Writer       { return compressors }
+func Decompressors() []*c.Reader     { return decompressors }
 
 func WriteBuffer() *bytes.Buffer { return writeBuf }
-func WriteBufSize() int          { return writeBufSize }
+func Dict() []byte               { return dict }
 
-func SetWriteBufSize(size int) {
-	writeBufSize = size
-	writeBuf = bytes.NewBuffer(make([]byte, 0, writeBufSize))
-}
+func Checksum(data []byte) uint32 { return crc32.Checksum(data, crct) }
 
-// Сбрасывает буфер данных для записи на диск
-func FlushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
-	defer wg.Done()
-
+// Сбрасывает буфер данных для записи в w
+func FlushWriteBuffer(w io.Writer) {
 	if writeBuf.Len() == 0 {
 		return
 	}
@@ -70,7 +66,7 @@ func FlushWriteBuffer(wg *sync.WaitGroup, w io.Writer) {
 	if err != nil {
 		errtype.ErrorHandler(errtype.Join(ErrFlushWrBuf, err))
 	}
-	log.Println("Буфер записи сброшен на диск:", wrote)
+	log.Println("Буфер записи сброшен в писателя:", wrote)
 }
 
 // Проверяет корректность размера буфера.
@@ -81,10 +77,25 @@ func CheckBufferSize(bufferSize int64) bool {
 
 // Инициализирует компрессоры
 func InitCompressors(rp RestoreParams) (err error) {
+	if err = LoadDict(rp); err != nil {
+		return err
+	}
+
 	for i := 0; i < ncpu; i++ { // Инициализация компрессоров
-		compressor[i], err = c.NewWriter(rp.Ct, compressedBuf[i], rp.Cl)
+		compressors[i], err = c.NewWriterDict(rp.Ct, dict, compressedBufs[i], rp.Cl)
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+// Загружает файл словаря в байтовый срез
+func LoadDict(rp RestoreParams) (err error) {
+	if rp.DictPath != "" {
+		if dict, err = os.ReadFile(rp.DictPath); err != nil {
+			return errtype.Join(ErrReadDict, err)
 		}
 	}
 
@@ -94,18 +105,16 @@ func InitCompressors(rp RestoreParams) (err error) {
 // Сбрасывает декомпрессоры
 func ResetDecomp() {
 	for i := 0; i < ncpu; i++ {
-		decompressor[i] = nil
+		decompressors[i] = nil
 	}
 }
 
 // Прототип функции-обработчика заголовков
-type ProcHeaderHandler = func(header.HeaderType, io.ReadSeekCloser) error
+type ProcHeaderHandler = func(header.HeaderType, io.ReadSeeker) error
 
 // Универсальная функция обработки заголовков из arcFile
-func ProcessHeaders(arcFile io.ReadSeekCloser, arcLenH int64, handler ProcHeaderHandler) error {
+func ProcessHeaders(arcFile io.ReadSeeker, handler ProcHeaderHandler) error {
 	var typ header.HeaderType
-
-	arcFile.Seek(arcLenH, io.SeekStart) // Перемещаемся на начало заголовков
 
 	for {
 		err := filesystem.BinaryRead(arcFile, &typ) // Читаем тип заголовка
@@ -123,7 +132,9 @@ func ProcessHeaders(arcFile io.ReadSeekCloser, arcLenH int64, handler ProcHeader
 
 func init() {
 	for i := 0; i < ncpu; i++ {
-		compressedBuf[i] = bytes.NewBuffer(nil)
-		decompressedBuf[i] = bytes.NewBuffer(nil)
+		compressedBufs[i] = bytes.NewBuffer(nil)
+		decompressedBufs[i] = bytes.NewBuffer(nil)
 	}
+
+	writeBuf = bytes.NewBuffer(nil)
 }

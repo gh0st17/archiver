@@ -1,7 +1,6 @@
 package arc_test
 
 import (
-	"archiver/filesystem"
 	"bytes"
 	"crypto/md5"
 	"errors"
@@ -12,6 +11,8 @@ import (
 	"slices"
 	"sync"
 	"testing"
+
+	"github.com/gh0st17/archiver/filesystem"
 )
 
 func checkMD5(t *testing.T, path string) bool {
