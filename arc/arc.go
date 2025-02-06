@@ -46,7 +46,6 @@ var allowRemove atomic.Bool
 
 // Возвращает новый [Arc] из входных параметров программы
 func NewArc(p params.Params) (arc *Arc, err error) {
-	allowRemove.Store(true)
 	arc = &Arc{
 		path: p.ArcPath,
 	}
@@ -64,9 +63,11 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 	go arc.sigFunc()
 
 	if len(p.InputPaths) > 0 {
+		allowRemove.Store(true)
 		arc.Ct = p.Ct
 		arc.Cl = p.Cl
 	} else {
+		allowRemove.Store(false)
 		arcFile, err := os.Open(arc.path)
 		if err != nil {
 			return nil, errtype.Join(ErrOpenArc, err)

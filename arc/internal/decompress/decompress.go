@@ -135,6 +135,16 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 	)
 
 	outBuf := bufio.NewWriter(outFile)
+
+	flush := func() {
+		wg.Wait()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			generic.FlushWriteBuffer(outBuf)
+		}()
+	}
+
 	for eof != io.EOF {
 		read, eof = loadCompressedBuf(arcFile, &calcCRC, ct, false)
 		if eof != nil && eof != io.EOF {
@@ -147,7 +157,6 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 			}
 
 			wg.Wait()
-
 			for i := 0; i < ncpu && decompressedBufs[i].Len() > 0; i++ {
 				if wrote, err = decompressedBufs[i].WriteTo(writeBuf); err != nil {
 					return errtype.Join(ErrWriteOutBuf, err)
@@ -156,13 +165,7 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 			}
 		}
 
-		if writeBuf.Len() >= generic.BufferSize || eof == io.EOF {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				generic.FlushWriteBuffer(outBuf)
-			}()
-		}
+		flush()
 	}
 	wg.Wait()
 

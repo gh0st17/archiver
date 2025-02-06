@@ -119,9 +119,8 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 			return errtype.Join(ErrReadUncompressed, err)
 		}
 
-		wg.Wait()
-
 		if read == 0 {
+			wg.Wait()
 			flush()
 			break
 		}
@@ -129,6 +128,10 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 		// Сжимаем буферы
 		if err = compressBuffers(); err != nil {
 			return errtype.Join(ErrCompress, err)
+		}
+
+		if read > 0 {
+			wg.Wait()
 		}
 
 		for i := 0; i < ncpu && compressedBufs[i].Len() > 0; i++ {
@@ -146,13 +149,10 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 			}
 			log.Println("В буфер записи записан блок размера:", wrote)
 			compressors[i].Reset(compressedBufs[i])
+		}
 
-			if writeBuf.Len() >= generic.BufferSize {
-				flush()
-				if i+1 != ncpu {
-					wg.Wait()
-				}
-			}
+		if writeBuf.Len() >= generic.BufferSize {
+			flush()
 		}
 	}
 
