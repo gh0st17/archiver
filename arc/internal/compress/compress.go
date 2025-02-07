@@ -94,15 +94,28 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 	defer inFile.Close()
 	inBuf := bufio.NewReader(inFile)
 
-	var (
-		ncpu           = generic.Ncpu()
-		compressedBufs = generic.CompBuffers()
-		compressors    = generic.Compressors()
-		writeBuf       = generic.WriteBuffer()
+	var crc uint32
+	if crc, err = processFile(arcBuf, inBuf); err != nil {
+		return err
+	}
 
-		wrote, read int64
-		crc         uint32
-		wg          = sync.WaitGroup{}
+	if err = writeFileFooter(arcBuf, crc); err != nil {
+		return err
+	}
+	if verbose {
+		fmt.Println(fi.PathInArc())
+	}
+	return nil
+}
+
+// Обрабатывает файл: загружает файл в буферы, сжимает их
+// и записывает в файл архива
+func processFile(arcBuf io.Writer, inBuf io.Reader) (crc uint32, err error) {
+	var (
+		writeBuf = generic.WriteBuffer()
+
+		read int64
+		wg   = sync.WaitGroup{}
 	)
 
 	flush := func() {
@@ -114,9 +127,8 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 	}
 
 	for {
-		// Заполняем буферы несжатыми частями (блоками) файла
 		if read, err = loadUncompressedBuf(inBuf); err != nil {
-			return errtype.Join(ErrReadUncompressed, err)
+			return 0, errtype.Join(ErrReadUncompressed, err)
 		}
 
 		if read == 0 {
@@ -125,30 +137,16 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 			break
 		}
 
-		// Сжимаем буферы
 		if err = compressBuffers(); err != nil {
-			return errtype.Join(ErrCompress, err)
+			return 0, errtype.Join(ErrCompress, err)
 		}
 
 		if read > 0 {
 			wg.Wait()
 		}
 
-		for i := 0; i < ncpu && compressedBufs[i].Len() > 0; i++ {
-			// Пишем длину сжатого блока
-			length := int64(compressedBufs[i].Len())
-			if err = filesystem.BinaryWrite(writeBuf, length); err != nil {
-				return errtype.Join(ErrWriteBufLen, err)
-			}
-
-			crc ^= generic.Checksum(compressedBufs[i].Bytes())
-
-			// Пишем сжатый блок
-			if wrote, err = compressedBufs[i].WriteTo(writeBuf); err != nil {
-				return errtype.Join(ErrWriteCompressBuf, err)
-			}
-			log.Println("В буфер записи записан блок размера:", wrote)
-			compressors[i].Reset(compressedBufs[i])
+		if err = writeBuffers(&crc); err != nil {
+			return 0, err
 		}
 
 		if writeBuf.Len() >= generic.BufferSize {
@@ -157,30 +155,7 @@ func compressFile(fi header.PathProvider, arcBuf io.Writer, verbose bool) error 
 	}
 
 	wg.Wait()
-	if err = writeFileFooter(arcBuf, crc); err != nil {
-		return err
-	}
-	if verbose {
-		fmt.Println(fi.PathInArc())
-	}
-	return nil
-}
-
-// Записывает признак конца файла и его CRC32
-func writeFileFooter(arcBuf io.Writer, crc uint32) (err error) {
-	// Пишем признак конца файла
-	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
-		return errtype.Join(ErrWriteEOF, err)
-	}
-	log.Println("Записан EOF")
-
-	// Пишем контрольную сумму
-	if err = filesystem.BinaryWrite(arcBuf, crc); err != nil {
-		return errtype.Join(ErrWriteCRC, err)
-	}
-	log.Printf("Записан CRC: %X\n", crc)
-
-	return nil
+	return crc, nil
 }
 
 // Загружает данные в буферы несжатых данных
@@ -239,5 +214,48 @@ func compressBuffers() error {
 	for err := range errChan {
 		return err
 	}
+	return nil
+}
+
+// Записывает сжатые буферы в файл архива
+func writeBuffers(crc *uint32) (err error) {
+	var (
+		ncpu           = generic.Ncpu()
+		compressedBufs = generic.CompBuffers()
+		compressors    = generic.Compressors()
+		writeBuf       = generic.WriteBuffer()
+
+		wrote int64
+	)
+
+	for i := 0; i < ncpu && compressedBufs[i].Len() > 0; i++ {
+		length := int64(compressedBufs[i].Len())
+		if err = filesystem.BinaryWrite(writeBuf, length); err != nil {
+			return errtype.Join(ErrWriteBufLen, err)
+		}
+
+		*crc ^= generic.Checksum(compressedBufs[i].Bytes())
+
+		if wrote, err = compressedBufs[i].WriteTo(writeBuf); err != nil {
+			return errtype.Join(ErrWriteCompressBuf, err)
+		}
+		log.Println("В буфер записи записан блок размера:", wrote)
+		compressors[i].Reset(compressedBufs[i])
+	}
+	return nil
+}
+
+// Записывает признак конца файла и его CRC32
+func writeFileFooter(arcBuf io.Writer, crc uint32) (err error) {
+	if err = filesystem.BinaryWrite(arcBuf, int64(-1)); err != nil {
+		return errtype.Join(ErrWriteEOF, err)
+	}
+	log.Println("Записан EOF")
+
+	if err = filesystem.BinaryWrite(arcBuf, crc); err != nil {
+		return errtype.Join(ErrWriteCRC, err)
+	}
+	log.Printf("Записан CRC: %X\n", crc)
+
 	return nil
 }

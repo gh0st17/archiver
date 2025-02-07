@@ -39,6 +39,9 @@ func checkMD5(t *testing.T, path string) bool {
 
 			checkFileMD5(t, files[i])
 		}(i)
+		if t.Failed() {
+			break
+		}
 	}
 
 	wg.Wait()
