@@ -13,9 +13,7 @@ import (
 )
 
 // Читает заголовки из архива, определяет смещение данных
-func ReadHeaders(arcFile io.ReadSeeker, arcLenH int64) ([]header.Header, error) {
-	var headers []header.Header
-
+func ReadHeaders(arcFile io.ReadSeeker, arcLenH int64) (headers []header.Header, err error) {
 	handler := func(typ header.HeaderType, arcFile io.ReadSeeker) (err error) {
 		var h header.Header
 		switch typ {
@@ -37,15 +35,14 @@ func ReadHeaders(arcFile io.ReadSeeker, arcLenH int64) ([]header.Header, error) 
 	}
 
 	// Сохраняем позицию каретки
-	pos, err := arcFile.Seek(0, io.SeekCurrent)
+	pos, _ := arcFile.Seek(0, io.SeekCurrent)
 	if err = generic.ProcessHeaders(arcFile, handler); err != nil {
 		return nil, errtype.Join(ErrReadHeaderType, err)
 	}
 	// Восстанавливаем позицию каретки
 	arcFile.Seek(pos, io.SeekStart)
 
-	dirs := insertDirs(headers)
-	headers = append(headers, dirs...)
+	headers = append(headers, insertDirs(headers)...)
 	sort.Sort(header.ByPathInArc(headers))
 
 	return headers, nil
