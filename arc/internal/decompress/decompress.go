@@ -112,54 +112,78 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 	}
 	defer outFile.Close()
 
-	// Если размер файла равен 0, то пропускаем запись
-	if fi.UcSize() == 0 {
-		if pos, err := arcFile.Seek(12, io.SeekCurrent); err != nil {
-			return errtype.Join(ErrSeek, err)
-		} else {
-			log.Println("Нулевой размер, перемещаю на позицию:", pos)
-			return nil
-		}
+	if isZero, err := isZeroSize(fi, arcFile); err != nil {
+		return err
+	} else if isZero {
+		return nil // Если размер файла равен 0, то пропускаем запись
 	}
 
+	var calcCRC, fileCRC uint32
+	if calcCRC, err = processFile(outFile, arcFile, ct); err != nil {
+		return err
+	}
+
+	if err = filesystem.BinaryRead(arcFile, &fileCRC); err != nil {
+		return errtype.Join(ErrReadCRC, err)
+	}
+	fi.SetDamaged(calcCRC != fileCRC)
+
+	return nil
+}
+
+// Проверяет размер файла до упаковки, если он равен нулю,
+// то возвращает true, иначе false
+func isZeroSize(fi *header.FileItem, arcFile io.ReadSeeker) (bool, error) {
+	if fi.UcSize() == 0 {
+		if pos, err := arcFile.Seek(12, io.SeekCurrent); err != nil {
+			return false, errtype.Join(ErrSeek, err)
+		} else {
+			log.Println("Нулевой размер, перемещаю на позицию:", pos)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Обрабатывает файл: загружает сжатый файл в буферы,
+// распаковывает их и записывает в файл архива
+func processFile(outFile io.Writer, arcFile io.ReadSeeker, ct c.Type) (calcCRC uint32, err error) {
 	var (
 		ncpu             = generic.Ncpu()
 		decompressedBufs = generic.DecompBuffers()
 		writeBuf         = generic.WriteBuffer()
 
 		wrote, read int64
-		calcCRC     uint32
-		fileCRC     uint32
 		eof         error
 		wg          = sync.WaitGroup{}
+		outBuf      = bufio.NewWriter(outFile)
 	)
-
-	outBuf := bufio.NewWriter(outFile)
+	defer outBuf.Flush()
 
 	flush := func() {
 		wg.Wait()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			generic.FlushWriteBuffer(outBuf)
+			generic.FlushWriteBuffer(outFile)
 		}()
 	}
 
 	for eof != io.EOF {
 		read, eof = loadCompressedBuf(arcFile, &calcCRC, ct, false)
 		if eof != nil && eof != io.EOF {
-			return errtype.Join(ErrReadCompressed, eof)
+			return 0, errtype.Join(ErrReadCompressed, eof)
 		}
 
 		if read > 0 {
 			if err = decompressBuffers(); err != nil {
-				return errtype.Join(ErrDecompress, err)
+				return 0, errtype.Join(ErrDecompress, err)
 			}
 
 			wg.Wait()
 			for i := 0; i < ncpu && decompressedBufs[i].Len() > 0; i++ {
 				if wrote, err = decompressedBufs[i].WriteTo(writeBuf); err != nil {
-					return errtype.Join(ErrWriteOutBuf, err)
+					return 0, errtype.Join(ErrWriteOutBuf, err)
 				}
 				log.Println("В буфер записи записан блок размера:", wrote)
 			}
@@ -169,13 +193,7 @@ func decompressFile(fi *header.FileItem, arcFile io.ReadSeeker, outPath string, 
 	}
 	wg.Wait()
 
-	if err = filesystem.BinaryRead(arcFile, &fileCRC); err != nil {
-		return errtype.Join(ErrReadCRC, err)
-	}
-	fi.SetDamaged(calcCRC != fileCRC)
-	outBuf.Flush()
-
-	return nil
+	return calcCRC, nil
 }
 
 // Загружает данные в буферы сжатых данных
