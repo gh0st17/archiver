@@ -44,6 +44,8 @@ const (
 	NoCompression      Level = flate.NoCompression
 	BestSpeed          Level = flate.BestSpeed
 	BestCompression    Level = flate.BestCompression
+
+	bufferSize = 64 * 1024
 )
 
 // Дополнение интерфейса [io.ReadCloser] методом сброса
@@ -99,7 +101,8 @@ func (fr *flateReader) Reset(r io.Reader) error {
 }
 
 type Reader struct {
-	reader ReadCloseResetter
+	copyBuffer []byte
+	reader     ReadCloseResetter
 }
 
 // Возвращает нового читателя типа typ
@@ -118,7 +121,7 @@ func NewReaderDict(typ Type, dict []byte, r io.Reader) (*Reader, error) {
 		return nil, errtype.Join(ErrNewReader, err)
 	}
 
-	return &Reader{reader: reader}, nil
+	return &Reader{copyBuffer: make([]byte, bufferSize), reader: reader}, nil
 }
 
 // Выбирает читателя согласно typ со словарем dict
@@ -152,13 +155,12 @@ func newReaderDict(typ Type, dict []byte, r io.Reader) (ReadCloseResetter, error
 
 // Читает из внутреннего [Reader.reader] в p
 func (rd *Reader) Read(p []byte) (int, error) {
-	n, err := io.ReadFull(rd.reader, p)
-	return int(n), err
+	return io.ReadFull(rd.reader, p)
 }
 
 // Копирует буфер [Reader.reader] в w
 func (rd *Reader) WriteTo(w io.Writer) (int64, error) {
-	return io.Copy(w, rd.reader)
+	return io.CopyBuffer(w, rd.reader, rd.copyBuffer)
 }
 
 func (rd *Reader) Close() error { return rd.reader.Close() }
@@ -181,7 +183,8 @@ func (lw *lzwWriter) Reset(w io.Writer) {
 }
 
 type Writer struct {
-	writer WriteCloseResetter
+	copyBuffer []byte
+	writer     WriteCloseResetter
 }
 
 // Возвращает нового писателя типа typ
@@ -199,7 +202,7 @@ func NewWriterDict(typ Type, dict []byte, w io.Writer, l Level) (*Writer, error)
 		return nil, errtype.Join(ErrNewWriter, err)
 	}
 
-	return &Writer{writer: writer}, nil
+	return &Writer{copyBuffer: make([]byte, bufferSize), writer: writer}, nil
 }
 
 // Выбирает писателя согласно typ со словарем dict
@@ -230,6 +233,11 @@ func newWriterDict(typ Type, dict []byte, w io.Writer, l Level) (WriteCloseReset
 // Сжимает len(p) байт из p во внутренний writer
 func (wr *Writer) Write(p []byte) (n int, err error) {
 	return wr.writer.Write(p)
+}
+
+// Копирует буфер r в [Writer.writer]
+func (wr *Writer) ReadFrom(r io.Reader) (n int64, err error) {
+	return io.CopyBuffer(wr.writer, r, wr.copyBuffer)
 }
 
 func (wr *Writer) Close() error { return wr.writer.Close() }

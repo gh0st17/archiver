@@ -195,7 +195,7 @@ func compressBuffers() error {
 		go func(i int) {
 			defer wg.Done()
 
-			_, err := decompressedBufs[i].WriteTo(compressors[i])
+			_, err := compressors[i].ReadFrom(decompressedBufs[i])
 			if err != nil {
 				errChan <- errtype.Join(ErrWriteCompressor, err)
 				return

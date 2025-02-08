@@ -73,7 +73,7 @@ func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
 		t.Fatal(err)
 	}
 
-	if _, err = decompBuf.WriteTo(c); err != nil {
+	if _, err = c.ReadFrom(decompBuf); err != nil {
 		t.Fatal(err)
 	}
 	if err = c.Close(); err != nil {
@@ -104,7 +104,7 @@ func runTest(t *testing.T, ct compressor.Type, cl compressor.Level) {
 	inMD5 = hashBytes(decompBuf.Bytes())
 
 	c.Reset(compBuf)
-	if _, err = decompBuf.WriteTo(c); err != nil {
+	if _, err = c.ReadFrom(decompBuf); err != nil {
 		t.Fatal(err)
 	}
 	if err = c.Close(); err != nil {
