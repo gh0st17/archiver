@@ -1,4 +1,4 @@
-# archiver-go
+# archiver
 
 <p align="center">
   Архиватор на базе встроенной библиотеки Golang
