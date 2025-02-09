@@ -19,7 +19,7 @@ import (
 type RestoreParams struct {
 	OutputDir string
 	DictPath  string
-	Pattern   string
+	Patterns  []string
 	Integ     bool
 	Ct        c.Type  // Тип компрессора
 	Cl        c.Level // Уровень сжатия

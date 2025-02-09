@@ -20,17 +20,17 @@ import (
 )
 
 type Params struct {
-	InputPaths []string // Пути для архивирования
-	OutputDir  string   // Путь к директории для распаковки
-	ArcPath    string   // Путь к файлу архива
-	DictPath   string   // Путь к словарю
-	Pattern    string   // Паттерн для извлечения элементов
-	Ct         c.Type   // Тип компрессора
-	Cl         c.Level  // Уровень сжатия
-	PrintStat  bool     // Флаг вывода информации об архиве
-	PrintList  bool     // Флаг вывода списка содержимого
-	IntegTest  bool     // Флаг проверки целостности
-	XIntegTest bool     // Флаг распаковки с учетом целостности
+	InputPaths  []string // Пути для архивирования
+	OutputDir   string   // Путь к директории для распаковки
+	ArcPath     string   // Путь к файлу архива
+	DictPath    string   // Путь к словарю
+	PatternsStr string   // Паттерны для извлечения элементов
+	Ct          c.Type   // Тип компрессора
+	Cl          c.Level  // Уровень сжатия
+	PrintStat   bool     // Флаг вывода информации об архиве
+	PrintList   bool     // Флаг вывода списка содержимого
+	IntegTest   bool     // Флаг проверки целостности
+	XIntegTest  bool     // Флаг распаковки с учетом целостности
 	// Флаг вывода статистики использования ОЗУ после выполнения
 	MemStat bool
 	// Флаг замены всех файлов при распаковке без подтверждения
@@ -57,7 +57,7 @@ func ParseParams() (p *Params, err error) {
 	flag.Usage = printHelp
 	flag.StringVar(&p.OutputDir, "o", "", outputDirDesc)
 	flag.StringVar(&p.DictPath, "dict", "", dictPathDesc)
-	flag.StringVar(&p.Pattern, "p", "", patternPathDesc)
+	flag.StringVar(&p.PatternsStr, "p", "", patternsDesc)
 
 	var level int
 	flag.IntVar(&level, "L", -1, levelDesc)

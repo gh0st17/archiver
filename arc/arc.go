@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"syscall"
 
@@ -56,7 +57,9 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 	arc.ReplaceAll = &p.ReplaceAll
 	arc.DictPath = p.DictPath
-	arc.Pattern = p.Pattern
+	if p.PatternsStr != "" {
+		arc.Patterns = strings.Split(p.PatternsStr, ":")
+	}
 	arc.verbose = p.Verbose
 
 	arc.sigChan = make(chan os.Signal, 1)

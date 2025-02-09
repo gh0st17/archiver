@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	fp "path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -37,10 +38,10 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 		return errtype.Join(ErrReadFileHeader, err)
 	}
 
-	if rp.Pattern != "" && !strings.Contains(fi.PathInArc(), rp.Pattern) {
-		log.Printf(
-			"Несоотвествие паттерну '%s', пропускаю файл '%s'",
-			rp.Pattern, fi.PathInArc(),
+	if rp.Patterns != nil && !isPatternMatched(fi.PathInArc(), rp.Patterns) {
+		log.Printf("Несоотвествие паттерну %v, пропускаю файл '%s'",
+			rp.Patterns,
+			fi.PathInArc(),
 		)
 		if _, err = skipFileData(arcFile, true); err != nil {
 			return err
@@ -78,6 +79,12 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 	}
 
 	return nil
+}
+
+func isPatternMatched(path string, patterns []string) bool {
+	return slices.IndexFunc(patterns, func(pattern string) bool {
+		return strings.Contains(path, pattern)
+	}) != -1
 }
 
 // Обрабатывает флаг и диалог замены файлов
@@ -119,7 +126,11 @@ func RestoreSym(arcFile io.Reader, rp generic.RestoreParams, verbose bool) error
 		return errtype.Join(ErrReadSymHeader, err)
 	}
 
-	if rp.Pattern != "" && !strings.Contains(sym.PathInArc(), rp.Pattern) {
+	if rp.Patterns != nil && !isPatternMatched(sym.PathInArc(), rp.Patterns) {
+		log.Printf("Несоотвествие паттерну %v, пропускаю ссылку '%s'",
+			rp.Patterns,
+			sym.PathInArc(),
+		)
 		return nil
 	}
 
