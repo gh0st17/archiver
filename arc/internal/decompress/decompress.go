@@ -41,28 +41,14 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 	}
 
 	outPath := fp.Join(rp.OutputDir, fi.PathOnDisk())
-	if _, err = os.Stat(outPath); err == nil && !*rp.ReplaceAll {
-		allFunc := func() {
-			*rp.ReplaceAll = true
-		}
-		negFunc := func() {
-			skipFileData(arcFile, true)
-		}
-
-		if userinput.ReplacePrompt(outPath, allFunc, negFunc) {
-			return nil
-		}
+	if err = processReplacePrompt(arcFile, outPath, rp.ReplaceAll); err != nil {
+		return err
 	}
 
 	if rp.Integ { // --xinteg
-		pos, _ := arcFile.Seek(0, io.SeekCurrent)
-		if _, err = CheckCRC(arcFile, rp.Ct); err == ErrWrongCRC {
-			fmt.Printf("Пропускаю поврежденный '%s'\n", fi.PathOnDisk())
-			return nil
-		} else if err != nil {
-			return errtype.Join(ErrCheckCRC, err)
+		if err = processInteg(arcFile, rp.Ct, fi.PathOnDisk()); err != nil {
+			return err
 		}
-		arcFile.Seek(pos, io.SeekStart)
 	}
 
 	if err = decompressFile(fi, arcFile, outPath, rp.Ct); err != nil {
@@ -79,6 +65,36 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 		return errtype.Join(ErrRestoreTime, err)
 	}
 
+	return nil
+}
+
+// Обрабатывает флаг и диалог замены файлов
+func processReplacePrompt(arcFile io.ReadSeeker, outPath string, replaceAll *bool) error {
+	if _, err := os.Stat(outPath); err == nil && !*replaceAll {
+		allFunc := func() {
+			*replaceAll = true
+		}
+		negFunc := func() {
+			skipFileData(arcFile, true)
+		}
+
+		if userinput.ReplacePrompt(outPath, allFunc, negFunc) {
+			return nil
+		}
+	}
+	return nil
+}
+
+// Обрабатывает флаг распаковки с учетом проверки содержимого
+func processInteg(arcFile io.ReadSeeker, ct c.Type, pathOnDisk string) error {
+	pos, _ := arcFile.Seek(0, io.SeekCurrent)
+	if _, err := CheckCRC(arcFile, ct); err == ErrWrongCRC {
+		fmt.Printf("Пропускаю поврежденный '%s'\n", pathOnDisk)
+		return nil
+	} else if err != nil {
+		return errtype.Join(ErrCheckCRC, err)
+	}
+	arcFile.Seek(pos, io.SeekStart)
 	return nil
 }
 
