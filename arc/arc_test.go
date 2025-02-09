@@ -162,6 +162,7 @@ func runAll(t *testing.T) {
 	}
 
 	baseTesting(t, "All Files")
+	params.InputPaths = nil
 
 	t.Log("Comparing MD-5 hashsum in/out files")
 	for _, rootEnt := range rootEnts {

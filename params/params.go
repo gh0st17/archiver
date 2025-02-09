@@ -215,7 +215,13 @@ func (p *Params) checkPaths() error {
 	argsLen := len(flag.Args())
 
 	if pathsLen > 0 {
-		p.InputPaths = append(p.InputPaths, flag.Args()[1:]...)
+		for _, path := range flag.Args()[1:] {
+			// Проверяем наличие дубликатов путей
+			if !slices.Contains(p.InputPaths, path) {
+				p.InputPaths = append(p.InputPaths, path)
+			}
+		}
+
 		p.ArcPath = flag.Arg(0)
 	} else if argsLen == 1 {
 		p.ArcPath = flag.Arg(0)

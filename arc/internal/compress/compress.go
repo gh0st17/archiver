@@ -28,7 +28,6 @@ func PrepareHeaders(paths []string) (headers []header.Header, err error) {
 	if headers, err = fetchHeaders(paths); err != nil {
 		return nil, err
 	}
-	headers = header.DropDups(headers) // Удаляем дубликаты
 
 	if len(headers) == 0 { // Если true, то сжимать нечего
 		return nil, ErrNoEntries

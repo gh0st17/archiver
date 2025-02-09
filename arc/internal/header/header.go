@@ -68,26 +68,6 @@ func (bytes Size) String() string {
 		float64(bytes)/float64(div), []rune("КМГТПЭ")[exp])
 }
 
-// Проверяет пути к элементам и оставляет только
-// уникальные заголовки по этому критерию
-func DropDups(headers []Header) []Header {
-	var (
-		seen = map[string]struct{}{}
-		uniq []Header
-		path string
-	)
-
-	for _, h := range headers {
-		path = h.PathInArc()
-		if _, exists := seen[path]; !exists {
-			seen[path] = struct{}{}
-			uniq = append(uniq, h)
-		}
-	}
-
-	return uniq
-}
-
 // Печатает заголовок статистики
 func PrintStatHeader() {
 	fmt.Printf(
