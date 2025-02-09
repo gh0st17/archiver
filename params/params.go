@@ -24,6 +24,7 @@ type Params struct {
 	OutputDir  string   // Путь к директории для распаковки
 	ArcPath    string   // Путь к файлу архива
 	DictPath   string   // Путь к словарю
+	Pattern    string   // Паттерн для извлечения элементов
 	Ct         c.Type   // Тип компрессора
 	Cl         c.Level  // Уровень сжатия
 	PrintStat  bool     // Флаг вывода информации об архиве
@@ -34,7 +35,7 @@ type Params struct {
 	MemStat bool
 	// Флаг замены всех файлов при распаковке без подтверждения
 	ReplaceAll bool
-	Verbose    bool
+	Verbose    bool // Флаг печати обработанных файлов
 }
 
 // Печатает справку
@@ -56,6 +57,7 @@ func ParseParams() (p *Params, err error) {
 	flag.Usage = printHelp
 	flag.StringVar(&p.OutputDir, "o", "", outputDirDesc)
 	flag.StringVar(&p.DictPath, "dict", "", dictPathDesc)
+	flag.StringVar(&p.Pattern, "p", "", patternPathDesc)
 
 	var level int
 	flag.IntVar(&level, "L", -1, levelDesc)

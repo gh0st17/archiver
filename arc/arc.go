@@ -56,6 +56,7 @@ func NewArc(p params.Params) (arc *Arc, err error) {
 
 	arc.ReplaceAll = &p.ReplaceAll
 	arc.DictPath = p.DictPath
+	arc.Pattern = p.Pattern
 	arc.verbose = p.Verbose
 
 	arc.sigChan = make(chan os.Signal, 1)

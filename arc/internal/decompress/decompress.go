@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	fp "path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/gh0st17/archiver/arc/internal/generic"
@@ -34,6 +35,17 @@ func RestoreFile(arcFile io.ReadSeeker, rp generic.RestoreParams, verbose bool) 
 	err := fi.Read(arcFile)
 	if err != nil && err != io.EOF {
 		return errtype.Join(ErrReadFileHeader, err)
+	}
+
+	if rp.Pattern != "" && !strings.Contains(fi.PathInArc(), rp.Pattern) {
+		log.Printf(
+			"Несоотвествие паттерну '%s', пропускаю файл '%s'",
+			rp.Pattern, fi.PathInArc(),
+		)
+		if _, err = skipFileData(arcFile, true); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if err = fi.RestorePath(rp.OutputDir); err != nil {
@@ -107,6 +119,10 @@ func RestoreSym(arcFile io.Reader, rp generic.RestoreParams, verbose bool) error
 		return errtype.Join(ErrReadSymHeader, err)
 	}
 
+	if rp.Pattern != "" && !strings.Contains(sym.PathInArc(), rp.Pattern) {
+		return nil
+	}
+
 	if err = sym.RestorePath(rp.OutputDir); err != nil {
 		return errtype.Join(
 			ErrRestorePath(fp.Join(rp.OutputDir, sym.PathOnDisk())),
@@ -114,7 +130,7 @@ func RestoreSym(arcFile io.Reader, rp generic.RestoreParams, verbose bool) error
 	}
 
 	if verbose {
-		fmt.Println(sym.PathInArc(), "->", sym.PathOnDisk())
+		fmt.Println(fp.Join(rp.OutputDir, sym.PathInArc()), "->", sym.PathOnDisk())
 	}
 
 	return nil

@@ -61,7 +61,7 @@ func (arc Arc) checkFile(arcFile io.Reader) (err error) {
 		fmt.Println(fi.PathOnDisk() + ": Файл поврежден")
 	} else if err != nil {
 		return errtype.Join(ErrCheckCRC, err)
-	} else {
+	} else if arc.verbose {
 		fmt.Println(fi.PathOnDisk() + ": OK")
 	}
 

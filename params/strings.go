@@ -4,7 +4,7 @@ package params
 
 const (
 	versionDesc = "Печать номера версии и выход"
-	versionText = "github.com/gh0st17/archiver 1.0.4\n" +
+	versionText = "github.com/gh0st17/archiver 1.0.5b1\n" +
 		"Copyright (C) 2025\n" +
 		"Лицензия MIT: THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY\n" +
 		"OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO\n" +
@@ -29,6 +29,8 @@ const (
 		"сжатия. При декомпрессии необходимо использовать тот же\n" +
 		"словарь для восстановления данных.\n" +
 		"Поддерживаетя только компрессорами Zlib и Flate."
+	patternPathDesc = "Паттерн для извлечения файлов и символических ссылок\n" +
+		"Предстваляет собой подстроку для поиска в строке пути к элементу."
 	levelDesc = "Уровень сжатия от -2 до 9 (Не применяется для LZW)\n" +
 		" -2 -- Использовать только сжатие по Хаффману\n" +
 		" -1 -- Уровень сжатия по умолчанию (6)\n" +
