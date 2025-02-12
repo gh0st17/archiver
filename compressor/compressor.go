@@ -45,7 +45,7 @@ const (
 	BestSpeed          Level = flate.BestSpeed
 	BestCompression    Level = flate.BestCompression
 
-	bufferSize = 64 * 1024
+	bufferSize = 262144 // 256K
 )
 
 // Дополнение интерфейса [io.ReadCloser] методом сброса

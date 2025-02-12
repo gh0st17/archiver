@@ -29,7 +29,7 @@ type RestoreParams struct {
 
 // Базовый размер буфера
 // для операции ввода вывода
-const BufferSize int = 1048576 // 1М
+const BufferSize int = 262144 // 256K
 
 var (
 	// Полином CRC32
